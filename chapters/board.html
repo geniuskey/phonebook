@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>메인보드와 메모리 · PhoneBook</title>
+<meta name="description" content="스마트폰 로직보드의 블록 구조, HDI·애니레이어 PCB 적층, 샌드위치 보드와 인터포저, 초소형 수동소자, PoP 메모리, UFS 저장장치, 신호·전원 무결성, 차폐와 신뢰성을 3D와 시뮬레이터로 배운다.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  .fig-lg svg .t, .fig-lg svg .t-acc { font-size: 16px; }
+  .fig-lg svg .t-dim { font-size: 14px; }
+  .fig-lg svg .t-mono { font-size: 13px; }
+  .blk-svg .nd { cursor: pointer; }
+  .blk-svg .nd rect { fill: var(--bg-elev); stroke: var(--border); stroke-width: 1.5; transition: fill .15s, stroke .15s; }
+  .blk-svg .nd:hover rect { stroke: var(--accent); }
+  .blk-svg .nd.on rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2.5; }
+  .blk-svg .nd text { pointer-events: none; font-family: var(--font); font-size: 15px; font-weight: 700; fill: var(--text); }
+  .blk-svg .nd text.sub { font-size: 12px; font-weight: 400; fill: var(--text-dim); font-family: var(--mono); }
+  .blk-svg .ln { fill: none; stroke-width: 2.4; transition: opacity .15s; }
+  .blk-svg .ln.pwr { stroke: var(--warn); }
+  .blk-svg .ln.hs { stroke: var(--accent); }
+  .blk-svg .ln.rf { stroke: var(--accent-2); stroke-dasharray: 6 4; }
+  .blk-svg .ln.ctl { stroke: var(--text-faint); stroke-dasharray: 2 4; }
+  .blk-svg .ln.dim, .blk-svg .nd.dim { opacity: .15; }
+  .blk-svg .ln.hot { stroke-width: 4; }
+  .blk-info { padding: 14px 18px; border-top: 1px solid var(--border); min-height: 7em; font-size: 14.5px; line-height: 1.6; }
+  .blk-info h4 { margin: 0 0 4px; font-size: 16px; }
+  .blk-info p { margin: 0 0 6px; color: var(--text-dim); }
+  .blk-info .kv { display: flex; flex-wrap: wrap; gap: 4px 18px; font-family: var(--mono); font-size: 12.5px; }
+  .blk-info .kv b { color: var(--text-faint); font-weight: 400; margin-right: 4px; }
+  .lg-row { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--text-dim); padding: 4px 18px 10px; }
+  .lg-row i { display: inline-block; width: 18px; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 6px; }
+</style>
+</head>
+<body data-chapter="board">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 04</div>
+    <h1>메인보드와 메모리</h1>
+    <p class="lead">폰을 열면 배터리 옆에 손바닥의 3분의 1도 안 되는 초록색 기판이 있다. 이 <b>로직보드</b><span class="en">(Logic Board, Main Board)</span>에 AP, 메모리, 저장장치, 전원 IC, 모뎀과 RF 칩, 그리고 1,000개가 넘는 모래알만 한 수동소자가 빽빽이 올라간다. 이 장에서는 기판 자체의 구조(HDI·애니레이어 적층), 면적을 줄이는 기술(샌드위치 보드, PoP), 그리고 이 작은 판 위에서 수십 Gbps 신호와 수 A 전류를 깨끗하게 다루는 법(신호·전원 무결성)을 살펴본다.</p>
+    <ul class="objectives">
+      <li>로직보드의 블록 구조(AP–PMIC–메모리–RF–커넥터)와 신호 종류별 경로를 설명한다.</li>
+      <li>PCB 적층(코어·프리프레그·빌드업)과 마이크로비아·스택 비아·애니레이어의 차이를 단면으로 이해한다.</li>
+      <li>샌드위치 보드가 보드 면적을 줄여 배터리 용량을 얼마나 늘리는지 계산한다.</li>
+      <li>PoP 메모리와 UFS 저장장치의 구조와 속도를 비교한다.</li>
+      <li>고속 신호의 손실·임피던스, PDN 임피던스와 디커플링 커패시터를 정량적으로 다룬다.</li>
+      <li>커넥터·FPC·언더필·솔더 조인트 신뢰성과 보드 설계의 트레이드오프(면적·층수·원가·열·RF 격리·수리성)를 판단한다.</li>
+    </ul>
+  </header>
+
+  <!-- =============================================================== 1 -->
+  <section id="role">
+    <h2>로직보드: 폰의 신경계</h2>
+    <p>로직보드의 일은 두 가지다. 하나는 <b>부품을 기계적으로 붙잡는 것</b>, 다른 하나는 그 부품들을 <b>전기적으로 잇는 것</b>이다. 잇는 대상은 크게 네 종류다. 배터리에서 각 칩으로 가는 <span class="term">전원</span>(수 mA~수 A, 레일 수십 개), AP와 메모리·저장장치·카메라·디스플레이 사이의 <span class="term">고속 디지털 신호</span>(수 Gbps~수십 Gbps), 모뎀에서 안테나로 가는 <span class="term">RF 신호</span>(0.6~6 GHz, mmWave는 수십 GHz), 그리고 센서·전원 IC를 설정하는 <span class="term">저속 제어 신호</span>(I²C, SPI, GPIO)다. 각각 요구하는 배선 방식이 다르다.</p>
+    <div class="sim" id="sim-blk">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>로직보드 블록 다이어그램 (클릭)</h3></div>
+      <div style="padding:12px 12px 0"><svg class="blk-svg" id="blk-svg" viewBox="0 0 800 470" role="img" aria-label="로직보드 블록 다이어그램"></svg></div>
+      <div class="lg-row"><span><i style="border-color:var(--warn)"></i>전원</span><span><i style="border-color:var(--accent)"></i>고속 데이터</span><span><i style="border-color:var(--accent-2);border-top-style:dashed"></i>RF</span><span><i style="border-color:var(--text-faint);border-top-style:dotted"></i>제어</span></div>
+      <div class="sim-controls">
+        <div class="ctrl"><span>표시할 연결</span><div class="seg" id="blk-f"><button data-value="all" class="on">전체</button><button data-value="pwr">전원</button><button data-value="hs">고속</button><button data-value="rf">RF</button></div></div>
+      </div>
+      <div class="blk-info" id="blk-info"></div>
+      <div class="sim-note">해볼 것: PMIC를 눌러 보면 거의 모든 블록에 전원선이 간다. 고속만 표시하면 AP를 중심으로 한 별 모양이 보인다. 이 별의 팔 길이를 짧게 만드는 것이 보드 배치(플로어플랜)의 첫 번째 목표다.</div>
+    </div>
+    <p>블록 사이를 잇는 선이 모두 같은 구리 배선처럼 보여도 대접은 전혀 다르다. 전원선은 굵고 짧아야 하고(전압 강하), 고속 신호는 임피던스가 정해진 차동 쌍으로 길이를 맞춰 깔아야 하며, RF 선은 위아래를 접지로 감싼 전송선로나 동축 케이블로 따로 빼낸다. 한 장의 보드 안에서 이 세 세계가 서로 간섭하지 않게 층과 영역을 나누는 것이 보드 설계자의 일이다.</p>
+  </section>
+
+  <!-- =============================================================== 2 -->
+  <section id="where">
+    <h2>폰 안의 위치</h2>
+    <p>최신 플래그십의 로직보드는 한 장이 아니라 <b>두 장이 겹친 샌드위치</b>인 경우가 많다. 아래 판(하판)에는 AP와 메모리, 전원 IC가, 위 판(상판)에는 모뎀·RF와 각종 커넥터가 있고, 두 판 사이를 액자 모양의 <b>인터포저</b>가 수직으로 잇는다. 하단의 USB-C 서브보드와는 배터리 옆을 지나는 <b>메인 플렉스</b>(FPC)로 연결된다. 아래 모델에서 칩을 눌러 각 부품을 강조해 보자.</p>
+    <div class="sim" id="sim-loc">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>샌드위치 로직보드와 플렉스</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-loc" style="position:relative"><div class="part-card" id="loc-card" hidden></div><span class="hint">드래그로 회전 · 부품 클릭</span></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>분해 정도 <output id="loc-ex-out"></output></span><input type="range" id="loc-ex" min="0" max="1" step="0.01" value="0.7"></label>
+          <label class="ctrl"><span>샌드위치 벌리기 <output id="loc-sw-out"></output></span><input type="range" id="loc-sw" min="0" max="20" step="0.5" value="6"></label>
+          <div class="ctrl"><span>강조할 부품</span><div class="chips" id="loc-chips">
+            <button data-id="boardBottom" class="on"><i style="background:#23704a"></i>하판 (AP)</button>
+            <button data-id="interposer"><i style="background:#c7a35a"></i>인터포저</button>
+            <button data-id="boardTop"><i style="background:#2f8f5b"></i>상판 (RF)</button>
+            <button data-id="flex"><i style="background:#e0a030"></i>메인 플렉스</button>
+          </div></div>
+          <label class="check"><input type="checkbox" id="loc-xray" checked> 나머지 부품 투명하게</label>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: '샌드위치 벌리기'로 상판과 하판 사이를 열면 인터포저의 위아래 패드 줄(금색 점)이 보인다. 이 수백 개의 패드가 두 판 사이의 신호와 전원을 모두 나른다.</div>
+    </div>
+    <p>보드가 폰 위쪽에 몰려 있는 이유는 단순하다. 폰에서 가장 큰 부품인 배터리가 아래쪽 대부분을 차지해야 하고, 카메라·전면 센서·수화부가 위쪽에 있어 이들과 짧게 이어야 하기 때문이다. 보드가 차지하는 면적 1 mm²는 곧 배터리에서 빼앗은 면적이다(<a href="#sandwich">4절</a>).</p>
+  </section>
+
+  <!-- =============================================================== 3 -->
+  <section id="stackup">
+    <h2>PCB 적층: 코어, 프리프레그, 빌드업</h2>
+    <p>PCB는 구리 배선층과 절연층을 번갈아 쌓아 압착한 판이다. 가운데에는 유리섬유에 수지를 함침해 굳힌 단단한 <span class="term">코어</span><span class="en">(core)</span>가 있고, 그 위아래에 반경화 상태의 <span class="term">프리프레그</span><span class="en">(prepreg)</span>와 구리박을 붙여 열과 압력으로 굳힌다. 층과 층은 <span class="term">비아</span><span class="en">(via)</span>, 즉 구리로 도금된 구멍으로 연결된다.</p>
+    <p>PC 메인보드처럼 판 전체를 드릴로 관통하는 구멍(PTH)만 쓰면 비아 하나가 모든 층의 그 자리를 차지해 버린다. 폰 보드는 이를 피하려고 <span class="term">HDI</span><span class="en">(High Density Interconnect)</span>를 쓴다. 바깥 층을 한 겹씩 쌓아 올리면서(빌드업) 레이저로 지름 75~100 µm의 작은 구멍, <span class="term">마이크로비아</span>를 뚫어 인접 층만 잇는다. 마이크로비아를 구리로 꽉 채우면 그 위에 또 마이크로비아를 쌓을 수 있다(<span class="term">스택 비아</span>). 모든 층을 이렇게 만들면 어느 층에서 어느 층으로든 자유롭게 건너갈 수 있는 <span class="term">애니레이어</span><span class="en">(any-layer, every-layer interconnect)</span> 기판이 된다.</p>
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 760 290" role="img" aria-label="비아 종류 단면">
+        <g>
+          <rect x="30" y="40" width="700" height="200" class="f-surface"/>
+          <g fill="var(--warn)" opacity=".85">
+            <rect x="30" y="40" width="700" height="6"/><rect x="30" y="80" width="700" height="6"/><rect x="30" y="120" width="700" height="6"/>
+            <rect x="30" y="154" width="700" height="6"/><rect x="30" y="194" width="700" height="6"/><rect x="30" y="234" width="700" height="6"/>
+          </g>
+          <rect x="30" y="126" width="700" height="28" fill="var(--ok)" opacity=".18"/>
+          <text x="740" y="144" class="t-mono">코어</text>
+          <!-- PTH -->
+          <rect x="80" y="40" width="22" height="200" fill="var(--warn)" opacity=".9"/><rect x="86" y="40" width="10" height="200" class="f-elev"/>
+          <text x="91" y="30" class="t-dim" text-anchor="middle">관통 비아 (PTH)</text>
+          <text x="91" y="268" class="t-mono" text-anchor="middle">기계 드릴 Ø150–200 µm</text>
+          <!-- blind microvia -->
+          <path d="M230 46 L238 80 H254 L262 46 Z" fill="var(--warn)"/>
+          <text x="246" y="30" class="t-dim" text-anchor="middle">마이크로비아</text>
+          <text x="246" y="268" class="t-mono" text-anchor="middle">레이저 Ø75–100 µm</text>
+          <!-- staggered -->
+          <path d="M360 46 L368 80 H384 L392 46 Z" fill="var(--warn)"/><path d="M400 86 L408 120 H424 L432 86 Z" fill="var(--warn)"/>
+          <text x="396" y="30" class="t-dim" text-anchor="middle">엇갈린(staggered)</text>
+          <!-- stacked -->
+          <path d="M530 46 L538 80 H554 L562 46 Z" fill="var(--warn)"/><path d="M530 86 L538 120 H554 L562 86 Z" fill="var(--warn)"/>
+          <rect x="536" y="126" width="20" height="28" fill="var(--warn)"/>
+          <path d="M530 194 L538 160 H554 L562 194 Z" fill="var(--warn)"/><path d="M530 234 L538 200 H554 L562 234 Z" fill="var(--warn)"/>
+          <text x="546" y="30" class="t-dim" text-anchor="middle">스택 비아 (구리 충전)</text>
+          <text x="546" y="268" class="t-mono" text-anchor="middle">애니레이어: 모든 층이 이 방식</text>
+          <!-- buried -->
+          <rect x="660" y="80" width="16" height="120" fill="var(--warn)" opacity=".9"/><rect x="664" y="86" width="8" height="108" class="f-elev"/>
+          <text x="668" y="268" class="t-mono" text-anchor="middle">매립 비아</text>
+        </g>
+      </svg>
+      <figcaption><b>그림 4-1.</b> 비아의 종류(6층 예, 두께 과장). 관통 비아는 모든 층의 그 자리를 막지만, 마이크로비아는 필요한 두 층만 잇고 나머지 층의 같은 위치는 배선에 쓸 수 있다. 스택 비아는 면적이 가장 작지만 구리 충전과 정밀한 정렬이 필요해 비싸다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-stack">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>층수와 구조를 고르면 단면이 바뀐다</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-stack"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>층수</span><div class="seg" id="st-n"><button data-value="6">6</button><button data-value="8">8</button><button data-value="10" class="on">10</button><button data-value="12">12</button></div></div>
+          <div class="ctrl"><span>구조</span><div class="seg" id="st-type"><button data-value="pth">관통홀</button><button data-value="h1">1+N+1</button><button data-value="h2">2+N+2</button><button data-value="any" class="on">애니레이어</button></div></div>
+          <div class="ctrl"><span>배선 공정</span><div class="seg" id="st-ls"><button data-value="sub">에칭 50/50 µm</button><button data-value="msap" class="on">mSAP 30/30 µm</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">보드 두께(추정)</span><span class="v" id="st-th">—</span></div>
+        <div class="stat"><span class="k">대응 BGA 피치</span><span class="v" id="st-bga">—</span></div>
+        <div class="stat"><span class="k">배선 밀도(상대)</span><span class="v" id="st-den">—</span></div>
+        <div class="stat"><span class="k">원가 지수</span><span class="v" id="st-cost">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 관통홀 구조에서는 0.4 mm 피치 BGA의 안쪽 볼을 빼낼 방법이 없다. 볼 사이로 지나갈 공간이 없기 때문이다. 애니레이어는 볼 바로 아래 패드에 비아를 뚫고(via-in-pad) 원하는 층으로 내려갈 수 있다. mSAP(modified Semi-Additive Process)는 반도체 기판처럼 도금으로 배선을 만들어 선폭/간격을 30 µm 이하로 줄인다. 이런 보드를 SLP(Substrate-Like PCB)라고도 부른다.</div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>항목</th><th>일반 PC 보드</th><th>보급형 폰 (HDI)</th><th>플래그십 폰 (애니레이어/SLP)</th></tr></thead>
+      <tbody>
+        <tr><td>층수</td><td>4–8</td><td>8–10 (1+N+1 ~ 3+N+3)</td><td>10–12 (모든 층 마이크로비아)</td></tr>
+        <tr><td>두께</td><td>1.6 mm</td><td>0.7–0.9 mm</td><td>0.5–0.8 mm</td></tr>
+        <tr><td>선폭/간격</td><td>100/100 µm+</td><td>50/50–60/60 µm</td><td>25/25–30/30 µm (mSAP)</td></tr>
+        <tr><td>비아</td><td>관통 Ø0.3 mm</td><td>마이크로비아 + 매립 비아</td><td>스택 마이크로비아 Ø~75 µm</td></tr>
+        <tr><td>BGA 피치</td><td>0.8–1.0 mm</td><td>0.4 mm</td><td>0.35–0.4 mm</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- =============================================================== 4 -->
+  <section id="sandwich">
+    <h2>샌드위치 보드와 인터포저: 면적을 배터리로 바꾸기</h2>
+    <p>보드 면적을 줄이는 가장 직접적인 방법은 보드를 <b>2층으로 쌓는</b> 것이다. 두 장의 보드 사이에 테두리 모양의 인터포저(그 자체로 작은 PCB이며 위아래에 패드가 있고 안쪽은 비어 있다)를 끼워 솔더로 붙이면, 바깥 두 면과 안쪽 두 면 모두에 부품을 올릴 수 있다. 같은 부품을 절반에 가까운 면적에 담는 셈이다. 대가는 두께(인터포저 높이 ~1.5 mm 안팎), 인터포저와 두 번의 리플로 공정 비용, 그리고 안쪽 부품의 열이 갇히는 문제다.</p>
+    <div class="formula">$$A_\text{board} \approx \frac{A_\text{parts}\,(1+k_\text{route})}{\eta_\text{side}},\qquad \Delta E_\text{batt} = \Delta A \cdot t_\text{batt}\cdot \eta_\text{pack}\cdot \rho_E$$
+      <div class="where">\(A_\text{parts}\): 부품이 실제로 차지하는 면적, \(k_\text{route}\): 배선·간격·킵아웃 여유, \(\eta_\text{side}\): 보드 1 mm²당 실장 가능한 면의 수(단일 보드 양면 실장 ≈ 1.6–1.8, 샌드위치 ≈ 3 이상에서 인터포저 테두리 몫을 뺌). 늘어난 면적 \(\Delta A\)에 배터리 두께 \(t\), 패키징 효율 \(\eta\), 셀 에너지 밀도 \(\rho_E\)(~700–800 Wh/L)를 곱하면 늘어나는 배터리 에너지가 된다.</div>
+    </div>
+    <div class="sim" id="sim-sw">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>보드를 쌓으면 배터리가 얼마나 커지나</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-sw"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>보드 구조</span><div class="seg" id="sw-type"><button data-value="single">단일 보드</button><button data-value="sand" class="on">샌드위치</button></div></div>
+          <label class="ctrl"><span>부품 실장 면적 <output id="sw-a-out"></output></span><input type="range" id="sw-a" min="1800" max="4200" step="50" value="3000"></label>
+          <label class="ctrl"><span>배선·킵아웃 여유 <output id="sw-k-out"></output></span><input type="range" id="sw-k" min="10" max="50" step="1" value="25"></label>
+          <label class="ctrl"><span>인터포저 테두리 폭 <output id="sw-w-out"></output></span><input type="range" id="sw-w" min="1.0" max="3.5" step="0.1" value="2.0"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">보드 점유 면적</span><span class="v" id="sw-fp">—</span></div>
+        <div class="stat"><span class="k">배터리 면적</span><span class="v" id="sw-ba">—</span></div>
+        <div class="stat"><span class="k">배터리 용량(추정)</span><span class="v" id="sw-mah">—</span></div>
+        <div class="stat"><span class="k">단일 보드 대비</span><span class="v" id="sw-gain">—</span></div>
+      </div>
+      <div class="sim-note">교육용 근사: 보드와 배터리가 나눠 쓰는 내부 면적 ~7,700 mm², 배터리 두께 4.6 mm, 패키징 효율 0.9, 셀 720 Wh/L, 3.87 V. 해볼 것: 샌드위치로 바꾸면 보드가 수백~천 mm² 줄고 배터리가 500 mAh 이상 늘어난다. 인터포저 테두리를 넓히면(패드 수를 늘리면) 이득이 줄어든다.</div>
+    </div>
+    <p>인터포저는 단순한 "다리"가 아니다. 상판의 RF와 하판의 AP 사이를 오가는 수백 개의 신호, 그리고 전원과 접지를 모두 나르며, 테두리 전체가 접지 벽처럼 동작해 안쪽 부품을 바깥 전파로부터 가려 주기도 한다. 반면 두 번의 리플로를 거치면서 휘어짐이 맞지 않으면 패드 일부가 뜨는 불량이 생기고, 안쪽에 갇힌 칩은 수리가 사실상 불가능하다.</p>
+  </section>
+
+  <!-- =============================================================== 5 -->
+  <section id="density">
+    <h2>부품 밀도: 모래알보다 작은 수동소자</h2>
+    <p>로직보드 위 부품 개수의 대부분은 칩이 아니라 저항·커패시터·인덕터 같은 <span class="term">수동소자</span>다. 플래그십 보드 한 벌에 1,000~1,500개가 올라가고, 그중 상당수가 디커플링 커패시터다(<a href="#pdn">9절</a>). 크기는 인치 단위 코드로 부르는데, 01005는 0.4 × 0.2 mm, 008004는 0.25 × 0.125 mm다. 미터 코드로는 각각 0402M, 0201M이라 부르므로 혼동하기 쉽다.</p>
+    <div class="sim" id="sim-pass">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>수동소자 크기 실측 비교</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-pass"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>확대 배율 <output id="ps-z-out"></output></span><input type="range" id="ps-z" min="60" max="400" step="10" value="140"></label>
+          <div class="ctrl"><span>밀도 계산할 크기</span><div class="seg" id="ps-sz"><button data-value="0402">0402</button><button data-value="0201">0201</button><button data-value="01005" class="on">01005</button><button data-value="008004">008004</button></div></div>
+          <label class="check"><input type="checkbox" id="ps-ref" checked> 머리카락·소금 알갱이 표시</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">본체 크기</span><span class="v" id="ps-dim">—</span></div>
+        <div class="stat"><span class="k">패드·간격 포함 점유</span><span class="v" id="ps-fp">—</span></div>
+        <div class="stat"><span class="k">1 cm²당 최대</span><span class="v" id="ps-cnt">—</span></div>
+        <div class="stat"><span class="k">1,200개 실장 면적</span><span class="v" id="ps-tot">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 0402에서 01005로 바꾸면 같은 개수의 부품이 차지하는 면적이 3~4분의 1로 준다. 008004는 머리카락 두께의 2배도 안 되는 폭이다. 이 크기에서는 장착기 정밀도(±15–25 µm), 솔더 페이스트 인쇄량, 리플로 중 한쪽 끝이 들리는 툼스톤 불량이 수율을 좌우한다.</div>
+    </div>
+    <p>작게 만드는 데는 대가가 있다. 커패시터는 크기가 작을수록 같은 정전 용량을 얻기 어렵고, 세라믹 커패시터(MLCC)는 직류 바이어스가 걸리면 실제 용량이 공칭값의 절반 이하로 떨어지기도 한다. 그래서 큰 용량이 필요한 벌크 커패시터는 0402나 0603으로 남고, 고주파 디커플링용 작은 용량만 01005·008004로 내려간다. 칩 패키지 안이나 기판 속에 커패시터를 묻는 <span class="term">임베디드 수동소자</span>도 쓰인다.</p>
+  </section>
+
+  <!-- =============================================================== 6 -->
+  <section id="pop">
+    <h2>PoP: AP 위에 올라탄 DRAM</h2>
+    <p>AP 바로 위에 DRAM을 겹쳐 올리는 <span class="term">PoP</span><span class="en">(Package on Package)</span>는 보드 면적과 메모리 배선 길이를 동시에 줄이는 모바일의 대표 기술이다(<a href="soc.html#package">3장</a>). 아래 AP 패키지는 다이를 뒤집어(플립칩) 기판에 붙이고, 가장자리에 솔더볼이나 몰드 관통 비아를 세워 위층과 잇는다. 위층 DRAM 패키지 안에는 얇게 간 DRAM 다이 2~8장이 계단식으로 쌓여 와이어 본딩으로 연결된다. 아래 3D 모형을 분해해 보자.</p>
+    <div class="sim" id="sim-pop">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>PoP 분해: 보드 – 솔더볼 – AP – DRAM</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-pop"><span class="hint">드래그로 회전 · 휠로 확대</span></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>분해 <output id="pp-ex-out"></output></span><input type="range" id="pp-ex" min="0" max="1" step="0.01" value="0.55"></label>
+          <label class="check"><input type="checkbox" id="pp-cut"> 단면 보기 (가운데 자르기)</label>
+          <label class="check"><input type="checkbox" id="pp-uf" checked> 언더필 표시</label>
+          <label class="check"><input type="checkbox" id="pp-lbl" checked> 라벨</label>
+          <label class="check"><input type="checkbox" id="pp-rot"> 자동 회전</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">패키지 크기</span><span class="v">~14 × 14 mm</span></div>
+        <div class="stat"><span class="k">보드 쪽 볼</span><span class="v" id="pp-nb">—</span></div>
+        <div class="stat"><span class="k">PoP 층간 볼</span><span class="v" id="pp-nt">—</span></div>
+        <div class="stat"><span class="k">전체 높이</span><span class="v">~1.0–1.4 mm</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 단면을 켜고 분해를 0으로 줄이면 열이 지나가는 길이 보인다. AP 다이(주황)의 열은 위의 DRAM 다이 더미를 지나야 베이퍼 챔버에 닿는다. 언더필(반투명 층)은 AP 패키지 아래 솔더볼 사이를 채워 낙하·열 충격에 견디게 한다.</div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>구분</th><th>PoP (적층)</th><th>나란히 배치 (side-by-side)</th></tr></thead>
+      <tbody>
+        <tr><td>보드 면적</td><td>칩 1개 분량</td><td>DRAM 패키지만큼 추가</td></tr>
+        <tr><td>메모리 배선</td><td>수 mm 이하, 수직</td><td>보드 위 수 mm~1 cm</td></tr>
+        <tr><td>열</td><td>AP 열이 DRAM을 통과, DRAM 온도 상승</td><td>두 칩이 각자 방열</td></tr>
+        <tr><td>높이</td><td>~1.0–1.4 mm</td><td>각 ~0.7–1.0 mm</td></tr>
+        <tr><td>조립</td><td>휨(warpage) 정합 필요, 리워크 어려움</td><td>표준 BGA 공정</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- =============================================================== 7 -->
+  <section id="storage">
+    <h2>저장장치: UFS와 eMMC</h2>
+    <p>사진·앱·OS가 저장되는 NAND 플래시는 보드 위에 별도 패키지로 올라간다. 패키지 안에는 NAND 다이 여러 장과 이를 관리하는 컨트롤러가 함께 들어 있어, AP는 블록 장치처럼 읽고 쓰기만 하면 된다. 인터페이스는 오랫동안 <span class="term">eMMC</span>였고, 지금 대부분의 중급 이상 폰은 <span class="term">UFS</span><span class="en">(Universal Flash Storage)</span>를 쓴다.</p>
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 760 270" role="img" aria-label="eMMC와 UFS 인터페이스 비교">
+        <defs><marker id="bd-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker>
+        <marker id="bd-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent-2)"/></marker></defs>
+        <text x="190" y="26" class="t-acc" text-anchor="middle">eMMC 5.1</text>
+        <rect x="30" y="50" width="90" height="150" rx="8" class="f-elev"/><text x="75" y="130" class="t" text-anchor="middle">AP</text>
+        <rect x="260" y="50" width="90" height="150" rx="8" class="f-elev"/><text x="305" y="130" class="t" text-anchor="middle">eMMC</text>
+        <g class="s-line">
+          <path d="M120 70 H258"/><path d="M120 84 H258"/><path d="M120 98 H258"/><path d="M120 112 H258"/><path d="M120 126 H258"/><path d="M120 140 H258"/><path d="M120 154 H258"/><path d="M120 168 H258"/>
+        </g>
+        <text x="190" y="190" class="t-mono" text-anchor="middle">8비트 병렬 · 반이중</text>
+        <text x="190" y="226" class="t-mono" text-anchor="middle">HS400: 최대 400 MB/s</text>
+        <text x="190" y="248" class="t-mono" text-anchor="middle">명령 1개씩 처리</text>
+        <text x="570" y="26" class="t-acc" text-anchor="middle">UFS 4.x</text>
+        <rect x="410" y="50" width="90" height="150" rx="8" class="f-elev"/><text x="455" y="130" class="t" text-anchor="middle">AP</text>
+        <rect x="640" y="50" width="90" height="150" rx="8" class="f-elev"/><text x="685" y="130" class="t" text-anchor="middle">UFS</text>
+        <path d="M500 80 H636" stroke="var(--accent)" stroke-width="3" marker-end="url(#bd-a)"/><path d="M500 92 H636" stroke="var(--accent)" stroke-width="3" marker-end="url(#bd-a)"/>
+        <path d="M640 148 H504" stroke="var(--accent-2)" stroke-width="3" marker-end="url(#bd-b)"/><path d="M640 160 H504" stroke="var(--accent-2)" stroke-width="3" marker-end="url(#bd-b)"/>
+        <text x="570" y="72" class="t-mono" text-anchor="middle">TX 레인 ×2 (차동)</text>
+        <text x="570" y="182" class="t-mono" text-anchor="middle">RX 레인 ×2 (차동)</text>
+        <text x="570" y="226" class="t-mono" text-anchor="middle">MIPI M-PHY 직렬 · 전이중</text>
+        <text x="570" y="248" class="t-mono" text-anchor="middle">레인당 23.2 Gbps · 명령 큐 32개</text>
+      </svg>
+      <figcaption><b>그림 4-2.</b> eMMC는 넓은 병렬 버스로 한 방향씩 주고받고, UFS는 고속 직렬 차동 레인으로 읽기와 쓰기를 동시에 하며 여러 명령을 큐에 쌓아 순서를 바꿔 처리한다. 배선 수는 UFS가 적지만 신호 무결성 요구는 훨씬 엄격하다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-ufs">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>저장장치 세대별 체감 속도</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-ufs"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>작업</span><div class="seg" id="uf-job"><button data-value="app" class="on">게임 설치 4 GB</button><button data-value="photo">사진 2,000장 백업</button><button data-value="boot">앱 실행(무작위 읽기)</button><button data-value="video">8K 영상 녹화</button></div></div>
+        </div>
+      </div>
+      <div class="sim-note">대표값 근사(제품·용량·채움 상태에 따라 크게 다르다): 순차 읽기/쓰기 eMMC 5.1 ~300/150 MB/s, UFS 2.2 ~1,000/500, UFS 3.1 ~2,000/1,200, UFS 4.x ~4,000/2,800 MB/s. 무작위 4 KB 읽기는 수천~수십만 IOPS 범위. 8K 영상 녹화는 수십~100 MB/s의 지속 쓰기를 요구하므로 SLC 캐시가 다 차고 난 뒤의 쓰기 속도가 중요하다.</div>
+    </div>
+    <p>저장장치 속도는 앱 실행·사진 저장의 체감 속도에 직접 영향을 준다. 하지만 폰을 오래 쓰면 저장 공간이 차고 플래시가 마모되면서 쓰기 속도가 떨어진다. 그래서 OS는 빈 블록을 미리 정리(TRIM, 가비지 컬렉션)하고, 컨트롤러는 일부 영역을 빠른 SLC 모드로 써서 순간 쓰기를 받아 낸다. 저장 용량이 큰 모델이 더 빠른 경우가 많은 것은 NAND 다이 수가 많아 병렬성이 크기 때문이다.</p>
+  </section>
+
+  <!-- =============================================================== 8 -->
+  <section id="si">
+    <h2>신호 무결성: 짧은 거리, 높은 속도</h2>
+    <p>보드 위 배선은 수 cm로 짧지만, UFS 4.x의 23.2 Gbps 신호는 비트 하나가 43 ps다. 이 시간 동안 신호는 기판 속을 약 6~7 mm밖에 못 간다. 배선 길이가 비트 길이의 몇 배가 되면 배선은 더 이상 "도선"이 아니라 <span class="term">전송선로</span>다. 신호는 배선을 따라가며 두 가지 이유로 약해진다. 도체 표면으로 전류가 몰리는 <b>표피 효과</b>(손실이 \(\sqrt{f}\)에 비례)와 절연체 분자가 전기장을 따라 흔들리며 에너지를 먹는 <b>유전 손실</b>(\(f\)에 비례)이다.</p>
+    <div class="formula">$$\text{IL}(f, \ell) \approx \ell\,\big(a_c\sqrt{f} + a_d\,\varepsilon_r^{1/2}\tan\delta\, f\big)\ \text{[dB]}$$
+      <div class="where">\(\ell\): 배선 길이, \(a_c\): 도체 손실 계수(가는 배선일수록 큼), \(\tan\delta\): 유전 손실 탄젠트(일반 FR-4 ~0.015–0.02, 저손실 재료 ~0.002–0.005). 고속 링크의 손실 예산은 보통 나이퀴스트 주파수(데이터율의 절반)에서 정한다.</div>
+    </div>
+    <p>손실이 커지면 0과 1의 경계가 무뎌지고, 앞 비트의 꼬리가 다음 비트에 섞이는 <span class="term">심볼 간 간섭</span>(ISI)이 생긴다. 수신기에서 수많은 비트를 겹쳐 그린 <span class="term">아이 다이어그램</span>의 눈이 감기면 오류가 난다. 송신단의 <span class="term">프리엠퍼시스</span>나 수신단의 이퀄라이저는 고주파를 미리 키우거나 되살려 눈을 다시 연다.</p>
+    <div class="sim" id="sim-eye">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>손실과 아이 다이어그램</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-eye"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>데이터율 <output id="ey-r-out"></output></span><input type="range" id="ey-r" min="1" max="24" step="0.5" value="11.6"></label>
+          <label class="ctrl"><span>배선 길이 <output id="ey-l-out"></output></span><input type="range" id="ey-l" min="5" max="200" step="5" value="60"></label>
+          <div class="ctrl"><span>기판 재료</span><div class="seg" id="ey-mat"><button data-value="fr4" class="on">FR-4계</button><button data-value="low">저손실</button><button data-value="lcp">LCP 플렉스</button></div></div>
+          <label class="ctrl"><span>프리엠퍼시스 <output id="ey-eq-out"></output></span><input type="range" id="ey-eq" min="0" max="0.45" step="0.01" value="0"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">나이퀴스트</span><span class="v" id="ey-fn">—</span></div>
+        <div class="stat"><span class="k">삽입 손실</span><span class="v" id="ey-il">—</span></div>
+        <div class="stat"><span class="k">눈 높이(상대)</span><span class="v" id="ey-h">—</span></div>
+        <div class="stat"><span class="k">판정</span><span class="v" id="ey-ok">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 23 Gbps, 150 mm(카메라까지 플렉스로 가는 정도)에서 FR-4는 눈이 거의 감긴다. 저손실 재료나 LCP 플렉스로 바꾸거나, 프리엠퍼시스를 0.2~0.3 주면 다시 열린다. 커넥터·비아·패키지 손실 1.5 dB는 고정으로 더했다. 교육용 1차 저역 통과 채널 모델이다.</div>
+    </div>
+
+    <h3>임피던스 제어</h3>
+    <p>전송선로에서 신호가 느끼는 저항은 배선의 직류 저항이 아니라 <span class="term">특성 임피던스</span> \(Z_0=\sqrt{L/C}\)다. 선로 중간에 임피던스가 바뀌는 곳(비아, 커넥터, 폭이 바뀌는 곳)이 있으면 신호 일부가 반사된다. 그래서 고속 배선은 정해진 임피던스(단선 50 Ω, 차동 85~100 Ω)에 ±10% 이내로 맞춘다. 임피던스는 배선 폭 \(w\), 기준 접지면까지의 거리 \(h\), 유전율 \(\varepsilon_r\)이 정한다.</p>
+    <div class="formula">$$Z_0^\text{microstrip} \approx \frac{87}{\sqrt{\varepsilon_r+1.41}}\ln\!\frac{5.98h}{0.8w+t},\qquad \Gamma = \frac{Z_2 - Z_1}{Z_2 + Z_1}$$
+      <div class="where">IPC-2141 근사식. \(t\): 구리 두께. \(\Gamma\): 임피던스 \(Z_1\)에서 \(Z_2\)로 넘어갈 때의 반사 계수. 얇은 폰 보드는 \(h\)가 40–60 µm로 작아서 50 Ω을 만들려면 배선도 수십 µm로 가늘어야 하고, 그만큼 도체 손실이 커진다.</div>
+    </div>
+    <div class="sim" id="sim-z0">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>배선 폭과 유전체 두께로 임피던스 맞추기</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-z0"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>구조</span><div class="seg" id="z0-type"><button data-value="ms" class="on">마이크로스트립 (표층)</button><button data-value="sl">스트립라인 (내층)</button></div></div>
+          <label class="ctrl"><span>배선 폭 w <output id="z0-w-out"></output></span><input type="range" id="z0-w" min="20" max="200" step="2" value="70"></label>
+          <label class="ctrl"><span>유전체 두께 h <output id="z0-h-out"></output></span><input type="range" id="z0-h" min="25" max="150" step="1" value="50"></label>
+          <label class="ctrl"><span>유전율 εr <output id="z0-e-out"></output></span><input type="range" id="z0-e" min="2.9" max="4.6" step="0.05" value="3.6"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">특성 임피던스</span><span class="v" id="z0-z">—</span></div>
+        <div class="stat"><span class="k">50 Ω과의 반사</span><span class="v" id="z0-g">—</span></div>
+        <div class="stat"><span class="k">전파 지연</span><span class="v" id="z0-d">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: h를 50 µm에 두고 50 Ω을 만드는 w를 찾아보자. 내층 스트립라인은 위아래가 모두 접지라 같은 w에서 임피던스가 낮다. 제조 공차로 w가 ±10 µm 흔들리면 임피던스가 몇 Ω 움직이는지도 확인하자. 그래서 기판 업체는 테스트 쿠폰으로 임피던스를 측정해 출하한다.</div>
+    </div>
+
+    <h3>차폐 캔과 EMI</h3>
+    <p>보드 위의 반짝이는 금속 뚜껑은 <span class="term">차폐 캔</span><span class="en">(shield can)</span>이다. AP·메모리의 클럭과 고조파, PMIC의 스위칭 노이즈가 모뎀 수신기와 GPS(신호가 −130 dBm 수준으로 매우 약하다)로 새어 들어가는 것을 막는다. 캔은 보드의 접지 링에 납땜된 프레임과 그 위의 뚜껑으로 되어 있고, 내부를 칸막이로 나눠 칩끼리도 서로 가린다.</p>
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 760 250" role="img" aria-label="차폐 캔 단면">
+        <rect x="30" y="180" width="700" height="24" class="f-surface"/><text x="40" y="232" class="t-mono">PCB (접지층 + 접지 비아 펜스)</text>
+        <g fill="var(--text-faint)"><rect x="80" y="70" width="6" height="110"/><rect x="380" y="70" width="6" height="110"/><rect x="680" y="70" width="6" height="110"/><rect x="80" y="64" width="606" height="6"/></g>
+        <rect x="140" y="140" width="160" height="40" rx="4" fill="var(--accent-2)" opacity=".75"/><text x="220" y="166" class="t" text-anchor="middle" style="fill:#fff">AP + DRAM</text>
+        <rect x="440" y="150" width="90" height="30" rx="4" fill="var(--accent)" opacity=".75"/><text x="485" y="171" class="t" text-anchor="middle" style="fill:#fff">LNA</text>
+        <rect x="560" y="150" width="90" height="30" rx="4" fill="var(--accent)" opacity=".5"/><text x="605" y="171" class="t" text-anchor="middle" style="fill:#fff">GNSS</text>
+        <rect x="200" y="122" width="40" height="18" fill="var(--warn)" opacity=".7"/><text x="250" y="118" class="t-mono">TIM</text>
+        <g stroke="var(--warn)" stroke-width="2" fill="none"><path d="M86 180 V186"/><path d="M380 180 V186"/></g>
+        <path d="M150 52 q10 -12 20 0 t20 0 t20 0" class="s-line" stroke="var(--bad)"/><text x="220" y="40" class="t-dim">틈새 길이 L < λ/20</text>
+        <text x="230" y="98" class="t-dim" text-anchor="middle">디지털 칸</text><text x="535" y="98" class="t-dim" text-anchor="middle">RF 칸</text>
+        <text x="383" y="56" class="t-mono" text-anchor="middle">칸막이</text>
+      </svg>
+      <figcaption><b>그림 4-3.</b> 차폐 캔 단면(개략). 캔의 효과는 금속 두께보다 <b>틈새와 접지 간격</b>이 결정한다. 길이 L인 틈새는 대략 \(SE \approx 20\log_{10}(\lambda/2L)\) dB의 차폐만 준다. 6 GHz(λ = 50 mm)에서 5 mm 틈은 약 14 dB에 불과하다. 캔 상면과 칩 사이에 열 인터페이스 물질(TIM)을 넣어 캔을 방열 경로로도 쓴다.</figcaption>
+    </figure>
+    <p>최근에는 캔 대신 패키지나 모듈 표면에 금속을 직접 스퍼터링하는 <span class="term">컨포멀 차폐</span><span class="en">(conformal shielding)</span>도 많이 쓴다. 캔 프레임과 여유 공간이 필요 없어 면적과 높이를 아끼지만, 모듈 단위로만 적용할 수 있고 칸막이를 만들기 어렵다.</p>
+  </section>
+
+  <!-- =============================================================== 9 -->
+  <section id="pdn">
+    <h2>전원 무결성: PDN 임피던스와 디커플링</h2>
+    <p>AP의 CPU 클러스터는 수 µs 안에 수백 mA에서 수 A로 전류를 바꾼다. 전원 레일은 0.5~1.0 V 수준인데, 허용 리플은 보통 ±3~5%, 즉 수십 mV다. 전원 경로(PMIC → 보드 → 패키지 → 다이)의 임피던스가 이 조건을 만족해야 한다. 이것을 <span class="term">목표 임피던스</span>라 한다.</p>
+    <div class="formula">$$Z_\text{target} = \frac{V_\text{dd}\times \text{리플 허용률}}{\Delta I}$$
+      <div class="where">예: 0.75 V × 3% / 5 A = 4.5 mΩ. 이 값을 DC부터 수백 MHz까지 지켜야 한다. 낮은 주파수는 PMIC(벅 컨버터)의 제어 루프가, 중간은 보드의 벌크·세라믹 커패시터가, 높은 주파수는 패키지와 다이 내부의 커패시턴스가 맡는다.</div>
+    </div>
+    <p>커패시터는 이상적이지 않다. 내부 저항(ESR)과 인덕턴스(ESL, 수백 pH)가 있어 \(f_r = 1/(2\pi\sqrt{LC})\) 위에서는 인덕터처럼 동작한다. 그래서 용량이 다른 커패시터를 여러 개 병렬로 써서 서로 다른 주파수 구간을 맡긴다. 같은 커패시터를 N개 병렬로 두면 ESR과 ESL이 1/N이 된다. 보드 위 수동소자의 상당수가 이 디커플링 커패시터다.</p>
+    <div class="sim" id="sim-pdn">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>PDN 임피던스 vs 주파수</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-pdn"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>22 µF (0402) 개수 <output id="pd-a-out"></output></span><input type="range" id="pd-a" min="0" max="8" step="1" value="2"></label>
+          <label class="ctrl"><span>2.2 µF (0201) 개수 <output id="pd-b-out"></output></span><input type="range" id="pd-b" min="0" max="20" step="1" value="6"></label>
+          <label class="ctrl"><span>0.1 µF (01005) 개수 <output id="pd-c-out"></output></span><input type="range" id="pd-c" min="0" max="40" step="1" value="8"></label>
+          <label class="ctrl"><span>전류 계단 ΔI <output id="pd-i-out"></output></span><input type="range" id="pd-i" min="1" max="10" step="0.5" value="5"></label>
+          <label class="ctrl"><span>패키지 내 커패시터 <output id="pd-p-out"></output></span><input type="range" id="pd-p" min="0" max="4" step="0.5" value="1"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">목표 임피던스</span><span class="v" id="pd-zt">—</span></div>
+        <div class="stat"><span class="k">최대 |Z|</span><span class="v" id="pd-zm">—</span></div>
+        <div class="stat"><span class="k">최대 지점</span><span class="v" id="pd-fm">—</span></div>
+        <div class="stat"><span class="k">커패시터 점유 면적</span><span class="v" id="pd-ar">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 커패시터를 모두 0으로 하면 수 kHz~수 MHz에서 PMIC 루프 인덕턴스가 그대로 드러난다. 작은 커패시터를 아무리 늘려도 수십~수백 MHz의 봉우리(보드 커패시터와 패키지 인덕턴스의 반공진)는 잘 안 내려간다. 이 구간은 패키지 안 커패시터와 다이 커패시턴스가 맡아야 한다. 칩 설계와 보드 설계가 함께 풀어야 하는 문제다. 다이 커패시턴스는 ~100 nF로 고정했다.</div>
+    </div>
+    <p>PDN이 목표를 넘으면 전류 계단마다 전압이 출렁인다(droop). 칩은 이를 견디려고 전압 여유(가드밴드)를 더 두어야 하고, \(P \propto V^2\)이므로 전력이 늘어난다(<a href="soc.html#power">3장</a>). 반대로 커패시터를 무작정 늘리면 면적·원가가 늘고 배터리 자리를 빼앗는다. PDN 설계는 이 둘 사이의 줄타기다. 전원 IC와 벅 컨버터 자체는 <a href="power.html">6장</a>에서 다룬다.</p>
+  </section>
+
+  <!-- =============================================================== 10 -->
+  <section id="reliability">
+    <h2>커넥터·FPC, 언더필과 솔더 조인트 신뢰성</h2>
+    <p>로직보드는 혼자 있지 않다. 디스플레이, 카메라, 배터리, 하단 서브보드가 모두 <span class="term">보드 대 보드</span><span class="en">(BtB)</span> 커넥터와 <span class="term">FPC</span><span class="en">(Flexible Printed Circuit)</span>로 연결된다. BtB 커넥터는 핀 간격 0.35–0.4 mm, 결합 높이 0.6–0.8 mm의 작은 플러그·리셉터클 쌍으로, 조립과 수리를 위해 "딸깍" 끼웠다 뺄 수 있게 한다. FPC는 폴리이미드(PI) 필름 위에 구리 배선을 깐 휘는 기판이며, 고속·RF 신호에는 흡습이 적고 손실이 낮은 LCP(액정 폴리머) 기재를 쓰기도 한다.</p>
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 760 240" role="img" aria-label="보드 대 보드 커넥터와 FPC 단면">
+        <rect x="30" y="160" width="330" height="22" class="f-surface"/><text x="40" y="206" class="t-mono">메인보드</text>
+        <rect x="120" y="134" width="150" height="26" rx="3" fill="var(--text-faint)" opacity=".7"/><text x="195" y="152" class="t-mono" text-anchor="middle" style="fill:#fff">리셉터클</text>
+        <rect x="132" y="104" width="126" height="30" rx="3" fill="var(--text-dim)" opacity=".8"/><text x="195" y="124" class="t-mono" text-anchor="middle" style="fill:#fff">플러그</text>
+        <path d="M110 92 H300 Q340 92 360 70 L420 40 H560" stroke="var(--warn)" stroke-width="9" fill="none" opacity=".8"/>
+        <rect x="110" y="86" width="170" height="18" fill="var(--warn)" opacity=".55"/><text x="195" y="80" class="t-mono" text-anchor="middle">보강판(stiffener)</text>
+        <text x="470" y="30" class="t-dim">FPC (PI/LCP + 구리)</text>
+        <rect x="440" y="150" width="290" height="60" rx="6" class="f-elev"/>
+        <g><rect x="460" y="164" width="250" height="5" fill="var(--warn)" opacity=".5"/><rect x="460" y="169" width="250" height="10" fill="var(--accent-2)" opacity=".35"/><rect x="460" y="179" width="250" height="4" fill="var(--warn)"/><rect x="460" y="183" width="250" height="10" fill="var(--accent-2)" opacity=".35"/><rect x="460" y="193" width="250" height="5" fill="var(--warn)" opacity=".5"/></g>
+        <text x="585" y="142" class="t-mono" text-anchor="middle">FPC 단면: 커버레이 / PI / 구리 / PI / 커버레이 · 총 ~0.1–0.2 mm</text>
+        <text x="195" y="230" class="t-mono" text-anchor="middle">핀 피치 0.35–0.4 mm · 결합 높이 ~0.6–0.8 mm</text>
+      </svg>
+      <figcaption><b>그림 4-4.</b> 보드 대 보드 커넥터와 FPC(개략). 커넥터 위에는 보통 금속 브래킷을 나사로 눌러 낙하 시 빠지지 않게 한다. FPC가 접히는 곳은 구리 한 층만 두고 굽힘 반경을 크게 잡아 피로 파괴를 막는다.</figcaption>
+    </figure>
+    <p>솔더 조인트는 폰에서 가장 흔한 고장 지점이다. 두 가지 하중이 문제다. 하나는 <b>열 사이클</b>이다. 칩(실리콘, 열팽창계수 ~3 ppm/K, 패키지 전체로는 ~6–10 ppm/K)과 보드(~14–17 ppm/K)가 온도 변화에 다르게 늘어나 솔더볼에 전단 변형이 반복된다. 다른 하나는 <b>낙하 충격</b>으로, 보드가 순간적으로 휘면서 패키지 모서리 볼에 큰 응력이 걸린다. 해법은 칩 아래 볼 사이를 에폭시로 채우는 <span class="term">언더필</span>이다. 언더필은 하중을 볼이 아니라 패키지 전체 면으로 나눠 받게 해 수명을 수~수십 배 늘린다. 대가는 리워크(재작업)가 거의 불가능해진다는 점이다.</p>
+    <div class="formula">$$\Delta\gamma \approx \frac{\Delta\alpha\,\Delta T\, L_\text{DNP}}{h},\qquad N_f = \frac12\left(\frac{\Delta\gamma}{2\varepsilon_f'}\right)^{1/c}$$
+      <div class="where">Engelmaier식(Coffin–Manson 형태). \(\Delta\alpha\): 열팽창계수 차, \(L_\text{DNP}\): 패키지 중심에서 가장 먼 볼까지 거리, \(h\): 솔더 조인트 높이, \(\varepsilon_f'\) ≈ 0.325, \(c\) ≈ −0.44. 큰 패키지일수록, 볼이 낮을수록 모서리 볼의 변형이 커진다.</div>
+    </div>
+    <div class="sim" id="sim-rel">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>열 사이클 수명: 언더필의 효과</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-rel"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>패키지 크기 <output id="rl-s-out"></output></span><input type="range" id="rl-s" min="4" max="20" step="0.5" value="14"></label>
+          <label class="ctrl"><span>조인트 높이 <output id="rl-h-out"></output></span><input type="range" id="rl-h" min="80" max="300" step="10" value="180"></label>
+          <label class="ctrl"><span>CTE 차 Δα <output id="rl-a-out"></output></span><input type="range" id="rl-a" min="2" max="14" step="0.5" value="8"></label>
+          <label class="ctrl"><span>평가 온도 변화 ΔT <output id="rl-t-out"></output></span><input type="range" id="rl-t" min="20" max="165" step="5" value="100"></label>
+          <label class="ctrl"><span>언더필 변형 감소 <output id="rl-u-out"></output></span><input type="range" id="rl-u" min="2" max="12" step="0.5" value="6"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">모서리 볼 변형 Δγ</span><span class="v" id="rl-g">—</span></div>
+        <div class="stat"><span class="k">수명 (언더필 없음)</span><span class="v" id="rl-n0">—</span></div>
+        <div class="stat"><span class="k">수명 (언더필)</span><span class="v" id="rl-n1">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 패키지를 7 mm에서 14 mm로 키우면 수명이 4~5분의 1로 준다. 볼 높이를 낮추면(얇은 폰을 위해) 수명이 더 줄어든다. 언더필의 효과는 재료와 공정에 따라 다르므로 '변형 감소' 배수로 근사했다. 실제 평가는 0~100 °C 등 정해진 조건의 열 사이클 시험과 낙하 시험(JEDEC 기준 등)으로 한다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 11 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <p>로직보드 설계는 "모든 것을 더 작게"가 아니다. 면적, 층수, 원가, 열, RF 격리, 조립 수율, 수리성이 서로 맞물린 다변수 최적화다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>지표</th><th>왜 중요한가</th><th>트레이드오프</th></tr></thead>
+      <tbody>
+        <tr><td><b>보드 면적</b></td><td>1 mm²가 곧 배터리 면적. 100 mm²는 대략 70–80 mAh</td><td>작게 할수록 층수·HDI·샌드위치 비용 증가</td></tr>
+        <tr><td><b>층수·구조</b></td><td>배선 밀도와 BGA 피치 대응 능력</td><td>층당·빌드업당 원가 증가, 두께 증가</td></tr>
+        <tr><td><b>열 경로</b></td><td>AP 열을 베이퍼 챔버로, 다른 열원과 분산</td><td>샌드위치 안쪽·PoP는 열이 갇힘, 두꺼운 구리 평면은 열 확산에 유리하지만 무게·원가</td></tr>
+        <tr><td><b>RF 격리</b></td><td>디지털 잡음이 수신 감도를 깎음(디센스)</td><td>차폐 캔·칸막이·접지 비아 펜스가 면적과 높이를 먹음</td></tr>
+        <tr><td><b>조립 수율</b></td><td>008004·0.35 mm BGA·PoP·샌드위치 리플로 모두 수율 위험</td><td>밀도 vs 수율, 검사(X선·AOI) 비용</td></tr>
+        <tr><td><b>수리성</b></td><td>사용자·서비스 센터 수리 비용, 규제(수리할 권리)</td><td>언더필·샌드위치·접착은 신뢰성↑ 수리성↓</td></tr>
+      </tbody>
+    </table></div>
+    <div class="sim" id="sim-design">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>보드 아키텍처 비교</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-design"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>보드 구조</span><div class="seg" id="ds-arch"><button data-value="hdi">단일 HDI 10층</button><button data-value="any">단일 애니레이어</button><button data-value="sand" class="on">샌드위치 SLP</button></div></div>
+          <div class="ctrl"><span>차폐 방식</span><div class="seg" id="ds-sh"><button data-value="can" class="on">차폐 캔</button><button data-value="conf">컨포멀 차폐</button></div></div>
+          <div class="ctrl"><span>주요 칩 언더필</span><div class="seg" id="ds-uf"><button data-value="1" class="on">적용</button><button data-value="0">미적용</button></div></div>
+        </div>
+      </div>
+      <div class="sim-note">교육용 상대 지수(대표적 경향을 단순화한 것으로 특정 제품 수치가 아니다). 해볼 것: 샌드위치 SLP는 면적과 배터리에서 크게 이기지만 원가와 수리성에서 진다. 컨포멀 차폐는 면적을 더 줄이지만 차폐 칸을 나누기 어렵고 재작업이 어렵다. 언더필을 빼면 수리성은 좋아지지만 낙하 신뢰성이 크게 떨어진다.</div>
+    </div>
+    <h3>흔한 실패 사례</h3>
+    <ul>
+      <li><b>디센스(desense).</b> 카메라·디스플레이의 MIPI 클럭 고조파나 DRAM 클럭이 특정 LTE/5G 대역 수신 채널에 떨어져 그 대역에서만 수신 감도가 몇 dB 나빠진다. 차폐 캔 틈, 접지 연결 부족, 플렉스의 노출 배선이 흔한 원인이다(<a href="rf.html">7장</a>).</li>
+      <li><b>PoP·샌드위치 휨 불일치.</b> 리플로 온도에서 위·아래 패키지나 보드가 다르게 휘어 일부 볼이 붙지 않는 'head-in-pillow' 불량. X선 검사로도 찾기 어렵다.</li>
+      <li><b>낙하 후 간헐 불량.</b> 언더필이 없는 큰 BGA의 모서리 볼이나 커넥터 납땜부에 미세 균열이 생겨, 온도나 휨에 따라 접촉이 끊겼다 이어진다.</li>
+      <li><b>FPC 굽힘 피로.</b> 조립 시 굽힘 반경을 너무 작게 잡거나 굽힘부에 비아를 두면 반복 진동·열에 구리가 끊어진다.</li>
+      <li><b>열원 집중.</b> AP, PMIC, 충전 IC, 5G PA를 한 영역에 몰아 배치해 같은 전력에서도 핫스폿이 생기고 스로틀링이 빨라진다(<a href="soc.html#thermal">3장</a>).</li>
+    </ul>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>로직보드는 전원, 고속 데이터, RF, 제어 신호라는 서로 다른 요구를 한 판 위에서 층과 영역으로 나눠 처리한다.</li>
+      <li>폰 보드는 레이저 마이크로비아로 인접 층만 잇는 HDI, 모든 층을 스택 비아로 잇는 애니레이어, mSAP 미세 배선(SLP)으로 0.35–0.4 mm BGA와 높은 배선 밀도를 감당한다.</li>
+      <li>샌드위치 보드와 인터포저는 같은 부품을 더 작은 면적에 담아 배터리를 키운다. 대가는 두께, 원가, 열, 수리성이다.</li>
+      <li>01005·008004 수동소자와 PoP 메모리는 면적을 줄이는 핵심 기술이며 조립 정밀도·휨·열이 수율과 신뢰성을 좌우한다.</li>
+      <li>UFS는 고속 직렬 차동 레인과 명령 큐로 eMMC보다 수~십 배 빠르며, 그만큼 신호 무결성이 중요하다.</li>
+      <li>고속 신호 손실은 길이와 주파수(\(\sqrt f\), \(f\))에 비례해 늘고, 임피던스는 배선 폭·유전체 두께·유전율로 맞춘다. 차폐는 틈새 길이가 좌우한다.</li>
+      <li>PDN은 \(Z_\text{target}=V\cdot\text{리플}/\Delta I\) 아래로 넓은 주파수에서 유지해야 하며, PMIC·보드 커패시터·패키지·다이가 구간을 나눠 맡는다.</li>
+      <li>솔더 조인트 수명은 패키지 크기·조인트 높이·CTE 차에 민감하며 언더필이 수명을 크게 늘리지만 수리를 어렵게 한다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>1. 애니레이어 기판의 가장 큰 장점은?</p><div class="opts">
+        <button class="opt">층수를 줄일 수 있다</button><button class="opt" data-correct>스택 마이크로비아로 어느 층에서 어느 층으로든 최소 면적으로 건너갈 수 있다</button><button class="opt">원가가 가장 낮다</button><button class="opt">관통 비아가 더 커진다</button>
+      </div><div class="quiz-exp">모든 층을 레이저 마이크로비아로 만들고 구리로 채워 쌓으므로 비아가 다른 층의 배선 자리를 막지 않는다. 대신 원가가 높다.</div></div>
+      <div class="quiz-q"><p>2. 샌드위치 보드로 보드 점유 면적을 800 mm² 줄였다. 배터리 두께 4.6 mm, 패키징 효율 0.9, 에너지 밀도 720 Wh/L면 늘어나는 에너지는 대략?</p><div class="opts">
+        <button class="opt">0.24 Wh</button><button class="opt" data-correct>2.4 Wh</button><button class="opt">24 Wh</button><button class="opt">0.024 Wh</button>
+      </div><div class="quiz-exp">800 mm² × 4.6 mm = 3.68 cm³, × 0.9 × 0.72 Wh/cm³ ≈ 2.4 Wh(3.87 V 기준 약 620 mAh).</div></div>
+      <div class="quiz-q"><p>3. 01005 칩 부품의 크기는?</p><div class="opts">
+        <button class="opt">1.0 × 0.5 mm</button><button class="opt">0.6 × 0.3 mm</button><button class="opt" data-correct>0.4 × 0.2 mm</button><button class="opt">0.25 × 0.125 mm</button>
+      </div><div class="quiz-exp">01005(인치 코드)는 0.4 × 0.2 mm로 미터 코드로는 0402M이다. 0.25 × 0.125 mm는 008004다.</div></div>
+      <div class="quiz-q"><p>4. 고속 배선의 손실 중 주파수에 비례해(√f가 아니라) 늘어나는 것은?</p><div class="opts">
+        <button class="opt">표피 효과에 의한 도체 손실</button><button class="opt" data-correct>유전 손실</button><button class="opt">직류 저항 손실</button><button class="opt">반사 손실</button>
+      </div><div class="quiz-exp">유전 손실은 \(\tan\delta\cdot f\)에 비례하고, 도체 손실은 표피 깊이 때문에 \(\sqrt f\)에 비례한다. 고주파일수록 유전 손실이 지배적이 되어 저손실 재료가 중요해진다.</div></div>
+      <div class="quiz-q"><p>5. 0.8 V 레일, 리플 허용 4%, 전류 계단 4 A일 때 목표 임피던스는?</p><div class="opts">
+        <button class="opt">0.8 mΩ</button><button class="opt" data-correct>8 mΩ</button><button class="opt">80 mΩ</button><button class="opt">32 mΩ</button>
+      </div><div class="quiz-exp">0.8 × 0.04 / 4 = 0.008 Ω = 8 mΩ.</div></div>
+      <div class="quiz-q"><p>6. 차폐 캔의 차폐 효과를 가장 크게 떨어뜨리는 것은?</p><div class="opts">
+        <button class="opt">금속 두께가 0.1 mm로 얇은 것</button><button class="opt" data-correct>접지 연결 사이의 긴 틈새</button><button class="opt">캔이 니켈 은으로 만들어진 것</button><button class="opt">캔 안에 TIM을 넣은 것</button>
+      </div><div class="quiz-exp">틈새 길이가 파장의 수십 분의 1을 넘으면 슬롯 안테나처럼 전파가 샌다. 금속 두께는 수 GHz에서 표피 깊이보다 충분히 두꺼워 거의 문제가 되지 않는다.</div></div>
+      <div class="quiz-q"><p>7. 언더필을 적용했을 때의 단점은?</p><div class="opts">
+        <button class="opt">낙하 신뢰성이 떨어진다</button><button class="opt">열 사이클 수명이 줄어든다</button><button class="opt" data-correct>칩을 떼어 내는 리워크·수리가 매우 어려워진다</button><button class="opt">신호 속도가 느려진다</button>
+      </div><div class="quiz-exp">언더필은 신뢰성을 크게 높이지만 경화된 에폭시가 칩과 보드를 붙잡아 수리성을 떨어뜨린다.</div></div>
+      <div class="quiz-q"><p>8. UFS가 eMMC보다 빠른 이유로 알맞지 <b>않은</b> 것은?</p><div class="opts">
+        <button class="opt">고속 직렬 차동 레인</button><button class="opt">읽기·쓰기를 동시에 하는 전이중</button><button class="opt">여러 명령을 큐에 쌓아 처리</button><button class="opt" data-correct>더 넓은 병렬 버스(32비트)</button>
+      </div><div class="quiz-exp">UFS는 오히려 병렬 버스를 버리고 몇 개의 고속 직렬 레인을 쓴다. 넓은 병렬 버스는 eMMC(8비트)의 방식이다.</div></div>
+    </div>
+  </section>
+</main>

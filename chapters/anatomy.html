@@ -524,7 +524,7 @@
     const N = P.order.length;
     const bar = $("as-bar");
     bar.innerHTML = P.order.map(() => "<span></span>").join("");
-    let s = 0, target = 0, playing = false, lastStep = -1;
+    let s = N, target = N, playing = false, lastStep = -1;
     // 완성품 고스트
     const ghost = PB.phone3d(T, { spacing: 0 });
     ghost.parts.forEach((p) => p.mats.forEach((m) => { m.userData.base.opacity = 0.08; m.userData.base.transparent = true; m.userData.base.depthWrite = false; }));
@@ -544,7 +544,7 @@
       const id = s <= 0.001 ? null : P.order[step];
       if (step !== lastStep || !id) {
         lastStep = id ? step : -1;
-        const t = id ? P.stepText[id] : ["준비", "▶ 재생 또는 '다음'을 눌러 조립을 시작하세요. 각 단계에서 부품이 날아와 제자리에 앉습니다."];
+        const t = id ? P.stepText[id] : ["준비", "빈 작업대. ▶ 재생 또는 '다음'을 눌러 조립을 시작하세요. 각 단계에서 부품이 날아와 제자리에 앉습니다."];
         $("as-text").innerHTML = `<b>${id ? String(step + 1).padStart(2, "0") + ". " : ""}${t[0]}</b>${t[1]}`;
         P.highlight(id);
         if (id && $("as-cam").checked) { const c = camFor(step); PB.flyTo(T, c[0], c[1], 1.0); }
@@ -618,9 +618,9 @@
       PB.stat("bd-mah", Math.round(mah).toLocaleString() + "<small>mAh</small>");
       PB.stat("bd-bump", Math.max(0, CAM - tot + get.back() * 0.3).toFixed(1) + "<small>mm</small>");
       // 그림: 왼쪽 세로 단면 막대(스케일), 오른쪽 범례
-      const scale = (h - 70) / 10.5; // 10.5 mm 가 캔버스 높이
+      const scale = (h - 56) / 13.5; // -3 … 10.5 mm 범위
       const x0 = 70, bw = Math.min(260, w * 0.38);
-      const yBase = h - 34;
+      const yBase = h - 22 - 3 * scale;
       ctx.font = "12px " + PB.color("font");
       // 눈금
       ctx.strokeStyle = P.grid; ctx.fillStyle = P.dim; ctx.textAlign = "right"; ctx.textBaseline = "middle";
@@ -649,11 +649,12 @@
       // 카메라 모듈(오른쪽)
       const cx = x0 + bw + 30, cw = 34;
       ctx.fillStyle = "#4f6bed"; ctx.globalAlpha = 0.8;
-      ctx.fillRect(cx, yBase - (CAM - 1.6) * scale - 0, cw, CAM * scale);
+      const bump = Math.max(0, CAM - tot + get.back() * 0.3);
+      ctx.fillRect(cx, yBase + bump * scale - CAM * scale, cw, CAM * scale);
       ctx.globalAlpha = 1;
       ctx.strokeStyle = PB.color("warn"); ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x0, yBase - tot * scale); ctx.lineTo(cx + cw + 8, yBase - tot * scale); ctx.stroke(); ctx.setLineDash([]);
       ctx.fillStyle = P.dim; ctx.textAlign = "center"; ctx.font = "11px " + PB.color("font");
-      ctx.fillText("메인 카메라", cx + cw / 2, yBase + 22);
+      ctx.fillText("메인 카메라", cx + cw / 2, yBase + bump * scale + 14);
       ctx.fillStyle = PB.color("warn"); ctx.textAlign = "left";
       // 범례(오른쪽)
       const lx = cx + cw + 22;
@@ -716,7 +717,7 @@
           ctx.fillStyle = x[2] || P.surface; ctx.globalAlpha = sel >= 0 && sel !== i ? 0.4 : 0.92; ctx.fill(); ctx.globalAlpha = 1;
           if (!x[2]) { ctx.strokeStyle = P.faint; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]); }
           ctx.strokeStyle = P.bg; ctx.lineWidth = 2; ctx.stroke();
-          if (x[1] >= 4) { ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = "600 12px " + PB.color("font"); const rr = (R + r) / 2; ctx.fillText(x[1] + "%", cx + Math.cos(mid) * rr, cy + Math.sin(mid) * rr); }
+          if (x[1] >= 4) { ctx.fillStyle = x[2] ? "#fff" : P.text; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = "600 12px " + PB.color("font"); const rr = (R + r) / 2; ctx.fillText(x[1] + "%", cx + Math.cos(mid) * rr, cy + Math.sin(mid) * rr); }
           ctx.restore();
           regions.push({ i, type: "arc", a0: a, a1: a + da, cx, cy, R, r });
           a += da;

@@ -486,7 +486,7 @@
       const dw = W - 3.4, dl = L - 3.4;
       tex.repeat.set(1 / dw, 1 / dl); tex.offset.set(0.5, 0.5);
       const ds = rr(0, 0, dw, dl, R - 1.7); hole(ds, 0, 66.5, 1.9);
-      const screenM = mat(0x000000, { roughness: 0.25, metalness: 0.0, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.85 });
+      const screenM = mat(0x000000, { roughness: 0.7, envMapIntensity: 0.3, metalness: 0.0, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.85 });
       const sideM = mat(0x15161a, { roughness: 0.6 });
       const geo = slab(ds, 6.15, 0.95, 0, 18);
       const dm = new THREE.Mesh(geo, [screenM, sideM]); P.group.add(dm);
@@ -506,7 +506,7 @@
     /* ======================================================= 12. 커버 글라스 */
     {
       const P = part("cover");
-      const cm = mat(0xcfe8ff, { physical: true, roughness: 0.03, metalness: 0.0, transparent: true, opacity: 0.2, clearcoat: 1, clearcoatRoughness: 0.02, depthWrite: false });
+      const cm = mat(0xcfe8ff, { physical: true, roughness: 0.14, metalness: 0.0, transparent: true, opacity: 0.18, clearcoat: 0.3, clearcoatRoughness: 0.2, envMapIntensity: 0.5, depthWrite: false });
       const cs = rr(0, 0, W - 0.7, L - 0.7, R - 0.35);
       rrHole(cs, 0, 71.6, 11, 0.9, 0.45);  // 수화부 슬릿
       mesh(slab(cs, 7.15, 0.75, 0.3, 24), cm, P.group);

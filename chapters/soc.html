@@ -262,7 +262,7 @@
         <div class="sim-controls">
           <label class="ctrl"><span>클럭 <output id="dv-f-out"></output></span><input type="range" id="dv-f" min="0.3" max="4.2" step="0.05" value="2.4"></label>
           <label class="ctrl"><span>칩 온도 <output id="dv-t-out"></output></span><input type="range" id="dv-t" min="25" max="105" step="1" value="50"></label>
-          <label class="ctrl"><span>V<sub>th</sub> 변화(공정 편차) <output id="dv-vt-out"></output></span><input type="range" id="dv-vt" min="-40" max="40" step="5" value="0"></label>
+          <label class="ctrl"><span>문턱 전압 편차 ΔVth <output id="dv-vt-out"></output></span><input type="range" id="dv-vt" min="-40" max="40" step="5" value="0"></label>
           <div class="ctrl"><span>아래 그래프</span><div class="seg" id="dv-view"><button data-value="p" class="on">전력</button><button data-value="e">작업당 에너지</button></div></div>
         </div>
       </div>
@@ -275,7 +275,7 @@
       <div class="sim-note">해볼 것: 클럭을 3.0 → 4.0 GHz로 올리면(성능 +33%) 전력은 두 배 넘게 뛴다. 온도를 100 °C로 올리면 누설이 커져 저클럭에서의 작업당 에너지 곡선이 위로 휜다. 에너지 최소점(최적 효율 클럭)이 생기는 것을 확인하자. 칩마다 V<sub>th</sub>가 조금씩 달라 같은 클럭에 필요한 전압이 다르다. 이를 칩별로 측정해 OPP 표를 조정하는 것이 <b>비닝</b>이다.</div>
     </div>
     <div class="callout deep">
-      <strong>심화: 전압이 1% 아까운 이유</strong>
+      <strong>전압이 1% 아까운 이유</strong>
       <p>\(P \propto V^2\)이므로 전압 1% 여유(가드밴드)는 동적 전력 2%에 해당한다. 그래서 최신 SoC는 칩마다 측정한 전압 표(AVS, Adaptive Voltage Scaling)를 쓰고, 온칩 센서로 순간 전압 강하를 감지해 클럭을 잠깐 늦추는 회로(droop detector)로 가드밴드를 줄인다. 전원 무결성(<a href="board.html#pdn">4장</a>)이 나쁘면 이 여유를 다시 늘려야 하므로 보드 설계가 곧 전력 효율이다.</p>
     </div>
   </section>
@@ -563,7 +563,7 @@
         <div class="sim-view"><canvas id="cv-design"></canvas></div>
         <div class="sim-controls">
           <div class="ctrl"><span>AP 등급</span><div class="seg" id="ds-tier"><button data-value="mid">중급 (4 nm급)</button><button data-value="flag" class="on">플래그십 (3 nm급)</button></div></div>
-          <label class="ctrl"><span>게임 시 SoC 전력 상한 <output id="ds-p-out"></output></span><input type="range" id="ds-p" min="2" max="8" step="0.25" value="4.5"></label>
+          <label class="ctrl"><span>게임 시 SoC 전력 상한 <output id="ds-p-out"></output></span><input type="range" id="ds-p" min="2" max="8" step="0.25" value="6"></label>
           <div class="ctrl"><span>모뎀</span><div class="seg" id="ds-mdm"><button data-value="int" class="on">통합</button><button data-value="ext">외장</button></div></div>
           <div class="ctrl"><span>방열</span><div class="seg" id="ds-vc"><button data-value="0">그래파이트</button><button data-value="1" class="on">베이퍼 챔버</button></div></div>
         </div>
@@ -651,7 +651,7 @@
     ring.position.copy(bb.apPos); ring.position.y += 0.4;
     ring.userData.noPick = true;
     bb.group.add(ring);
-    const L = T.label("AP (SoC) + DRAM", bb.apPos.clone().add(new THREE.Vector3(0, 3, 0)));
+    const L = T.label("AP (SoC) + DRAM", bb.apPos.clone().add(new THREE.Vector3(24, 2, 6)));
     L.obj = bb.group;
     T.onFrame((dt, t) => { const s = 1 + 0.08 * Math.sin(t * 4); ring.scale.set(s, s, s); });
     const card = $("loc-card");
@@ -719,21 +719,25 @@
         r.setAttribute("x", x); r.setAttribute("y", y); r.setAttribute("width", w); r.setAttribute("height", h); r.setAttribute("rx", 3);
         g.appendChild(r);
       });
-      const big = b[5].reduce((a, r) => (r[2] * r[3] > a[2] * a[3] ? r : a));
-      const [x, y, w, h] = b[0] === "perf" ? [152, 20, 176, 88] : b[0] === "eff" ? [70, 112, 258, 40] : big;
-      const short = { prime: "프라임", perf: "성능 코어 ×3", eff: "효율 코어 ×4", l3: "CPU 공유 캐시", slc: "SLC", mem: "LPDDR PHY · 메모리 컨트롤러", misc: "전원·클럭·제어", io: "I/O PHY", sec: "보안", dsp: "DSP", codec: "비디오 코덱" }[b[0]] || b[1];
-      const vertical = w < 50;
-      const t = document.createElementNS(NS, "text");
-      t.setAttribute("x", x + w / 2); t.setAttribute("y", y + h / 2 + (h > 60 ? -4 : 5)); t.setAttribute("text-anchor", "middle");
-      if (vertical) t.setAttribute("transform", `rotate(-90 ${x + w / 2} ${y + h / 2 + 5})`);
-      t.textContent = vertical ? "LPDDR PHY" : short;
-      g.appendChild(t);
-      if (h > 60 && !vertical) {
-        const t2 = document.createElementNS(NS, "text");
-        t2.setAttribute("class", "sub"); t2.setAttribute("x", x + w / 2); t2.setAttribute("y", y + h / 2 + 16); t2.setAttribute("text-anchor", "middle");
-        t2.textContent = (areaOf(b) / total * 100).toFixed(0) + "%";
-        g.appendChild(t2);
-      }
+      const multi = b[5].length > 1;
+      const short = { prime: "프라임", l3: "CPU 공유 캐시", slc: "SLC", mem: "LPDDR PHY · 메모리 컨트롤러", misc: "전원·클럭·제어", io: "I/O PHY", sec: "보안", dsp: "DSP", codec: "비디오 코덱" }[b[0]] || b[1];
+      b[5].forEach(([x, y, w, h], ri) => {
+        const vertical = w < 50 && h > 100;
+        const name = b[0] === "perf" ? "성능" : b[0] === "eff" ? "효율" : vertical ? "LPDDR PHY" : multi && ri === 0 && b[0] === "mem" ? "" : short;
+        if (!name) return;
+        const t = document.createElementNS(NS, "text");
+        const cy = y + h / 2 + (h > 60 && !vertical ? -4 : 5);
+        t.setAttribute("x", x + w / 2); t.setAttribute("y", cy); t.setAttribute("text-anchor", "middle");
+        if (vertical) t.setAttribute("transform", `rotate(-90 ${x + w / 2} ${cy})`);
+        t.textContent = name;
+        g.appendChild(t);
+        if (h > 60 && !vertical && (!multi || ri === (b[0] === "mem" ? 1 : 0))) {
+          const t2 = document.createElementNS(NS, "text");
+          t2.setAttribute("class", "sub"); t2.setAttribute("x", x + w / 2); t2.setAttribute("y", y + h / 2 + 16); t2.setAttribute("text-anchor", "middle");
+          t2.textContent = (areaOf(b) / total * 100).toFixed(0) + "%";
+          g.appendChild(t2);
+        }
+      });
       g.addEventListener("click", () => select(b[0]));
       svg.appendChild(g);
       groups[b[0]] = g;
@@ -865,7 +869,7 @@
       const V = C.vOfF(f, dvt);
       const pd = C.pDyn(f, dvt), pl = C.pLeak(f, T, dvt), pt = pd + pl;
       const mode = view();
-      const box2 = { x: 58, y: h1 + 8, w: w - 76, h: h - h1 - 52 };
+      const box2 = { x: 58, y: h1 + 18, w: w - 76, h: h - h1 - 62 };
       if (mode === "p") {
         const tot = fs.map((x) => [x, C.p(x, T, dvt)]), dyn = fs.map((x) => [x, C.pDyn(x, dvt)]), cube = fs.map((x) => [x, C.pDyn(4.2, 0) * Math.pow(x / 4.2, 3)]);
         PB.chart(ctx, box2, {
@@ -978,8 +982,8 @@
         pts.push([t, p]);
       }
       PB.chart(ctx, { x: x0, y: py0, w: x1 - x0, h: ph }, { x: [0, 10], y: [0, 6.5], xLabel: "", yLabel: "", series: [{ data: pts, color: P.text, width: 1.6, fill: P.grid }], xFmt: (v) => v + " s" });
-      ctx.font = font(12); ctx.fillStyle = P.dim; ctx.textAlign = "right"; ctx.textBaseline = "middle";
-      ctx.fillText("CPU 전력 (W)", x0 - 30, py0 + 10);
+      ctx.font = font(12); ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("CPU 전력 (W)", x0 + 6, py0 + 2);
       PB.stat("hm-e", E.toFixed(1) + " J");
       PB.stat("hm-miss", miss > 0 ? `<span style="color:${P.bad}">${miss.toFixed(1)} s</span>` : "0 s");
     }, { height: 230 });
@@ -1006,7 +1010,7 @@
         const Ts = Ta + (Tav - Ta) * cfg.k;
         Tj = Ts + P * cfg.rjs;
         out.push({ t, x, Ts, Tj, P });
-        if (Tj > 95) x -= 0.05; else if (Ts > lim - 0.2) x -= 0.015; else if (Ts < lim - 1.2 && Tj < 92) x += 0.008;
+        if (Tj > 95) x -= 0.02; else x += PB.clamp(0.004 * (lim - 0.4 - Ts) - 0.02 * (Ts - (out.length > 20 ? out[out.length - 20].Ts : Ts)), -0.01, 0.006);
         x = PB.clamp(x, 0.2, 1);
         if (t0 == null && x < 0.985) t0 = t;
       }
@@ -1035,7 +1039,7 @@
       });
       ctx.fillStyle = P.accent; ctx.fillText("● 클럭(성능)", 60, h1 + 6);
       ctx.fillStyle = P.dim; ctx.fillText("┄ 전력 (요청 대비 %)", 160, h1 + 6);
-      if (n >= sim.out.length) {
+      {
         const last = sim.out.slice(-600), sus = last.reduce((s, o) => s + o.x, 0) / last.length;
         PB.stat("th-peak", "100 %");
         PB.stat("th-sus", (sus * 100).toFixed(0) + " % <small>(" + (last.reduce((s, o) => s + o.P, 0) / last.length).toFixed(1) + " W)</small>");
@@ -1045,7 +1049,7 @@
     }, { aspect: 0.66, minHeight: 360, maxHeight: 500 });
     const loop = PB.loop($("cv-thr"), (dt) => {
       if (!sim) return;
-      shown += dt * 450;
+      shown += dt * 900;
       cv.redraw();
       if (shown >= sim.out.length) loop.stop();
     });
@@ -1099,7 +1103,7 @@
       PB.stat("bw-effv", eff.toFixed(1) + " GB/s");
       PB.stat("bw-need", `<span style="color:${need > eff ? P.bad : P.text}">${need.toFixed(1)} GB/s</span>`);
       PB.stat("bw-pw", (Math.min(need, eff) * 8 * 5e-3).toFixed(2) + " W");
-    }, { height: 300 });
+    }, { height: 250 });
   })();
 
   /* =================================================== 8. 캐시 지연 */
@@ -1158,7 +1162,7 @@
       const bw = gBW();
       const roof = (ai) => Math.min(peak, bw * ai / 1000);
       const xs = []; for (let e = -1; e <= 3.0001; e += 0.02) xs.push(Math.pow(10, e));
-      const aiDec = 2 / (bits / 8), aiPre = Math.min(800, 2 * 256 / (bits / 8)), aiCnn = 120;
+      const aiDec = 2 / (bits / 8), aiPre = Math.min(250, 2 * 256 / (bits / 8)), aiCnn = 120;
       const ch = PB.chart(ctx, null, {
         x: [0.1, 1000], y: [0.01, 300], logX: true, logY: true, xLabel: "연산 강도 (연산/바이트)", yLabel: "도달 가능 성능 (TOPS)",
         series: [{ data: xs.map((x) => [x, Math.min(peak8 * 2, bw * x / 1000)]), color: P.faint, width: 1, dash: [3, 4] }, { data: xs.map((x) => [x, roof(x)]), color: P.accent, width: 3 }],
@@ -1204,16 +1208,18 @@
       const hours = batt / (pEff + OTHER + extP);
       const cost = (t === "flag" ? 100 : 55) + (ext ? 10 : 0) + (vc() === "1" ? 3 : 0);
       const ps = []; for (let p = 0.5; p <= 9; p += 0.05) ps.push(p);
-      PB.chart(ctx, null, {
+      const ch = PB.chart(ctx, null, {
         x: [0, 9], y: [0, 130], xLabel: "SoC 전력 (W)", yLabel: "게임 성능 (상대)",
         series: [
           { data: ps.map((p) => [p, perfOf("flag", p)]), color: t === "flag" ? P.accent : P.faint, width: t === "flag" ? 2.5 : 1.5, dash: t === "flag" ? [] : [4, 4] },
           { data: ps.map((p) => [p, perfOf("mid", p)]), color: t === "mid" ? P.accent : P.faint, width: t === "mid" ? 2.5 : 1.5, dash: t === "mid" ? [] : [4, 4] },
         ],
         bands: [{ x0: pAllowed, x1: 9, color: alpha(P.bad, 0.12) }],
-        vlines: [{ x: cap, color: P.dim, label: "상한 " + cap.toFixed(1) + " W" }, { x: pAllowed, color: P.bad, label: "열 한계 " + pAllowed.toFixed(1) + " W" }],
+        vlines: [{ x: cap, color: P.dim, label: "상한 " + cap.toFixed(1) + " W" }, { x: pAllowed, color: P.bad }],
         points: [{ x: pEff, y: perf, color: P.accent2, r: 6, label: perf.toFixed(0) }],
       });
+      ctx.font = font(12, false, 600); ctx.fillStyle = P.bad; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      ctx.fillText("열 한계 초과 영역", ch.X(pAllowed) + 6, ch.Y(0) - 6);
       PB.stat("ds-perf", perf.toFixed(0));
       PB.stat("ds-skin", skinUn > LIM + 0.05 ? `${skin.toFixed(1)} °C <small style="color:${P.bad}">(스로틀, 무제한 시 ${skinUn.toFixed(0)} °C)</small>` : skin.toFixed(1) + " °C");
       PB.stat("ds-hours", hours.toFixed(1) + " 시간");

@@ -1,0 +1,1463 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>디스플레이와 터치 · PhoneBook</title>
+<meta name="description" content="커버 글라스부터 TFT 백플레인까지 OLED 디스플레이 적층을 3D로 분해하고, 원편광판·서브픽셀·픽셀 회로·LTPO·PWM 디밍·정전용량 터치·번인을 시뮬레이터로 익힌다.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  .layer-info { padding: 14px 18px; border-top: 1px solid var(--border); background: var(--bg-elev); font-size: 14.5px; line-height: 1.6; min-height: 92px; }
+  .layer-info h4 { margin: 0 0 4px; font-size: 15.5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .layer-info h4 i { width: 12px; height: 12px; border-radius: 3px; flex: none; display: inline-block; }
+  .layer-info .th { font-family: var(--mono); font-size: 12.5px; color: var(--accent); font-weight: 600; }
+  .layer-info p { margin: 0; color: var(--text-dim); }
+  .layer-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .layer-chips button { font: inherit; font-size: 12.5px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; }
+  .layer-chips button.on { border-color: var(--accent); color: var(--accent); font-weight: 700; background: var(--accent-soft); }
+  .dp-stack text { dominant-baseline: middle; }
+  .cv-touch { touch-action: none; cursor: crosshair; }
+  .mini-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--text-dim); padding: 8px 18px 0; }
+  .mini-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+</style>
+</head>
+<body data-chapter="display">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 02</div>
+    <h1>디스플레이와 터치</h1>
+    <p class="lead">스마트폰 앞면 거의 전부를 차지하는 부품, 사용자가 가장 오래 바라보고 손가락으로 만지는 부품이 디스플레이다. 두께 1 mm도 안 되는 필름 안에 유리, 편광판, 터치 센서, 수 µm의 봉지막, 수백 nm의 유기 발광층, 수천만 개의 박막 트랜지스터가 겹쳐 있다. 이 장에서는 그 적층을 한 층씩 벗겨 보고, 화면이 왜 그렇게 설계되었는지를 전력·수명·두께·원가의 언어로 읽는다.</p>
+    <ul class="objectives">
+      <li>OLED 디스플레이 모듈의 적층(커버 글라스 → 편광판 → 터치 → 봉지 → 유기층 → TFT → 기판)과 각 층의 역할·두께를 설명할 수 있다.</li>
+      <li>원편광판이 외광 반사를 막는 원리와, 그 대가(발광의 절반 이상 손실)를 정량적으로 이해한다.</li>
+      <li>서브픽셀 배열, 픽셀 회로의 문턱전압 보상, OLED 전류–휘도 관계로 화질과 균일도를 해석한다.</li>
+      <li>휘도·APL·색에 따른 OLED 전력, LTPO 가변 주사율, PWM/DC 디밍의 트레이드오프를 계산한다.</li>
+      <li>상호정전용량 터치 센서가 좌표를 구하는 방법과 터치 지연의 구성 요소를 안다.</li>
+      <li>번인·언더디스플레이 카메라·패널 벤딩 등 설계 시 부딪히는 제약을 정리한다.</li>
+    </ul>
+  </header>
+
+  <!-- =============================================================== 1 -->
+  <section id="where">
+    <h2>폰 안의 위치: 앞면 전체를 덮는 얇은 판</h2>
+    <p>디스플레이 모듈은 폰의 가장 바깥, 커버 글라스 바로 밑에 붙는다. 앞면 면적의 약 90 % 이상이 활성 영역<span class="en">(active area)</span>이고, 6.1~6.9″ 화면이면 면적이 대략 90~115 cm²다. 모듈 두께는 커버 글라스를 빼고 약 0.6~1.0 mm로, 8 mm 남짓한 폰 두께에서 10 % 정도를 차지한다. 그 아래에는 금속 미드플레이트(<a href="mechanical.html">12장</a>)가 받쳐 주고, 패널 아래쪽 끝은 뒤로 접혀 구동 IC와 플렉스 케이블을 통해 메인보드(<a href="board.html">4장</a>)에 연결된다.</p>
+    <div class="sim" id="sim-where">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>폰 속의 디스플레이 모듈</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-where" style="height:400px"><div class="part-card" id="where-card" hidden></div><span class="hint">드래그: 회전 · 클릭: 부품 정보</span></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>분해 정도 <output id="wh-ex-out"></output></span><input type="range" id="wh-ex" min="0" max="1" step="0.01" value="0.6"></label>
+          <div class="ctrl"><span>강조 부품</span><div class="seg" id="wh-hl"><button data-value="display" class="on">디스플레이</button><button data-value="cover">커버 글라스</button><button data-value="frontcam">전면 카메라</button></div></div>
+          <label class="check"><input type="checkbox" id="wh-lab"> 모든 부품 이름 보기</label>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: 분해 정도를 0으로 내리면 디스플레이가 커버 글라스와 프레임 사이에 얼마나 얇게 끼어 있는지 보인다. 전면 카메라를 강조하면 디스플레이에 뚫린 펀치홀 위치와 겹친다는 것을 알 수 있다(<a href="#udc">10절</a>).</div>
+    </div>
+    <p>폰 전체 전력에서 디스플레이가 차지하는 몫은 사용 패턴에 따라 크게 다르다. 밝은 화면으로 웹을 볼 때는 화면이 시스템 전력의 30~50 %를 쓰기도 하고, 게임에서는 AP(<a href="soc.html">3장</a>)가, 영상 통화에서는 모뎀과 카메라가 더 크다. 그래도 "화면 켜짐 시간"이 배터리 수명의 1차 변수라는 점은 변하지 않는다. 그래서 디스플레이 설계의 많은 혁신, 즉 OLED, LTPO, 무편광판, 탠덤 구조는 결국 <b>같은 밝기를 더 적은 전력으로</b>라는 한 문장으로 요약된다.</p>
+  </section>
+
+  <!-- =============================================================== 2 -->
+  <section id="stack">
+    <h2>디스플레이 스택: 1 mm 안의 열 개 층</h2>
+    <p>스마트폰 OLED 모듈을 단면으로 자르면 위에서부터 다음 순서로 층이 쌓여 있다. 가장 두꺼운 것은 기계적 역할을 하는 커버 글라스와 보호·방열 필름이고, 정작 빛을 내는 유기층은 전체 두께의 0.1 %도 안 된다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 420" class="dp-stack" role="img" aria-label="OLED 디스플레이 모듈 단면 적층">
+        <defs><linearGradient id="dp-em" x1="0" x2="1"><stop offset="0" stop-color="#e0443e"/><stop offset=".5" stop-color="#2da44e"/><stop offset="1" stop-color="#2f6fe0"/></linearGradient></defs>
+        <rect x="40" y="20" width="360" height="70" rx="3" fill="#9fd3ff" fill-opacity=".35" stroke="var(--border)"/>
+        <text x="220" y="55" class="t" text-anchor="middle">커버 글라스</text>
+        <rect x="40" y="92" width="360" height="18" fill="var(--surface-2)" stroke="var(--border)"/><text x="220" y="101" class="t-dim" text-anchor="middle">OCA (광학 투명 접착제)</text>
+        <rect x="40" y="112" width="360" height="26" fill="#555c6b" fill-opacity=".55" stroke="var(--border)"/><text x="220" y="125" class="t" text-anchor="middle">원편광판 (선형 편광자 + λ/4)</text>
+        <rect x="40" y="140" width="360" height="16" class="f-acc-soft"/><text x="220" y="148" class="t-dim" text-anchor="middle">터치 센서 (on-cell 메탈 메시)</text>
+        <rect x="40" y="158" width="360" height="22" fill="var(--accent-2-soft)" stroke="var(--accent-2)"/><text x="220" y="169" class="t-dim" text-anchor="middle">박막 봉지 TFE (무기/유기/무기)</text>
+        <rect x="40" y="182" width="360" height="22" fill="url(#dp-em)" opacity=".85"/><text x="220" y="193" class="t" text-anchor="middle" style="fill:#fff">OLED 유기층 + 전극</text>
+        <rect x="40" y="206" width="360" height="30" fill="var(--surface)" stroke="var(--border)"/><text x="220" y="221" class="t" text-anchor="middle">TFT 백플레인 (LTPS / LTPO)</text>
+        <rect x="40" y="238" width="360" height="24" fill="#d9a441" fill-opacity=".45" stroke="var(--border)"/><text x="220" y="250" class="t" text-anchor="middle">PI 기판 + 배리어</text>
+        <rect x="40" y="264" width="360" height="40" fill="var(--surface-2)" stroke="var(--border)"/><text x="220" y="284" class="t" text-anchor="middle">백 필름 (PET 보호)</text>
+        <rect x="40" y="306" width="360" height="60" fill="#6b5b45" fill-opacity=".35" stroke="var(--border)"/><text x="220" y="336" class="t" text-anchor="middle">쿠션 폼 · 그래파이트 · 구리 시트</text>
+        <g class="t-mono">
+          <text x="420" y="55">0.5–0.7 mm</text>
+          <text x="420" y="101">50–150 µm</text>
+          <text x="420" y="125">40–100 µm (두께 ↓ 추세)</text>
+          <text x="420" y="148">수 µm (별도 필름 없음)</text>
+          <text x="420" y="169">5–15 µm</text>
+          <text x="420" y="193">유기 ~0.1–0.3 µm, 화소 정의막 ~1–2 µm</text>
+          <text x="420" y="221">수 µm (다층 금속·절연막)</text>
+          <text x="420" y="250">10–30 µm (이중 PI)</text>
+          <text x="420" y="284">50–100 µm</text>
+          <text x="420" y="336">100–300 µm</text>
+        </g>
+        <path d="M30 20 V366" class="s-axis"/><path d="M26 20 H34 M26 366 H34" class="s-axis"/>
+        <text x="40" y="392" class="t-dim">※ 두께 비율은 과장해 그렸다. 실제로는 커버 글라스와 하부 필름이 대부분을 차지한다.</text>
+      </svg>
+      <figcaption><b>그림 2-1.</b> 전형적인 플렉시블(on-cell 터치) OLED 모듈의 단면. 커버 글라스를 뺀 패널 모듈은 약 0.6~1.0 mm이고, 그중 빛을 만드는 유기층은 수백 nm에 불과하다. 터치 센서를 봉지막 위에 직접 패터닝하는 방식을 업계에서는 Y-OCTA류(on-cell touch)라 부른다.</figcaption>
+    </figure>
+    <p>아래 3D 씬은 같은 적층을 확대한 조각이다. 슬라이더로 층을 벌리고, 층을 클릭(또는 아래 칩 선택)하면 그 층이 무엇을 하는지 설명이 나온다. 유기층 위에는 R·G·B 서브픽셀이, TFT 층에는 화소마다 놓인 트랜지스터가, 터치 층에는 메탈 메시 전극이 보인다.</p>
+    <div class="sim" id="sim-stack">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>OLED 모듈 적층 분해</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-stack" style="height:440px"><span class="hint">드래그: 회전 · 클릭: 층 설명</span></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>층 분리 <output id="st-ex-out"></output></span><input type="range" id="st-ex" min="0" max="1" step="0.01" value="0.7"></label>
+          <label class="check"><input type="checkbox" id="st-lab" checked> 층 이름 라벨</label>
+          <label class="check"><input type="checkbox" id="st-glow" checked> 발광 애니메이션</label>
+          <div class="ctrl"><span>층 바로 선택</span><div class="layer-chips" id="st-chips"></div></div>
+        </div>
+      </div>
+      <div class="layer-info" id="st-info"><h4>층을 클릭해 보자</h4><p>각 층의 역할, 실제 두께, 재료와 설계 포인트가 여기에 표시된다.</p></div>
+    </div>
+    <p>층 순서에는 이유가 있다. 유기 발광 재료와 캐소드(얇은 Mg:Ag 합금)는 수분과 산소에 극도로 약해서, 수증기 투과율<span class="en">(WVTR)</span>이 10<sup>−6</sup> g/m²/day 수준이 되어야 수년을 버틴다. 이것을 유리 뚜껑 대신 무기막(SiN<sub>x</sub>, SiO<sub>x</sub>)과 유기막을 번갈아 쌓은 <span class="term">박막 봉지</span><span class="en">(TFE, Thin-Film Encapsulation)</span>로 해결한 것이 플렉시블 OLED의 핵심이다. 유기막은 파티클을 덮어 평탄화하고, 무기막이 실제 차단을 맡는다. 기판도 유리 대신 <span class="term">폴리이미드</span><span class="en">(PI)</span>를 써서 휘거나 접을 수 있다. PI는 400 °C대 TFT 공정 온도를 견디는 몇 안 되는 고분자이기 때문이다. 공정 중에는 PI를 유리 캐리어 위에 코팅해 TFT·OLED를 다 만든 뒤 레이저로 떼어 낸다<span class="en">(LLO, Laser Lift-Off)</span>.</p>
+    <div class="callout">
+      <strong>하부 필름은 왜 그렇게 두꺼운가</strong>
+      <p>PI 기판은 수십 µm라 혼자서는 종이보다 약하다. 아래에 붙는 PET 백 필름은 공정 중 취급과 기계적 지지를, 쿠션 폼은 낙하나 누름 압력이 TFT에 전달되는 것을 막는다. 그래파이트·구리 시트는 패널의 국부 발열을 퍼뜨리고 전자기 차폐와 접지도 겸한다. 여기에 지문 센서(<a href="sensors.html">9장</a>)가 패널 아래에 붙는 폰이라면, 광학식은 빛이 지나갈 창을, 초음파식은 음향 결합을 위해 하부 필름 구조를 따로 설계해야 한다.</p>
+    </div>
+  </section>
+
+  <!-- =============================================================== 3 -->
+  <section id="polarizer">
+    <h2>원편광판: 반사를 막는 대가로 빛의 절반을 버린다</h2>
+    <p>OLED의 전극은 금속이다. 아래쪽 애노드는 Ag 반사층을 품고 있고, 위쪽 캐소드도 반투명 금속이다. 빛을 앞으로 모으는 데는 유리하지만, 햇빛이 들어오면 화면이 거울처럼 반사해 검은색이 회색으로 뜬다. 이것을 막는 장치가 <span class="term">원편광판</span><span class="en">(circular polarizer)</span>이다. 선형 편광자 아래에 1/4 파장판<span class="en">(λ/4 retarder)</span>을 45°로 붙인 필름이다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 300" role="img" aria-label="원편광판의 외광 차단 원리">
+        <defs>
+          <marker id="pz-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent-2)"/></marker>
+          <marker id="pz-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker>
+        </defs>
+        <rect x="30" y="70" width="700" height="26" fill="#555c6b" fill-opacity=".5" stroke="var(--border)"/><text x="40" y="62" class="t">① 선형 편광자</text>
+        <rect x="30" y="140" width="700" height="22" class="f-acc2-soft"/><text x="40" y="132" class="t">② λ/4 위상차판 (축 45°)</text>
+        <rect x="30" y="232" width="700" height="18" fill="var(--text-faint)"/><text x="40" y="272" class="t">③ OLED 금속 전극 (거울)</text>
+        <!-- incoming ambient -->
+        <path d="M150 10 L210 228" stroke="var(--accent-2)" stroke-width="2.5" fill="none" marker-end="url(#pz-a)"/>
+        <path d="M222 228 L282 10" stroke="var(--accent-2)" stroke-width="2.5" fill="none" stroke-dasharray="6 5"/>
+        <text x="96" y="20" class="t-mono">외광 (비편광)</text>
+        <text x="186" y="112" class="t-mono">직선 편광 ↗ 50 %</text>
+        <text x="196" y="190" class="t-mono">원편광 ↻</text>
+        <text x="240" y="208" class="t-mono">반사 → ↺ (회전 반전)</text>
+        <text x="262" y="122" class="t-mono">직교 직선 편광 ↖</text>
+        <text x="282" y="50" class="t-acc">✕ 차단</text>
+        <!-- emitted light -->
+        <path d="M560 228 L560 14" stroke="var(--accent)" stroke-width="3" fill="none" marker-end="url(#pz-b)"/>
+        <text x="572" y="200" class="t-mono">OLED 발광 (비편광) 100 %</text>
+        <text x="572" y="122" class="t-mono">λ/4는 비편광에 영향 없음</text>
+        <text x="572" y="40" class="t-acc">통과 ≈ 42–45 %</text>
+      </svg>
+      <figcaption><b>그림 2-2.</b> 외광은 편광자에서 직선 편광이 되고, λ/4판에서 원편광이 된다. 금속에 반사되면 회전 방향이 바뀌고, λ/4판을 다시 지나면 처음과 직교하는 직선 편광이 되어 편광자에 막힌다. 반면 OLED가 내는 빛은 편광되지 않았으므로 편광자에서 절반 이상(흡수 손실까지 포함해 약 55~58 %)을 잃는다.</figcaption>
+    </figure>
+    <p>햇빛 아래 시인성은 <span class="term">명실 명암비</span><span class="en">(ambient contrast ratio)</span>로 따진다. 화면 반사율을 \(R\), 조도를 \(E\)라 하면 반사광의 휘도는 확산 반사 근사로 \(R E / \pi\)이다.</p>
+    <div class="formula">$$\mathrm{ACR} = \frac{L_\text{white} + R E/\pi}{L_\text{black} + R E/\pi}$$
+      <div class="where">\(L_\text{black}\)은 OLED에서 사실상 0이다. 한낮 직사광선 \(E\) ≈ 100,000 lx, 반사율 5 %이면 \(RE/\pi\) ≈ 1,600 nit. 화면이 1,000 nit밖에 안 되면 ACR ≈ 1.6이 되어 글씨가 겨우 보인다. 그래서 야외 고휘도 모드<span class="en">(HBM)</span>가 1,500~3,000 nit까지 올라간다.</div>
+    </div>
+    <div class="sim" id="sim-pol">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>햇빛 아래 명암비: 편광판 vs 무편광판</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-pol"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>주변 조도 <output id="pol-lux-out"></output></span><input type="range" id="pol-lux" min="1" max="5" step="0.01" value="4.3"></label>
+          <label class="ctrl"><span>패널 발광 휘도(편광판 전) <output id="pol-L-out"></output></span><input type="range" id="pol-L" min="200" max="6000" step="50" value="2400"></label>
+          <div class="ctrl"><span>반사 억제 구조</span><div class="seg" id="pol-mode"><button data-value="none">없음</button><button data-value="cp" class="on">원편광판</button><button data-value="coe">무편광판(CF)</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">화면 휘도(출사)</span><span class="v" id="pol-o-L">—</span></div>
+        <div class="stat"><span class="k">반사 휘도</span><span class="v" id="pol-o-R">—</span></div>
+        <div class="stat"><span class="k">명실 명암비</span><span class="v" id="pol-o-cr">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽은 그 조건에서 보이는 화면(흰 글씨/검은 배경 UI), 오른쪽은 조도에 따른 명암비 곡선이다. "없음"은 외광을 그대로 반사해 실내에서도 검은색이 뜨고, 원편광판은 반사를 잘 막지만 발광의 약 56 %를 버린다. 무편광판은 그 중간이다.</div>
+    </div>
+    <h3>무편광판 기술</h3>
+    <p>편광판을 빼고 대신 봉지막 위에 <b>컬러 필터와 블랙 매트릭스</b>를 직접 형성하는 방식이 있다<span class="en">(CoE, Color filter on Encapsulation; 업체마다 명칭이 다르다)</span>. 각 서브픽셀 위에 같은 색 필터가 놓이므로 자기 빛은 대부분 통과하고, 외광은 세 색 중 한 색만 통과해 반사되고 나머지는 흡수된다. 블랙 매트릭스는 화소 사이의 금속 배선 반사를 가린다. 결과적으로 발광 효율이 편광판 대비 대략 1.3~1.5배로 오르고, 두께는 수십 µm 줄며, 접는 폰처럼 굽힘 반경이 작은 패널에 유리하다. 대신 반사율이 편광판보다 약간 높고(반사색이 생길 수 있음), 사선에서 색 변화와 공정 난이도가 과제다. 폴더블 패널에서 먼저 쓰였고, 저전력이 중요한 바형 폰으로 확산 중이다.</p>
+  </section>
+
+  <!-- =============================================================== 4 -->
+  <section id="subpixel">
+    <h2>서브픽셀 배열: 픽셀 하나에 서브픽셀은 몇 개인가</h2>
+    <p>LCD는 오랫동안 한 픽셀을 R·G·B 세 줄무늬로 나누는 <span class="term">RGB 스트라이프</span>를 써 왔다. OLED는 사정이 다르다. 유기물을 섀도 마스크<span class="en">(FMM, Fine Metal Mask)</span>로 증착하기 때문에 서브픽셀을 촘촘히 놓는 데 한계가 있고, 색마다 수명과 효율이 달라 면적을 다르게 줘야 한다. 그래서 대부분의 스마트폰 OLED는 녹색을 매 픽셀에, 적색과 청색은 두 픽셀에 하나꼴로 놓는 <span class="term">펜타일</span><span class="en">(PenTile, RGBG)</span> 계열, 특히 서브픽셀을 다이아몬드 격자로 배치한 구조를 쓴다.</p>
+    <p>이게 화질에 손해일까? 사람 눈의 해상력은 휘도(대부분 녹색이 담당)에 대해서는 높고 색차에 대해서는 낮다. 녹색은 모든 픽셀에 있으므로 휘도 해상도는 거의 그대로이고, 적·청색 해상도만 각 방향으로 \(1/\sqrt{2}\)배가 된다. 서브픽셀 렌더링 알고리즘이 R/B를 이웃 픽셀과 나눠 쓴다. 대신 고해상도에서는 문제가 없지만, ppi가 낮으면 흰 글자의 가장자리에 색 번짐이나 자글거림이 보일 수 있다.</p>
+    <div class="sim" id="sim-sub">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>서브픽셀 확대경</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-sub"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>배열</span><div class="seg" id="sub-lay"><button data-value="stripe">RGB 스트라이프</button><button data-value="pentile">RGBG 펜타일</button><button data-value="diamond" class="on">다이아몬드</button></div></div>
+          <div class="ctrl"><span>테스트 패턴</span><div class="seg" id="sub-pat"><button data-value="text" class="on">글자</button><button data-value="lines">가는 선</button><button data-value="color">색 경계</button></div></div>
+          <label class="ctrl"><span>확대(가로 픽셀 수) <output id="sub-n-out"></output></span><input type="range" id="sub-n" min="12" max="48" step="1" value="24"></label>
+          <label class="ctrl"><span>화소 밀도 <output id="sub-ppi-out"></output></span><input type="range" id="sub-ppi" min="250" max="600" step="5" value="460"></label>
+          <label class="ctrl"><span>시청 거리 <output id="sub-d-out"></output></span><input type="range" id="sub-d" min="10" max="50" step="1" value="30"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">서브픽셀/픽셀</span><span class="v" id="sub-o-n">—</span></div>
+        <div class="stat"><span class="k">R·B 유효 밀도</span><span class="v" id="sub-o-rb">—</span></div>
+        <div class="stat"><span class="k">1′ 분해 한계 거리</span><span class="v" id="sub-o-d">—</span></div>
+        <div class="stat"><span class="k">이 거리에서 화소 각</span><span class="v" id="sub-o-a">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽은 현미경으로 본 서브픽셀, 오른쪽은 설정한 거리에서 눈(시력 1.0, 약 1분각 분해)이 보는 모습을 흉내 낸 것이다. 해볼 것: ppi를 300으로 낮추고 펜타일에서 "가는 선"을 보라. 대각선 R/B 가장자리에 색 줄무늬가 생긴다. 시청 거리를 늘리면 차이가 사라진다.</div>
+    </div>
+    <p>시력 1.0인 눈은 약 1분각(1/60°)의 간격을 구분한다. 화소 피치 \(p\)가 이 각보다 작아지는 거리는 \(d = p / \tan(1/60°) \approx 3438\,p\)이다. 460 ppi(\(p\) = 55 µm)면 약 19 cm로, 일반적인 시청 거리 25~35 cm보다 가깝다. 즉 이 정도 밀도에서는 화소 격자 자체는 보이지 않는다. 그 이상으로 ppi를 올리면 전력(화소 수 ∝ 구동 전력·발광 개구율 저하)과 수율만 나빠지고 이득은 VR 같은 특수 용도에서나 생긴다. 현재 플래그십이 400~520 ppi에 머무는 이유다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>항목</th><th>RGB 스트라이프</th><th>펜타일/다이아몬드</th></tr></thead>
+      <tbody>
+        <tr><td>서브픽셀 수</td><td class="num">3 / 픽셀</td><td class="num">2 / 픽셀</td></tr>
+        <tr><td>FMM 증착 난도(같은 ppi)</td><td>높음 (개구 간격이 좁음)</td><td>낮음</td></tr>
+        <tr><td>색별 면적 조절</td><td>어려움</td><td>쉬움 (청색을 크게 → 수명 균형)</td></tr>
+        <tr><td>R·B 해상도</td><td>ppi</td><td>ppi / √2</td></tr>
+        <tr><td>대표 사용처</td><td>LCD, 일부 태블릿·모니터 OLED</td><td>대부분의 스마트폰 OLED</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- =============================================================== 5 -->
+  <section id="pixelcircuit">
+    <h2>픽셀 회로: 수천만 개의 전류원을 똑같이 만들기</h2>
+    <p>LCD 픽셀은 전압으로 액정의 투과율을 바꾸는 "밸브"다. OLED 픽셀은 스스로 빛을 내는 다이오드이고 휘도가 <b>전류</b>에 비례한다. 그래서 각 서브픽셀마다 전압을 전류로 바꿔 주는 트랜지스터, 즉 구동 TFT가 필요하다. 가장 단순한 회로가 2T1C(트랜지스터 2개, 커패시터 1개)다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 330" role="img" aria-label="2T1C 픽셀 회로와 7T1C 보상 회로 동작 단계">
+        <text x="20" y="24" class="t-acc">2T1C 기본 회로</text>
+        <path d="M60 60 H360" class="s-line"/><text x="20" y="64" class="t-mono">ELVDD</text>
+        <path d="M60 300 H360" class="s-line"/><text x="20" y="304" class="t-mono">ELVSS</text>
+        <path d="M40 120 H130" class="s-line"/><text x="20" y="112" class="t-mono">Scan</text>
+        <path d="M100 330 V140" class="s-line" style="stroke-dasharray:4 3"/><text x="70" y="324" class="t-mono">Data</text>
+        <!-- T1 switching -->
+        <rect x="120" y="110" width="40" height="44" rx="4" class="f-elev"/><text x="140" y="137" class="t-mono" text-anchor="middle">T1</text>
+        <path d="M100 160 H120" class="s-line"/><path d="M160 140 H220" class="s-line"/>
+        <circle cx="220" cy="140" r="3.5" fill="var(--text-dim)"/>
+        <!-- Cst -->
+        <path d="M220 140 V110 M206 110 H234 M206 100 H234 M220 100 V60" class="s-line"/><text x="240" y="108" class="t-mono">Cst</text>
+        <!-- T2 driving -->
+        <rect x="236" y="150" width="58" height="56" rx="4" class="f-acc-soft"/><text x="265" y="182" class="t-acc" text-anchor="middle">T2</text>
+        <path d="M220 140 V178 H236" class="s-line"/>
+        <path d="M265 150 V60" class="s-line"/>
+        <path d="M265 206 V236" class="s-line"/>
+        <!-- OLED -->
+        <path d="M245 236 H285 L265 264 Z" fill="var(--accent-2-soft)" stroke="var(--accent-2)"/><path d="M245 264 H285" stroke="var(--accent-2)" stroke-width="2"/>
+        <path d="M265 264 V300" class="s-line"/><text x="296" y="256" class="t-mono">OLED</text>
+        <path d="M296 230 l14 -10 M300 240 l14 -10" stroke="var(--accent-2)" stroke-width="1.5"/>
+        <text x="300" y="186" class="t-mono">구동 TFT</text>
+        <text x="300" y="200" class="t-mono">(전류원)</text>
+        <!-- right: phases -->
+        <text x="420" y="24" class="t-acc">7T1C류 보상 회로의 세 단계</text>
+        <rect x="420" y="44" width="320" height="70" rx="8" class="f-surface"/>
+        <text x="434" y="68" class="t">① 초기화</text><text x="434" y="92" class="t-dim">게이트 전압과 애노드를 리셋 (이전 프레임 지우기)</text>
+        <rect x="420" y="124" width="320" height="86" rx="8" class="f-acc-soft"/>
+        <text x="434" y="148" class="t">② 보상 + 데이터 기록</text><text x="434" y="172" class="t-dim">T2를 다이오드 연결 → 게이트가</text><text x="434" y="192" class="t-mono">V_G = V_data − |V_th|  로 수렴해 Cst에 저장</text>
+        <rect x="420" y="220" width="320" height="80" rx="8" class="f-acc2-soft"/>
+        <text x="434" y="244" class="t">③ 발광</text><text x="434" y="268" class="t-dim">I ∝ (V_SG − |V_th|)² = (ELVDD − V_data)²</text><text x="434" y="288" class="t-dim">→ V_th 항이 상쇄된다</text>
+      </svg>
+      <figcaption><b>그림 2-3.</b> 왼쪽: 스위칭 TFT(T1)가 데이터 전압을 저장 커패시터에 기록하고, 구동 TFT(T2)가 그 전압에 따라 OLED 전류를 흘린다. 오른쪽: 실제 스마트폰 패널은 6~8개 TFT로 구동 TFT의 문턱전압을 스스로 측정해 상쇄하는 내부 보상 회로를 쓴다(그림은 p형 LTPS 기준 개념도).</figcaption>
+    </figure>
+    <p>구동 TFT가 포화 영역에서 동작하면 전류는 대략</p>
+    <div class="formula">$$I_\text{OLED} = \frac{1}{2}\mu C_\text{ox}\frac{W}{L}\left(V_{SG} - |V_{th}|\right)^2$$
+      <div class="where">\(\mu\): 이동도, \(C_\text{ox}\): 게이트 절연막 용량, \(W/L\): 채널 폭/길이. LTPS(저온 다결정 실리콘)는 이동도가 높지만(~50–100 cm²/V·s) 레이저 결정화 때문에 결정립 경계가 화소마다 달라 \(V_{th}\)가 수십~100 mV 이상 흩어진다.</div>
+    </div>
+    <p>문제는 저계조다. 어두운 회색을 낼 때는 \(V_{SG} - |V_{th}|\)가 수십~수백 mV에 불과하다. 여기에 \(V_{th}\)가 50 mV만 달라도 전류는 제곱으로 크게 변한다. 1차 근사로 휘도 편차는 \(\Delta L / L \approx 2\,\Delta V_{th} / V_{ov}\)이다. 그래서 보상이 없는 패널은 어두운 화면에서 얼룩<span class="en">(mura)</span>이 보인다. 내부 보상에 더해, 공장에서 카메라로 화면을 찍어 화소별 보정값을 메모리에 저장하는 <b>외부 보상</b><span class="en">(demura)</span>도 함께 쓴다.</p>
+    <div class="sim" id="sim-mura">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>문턱전압 편차와 저계조 얼룩</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-mura"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>계조(0–255) <output id="mu-g-out"></output></span><input type="range" id="mu-g" min="4" max="255" step="1" value="32"></label>
+          <label class="ctrl"><span><span>V<sub>th</sub> 편차 σ</span> <output id="mu-s-out"></output></span><input type="range" id="mu-s" min="0" max="150" step="1" value="50"></label>
+          <div class="ctrl"><span>픽셀 회로</span><div class="seg" id="mu-c"><button data-value="2t" class="on">2T1C (보상 없음)</button><button data-value="7t">7T1C (내부 보상)</button></div></div>
+          <button class="btn" id="mu-re">새 패널 샘플링</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">과구동 전압 V<sub>ov</sub></span><span class="v" id="mu-o-v">—</span></div>
+        <div class="stat"><span class="k">휘도 불균일(σ/평균)</span><span class="v" id="mu-o-u">—</span></div>
+        <div class="stat"><span class="k">최대–최소</span><span class="v" id="mu-o-r">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽 격자는 화소 휘도를 목표 휘도로 정규화해 회색으로 보여 준다(편차만 보이도록). 오른쪽은 계조에 따른 불균일 곡선이다. 해볼 것: 2T1C에서 계조를 255→16으로 내려 보라. 같은 σ인데 어두울수록 얼룩이 폭발한다. 7T1C로 바꾸면 남는 것은 보상 오차(누설, 기생 용량)뿐이다.</div>
+    </div>
+    <div class="callout deep">
+      <strong>LTPS, 산화물, LTPO</strong>
+      <p>LTPS TFT는 빠르고 작게 만들 수 있어 고해상도 구동 TFT와 패널 내장 게이트 구동 회로에 적합하다. 산화물(IGZO 등) TFT는 이동도가 10~30 cm²/V·s로 낮지만 꺼짐 전류가 LTPS보다 수 자릿수 작다. <span class="term">LTPO</span><span class="en">(Low-Temperature Polycrystalline Oxide)</span>는 한 화소 안에 두 종류를 섞어, 전하를 오래 붙잡아야 하는 스위칭 TFT에는 산화물을, 전류를 내는 구동 TFT에는 LTPS를 쓴다. 이 덕분에 주사율을 1 Hz까지 낮춰도 저장 전압이 새지 않는다(<a href="#refresh">7절</a>).</p>
+    </div>
+  </section>
+
+  <!-- =============================================================== 6 -->
+  <section id="power">
+    <h2>OLED 전력: 검은색은 0 W</h2>
+    <p>LCD는 백라이트가 항상 켜져 있고 액정이 빛을 막아 검은색을 만든다. 검은 화면이든 흰 화면이든 백라이트 전력은 같다. OLED는 화소가 직접 빛을 내므로 <b>꺼진 화소는 전력을 쓰지 않는다</b>. 그래서 OLED 전력은 화면 내용, 정확히는 각 색 채널의 선형 휘도 평균<span class="en">(APL, Average Picture Level)</span>에 비례한다.</p>
+    <div class="formula">$$P_\text{panel} \approx P_\text{drive}(f) + \sum_{c\in\{R,G,B\}} \frac{\pi\,A\,L_\text{peak}\,w_c\,\overline{x_c}}{\eta_c}$$
+      <div class="where">\(A\): 활성 면적(6.7″ ≈ 0.011 m²), \(L_\text{peak}\): 흰색 휘도, \(w_c\): 흰색(D65)에서 각 색의 휘도 비율(R 0.21, G 0.72, B 0.07), \(\overline{x_c}\): 그 채널의 선형 평균 레벨(감마 디코딩 후), \(\eta_c\): 편광판·구동 손실까지 포함한 패널 발광 효율(lm/W). 청색은 효율이 가장 낮아 휘도 비율은 7 %인데 전력은 3분의 1가량을 먹는다.</div>
+    </div>
+    <div class="sim" id="sim-power">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>화면 전력 계산기: 휘도 × 내용 × 색</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-power"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>흰색 휘도 <output id="pw-L-out"></output></span><input type="range" id="pw-L" min="2" max="1600" step="1" value="300"></label>
+          <div class="ctrl"><span>화면 내용</span><div class="seg" id="pw-c"><button data-value="light" class="on">라이트 UI</button><button data-value="dark">다크 UI</button><button data-value="photo">사진</button><button data-value="white">순백</button><button data-value="black">순흑</button><button data-value="custom">단색</button></div></div>
+          <label class="ctrl"><span>단색 R <output id="pw-r-out"></output></span><input type="range" id="pw-r" min="0" max="255" value="40"></label>
+          <label class="ctrl"><span>단색 G <output id="pw-g-out"></output></span><input type="range" id="pw-g" min="0" max="255" value="90"></label>
+          <label class="ctrl"><span>단색 B <output id="pw-b-out"></output></span><input type="range" id="pw-b" min="0" max="255" value="200"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">APL(휘도 가중)</span><span class="v" id="pw-o-apl">—</span></div>
+        <div class="stat"><span class="k">OLED 패널 전력</span><span class="v" id="pw-o-oled">—</span></div>
+        <div class="stat"><span class="k">같은 휘도의 LCD</span><span class="v" id="pw-o-lcd">—</span></div>
+        <div class="stat"><span class="k">라이트 UI 대비</span><span class="v" id="pw-o-save">—</span></div>
+      </div>
+      <div class="sim-note">교육용 근사 모델(6.7″, 원편광판, 120 Hz 구동 전력 포함). 해볼 것: 300 nit에서 라이트 UI와 다크 UI를 비교하라. 다크 모드는 패널 전력을 수십 % 줄이지만, 화면이 시스템 전체 전력의 일부이므로 배터리 사용 시간 개선은 그보다 작다. "단색"에서 파란색만 올려 보면 청색이 얼마나 비싼 색인지 보인다. 흰 화면이 많은 내용에서는 OLED가 오히려 LCD와 비슷하거나 더 많이 쓴다는 점도 확인하자.</div>
+    </div>
+    <p>실제 패널은 여기에 한 가지가 더 붙는다. 흰 화면을 전체에 띄울 때와 작은 창 하나만 띄울 때 허용 최대 휘도가 다르다. 전류가 많이 흐르면 전원 배선의 IR 강하, 발열, 수명이 문제가 되므로 APL이 높을수록 피크 휘도를 낮추는 <span class="term">APL 제한</span><span class="en">(ABL, Automatic Brightness Limiting)</span>이 걸린다. 사양서의 "피크 휘도 3,000 nit"는 대개 작은 영역(APL 수 %)에서의 값이고, 전체 흰 화면 휘도는 그보다 훨씬 낮다.</p>
+  </section>
+
+  <!-- =============================================================== 7 -->
+  <section id="refresh">
+    <h2>주사율과 LTPO: 안 바뀌는 화면은 다시 그리지 않는다</h2>
+    <p>120 Hz 화면은 1초에 120번 모든 행을 다시 쓴다. 매번 데이터 드라이버가 수천 개 열 배선의 큰 기생 용량을 충·방전하고, 게이트 드라이버가 모든 행을 훑는다. 이 구동 전력은 대략 \(P \propto C V^2 f\)로 주사율 \(f\)에 비례한다. 그런데 화면을 읽고 있을 때처럼 내용이 바뀌지 않는 시간이 사용 시간의 상당 부분이다. 그때 주사율을 1~10 Hz로 낮출 수 있다면 구동 전력 대부분을 아낄 수 있다.</p>
+    <p>걸림돌은 누설이다. 주사율이 1 Hz이면 저장 커패시터가 1초 동안 전압을 붙잡고 있어야 한다. LTPS 스위칭 TFT의 꺼짐 전류(pA 수준)로는 그동안 수백 mV 이상 새어 휘도가 변하고, 다음 갱신 때 깜빡임으로 보인다. 꺼짐 전류가 수 자릿수 작은 산화물 TFT를 스위칭에 쓰는 LTPO가 이 문제를 풀었다.</p>
+    <div class="sim" id="sim-ltpo">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>사용 시나리오별 가변 주사율과 구동 전력</h3></div>
+      <div class="sim-body">
+        <div class="sim-view"><canvas id="cv-ltpo"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>패널 방식</span><div class="seg" id="lt-m"><button data-value="f120">120 Hz 고정</button><button data-value="f60">60 Hz 고정</button><button data-value="ltps">LTPS 가변 (≥30)</button><button data-value="ltpo" class="on">LTPO 가변 (1–120)</button></div></div>
+          <label class="ctrl"><span>120 Hz 구동 전력 <output id="lt-p-out"></output></span><input type="range" id="lt-p" min="0.1" max="0.5" step="0.01" value="0.25"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">평균 주사율</span><span class="v" id="lt-o-f">—</span></div>
+        <div class="stat"><span class="k">평균 구동 전력</span><span class="v" id="lt-o-p">—</span></div>
+        <div class="stat"><span class="k">120 Hz 고정 대비</span><span class="v" id="lt-o-s">—</span></div>
+        <div class="stat"><span class="k">스크롤 부드러움</span><span class="v" id="lt-o-q">—</span></div>
+      </div>
+      <div class="sim-note">60초짜리 사용 시나리오: 글 읽기 → 스크롤 → 24 fps 동영상 → 게임 → 사진 보기 → AOD(Always-On Display). 구동 전력만 모델링했다(발광 전력은 주사율과 무관). 120 Hz 고정은 부드럽지만 정지 화면에서 낭비가 크고, 60 Hz 고정은 스크롤이 덜 부드럽다.</div>
+    </div>
+    <div class="sim" id="sim-leak">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>유지 시간 동안의 누설과 깜빡임</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-leak"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>주사율 <output id="lk-f-out"></output></span><input type="range" id="lk-f" min="0" max="7" step="1" value="2"></label>
+          <div class="ctrl"><span>스위칭 TFT</span><div class="seg" id="lk-t"><button data-value="ltps" class="on">LTPS</button><button data-value="ox">산화물 (LTPO)</button></div></div>
+          <label class="ctrl"><span>계조 <output id="lk-g-out"></output></span><input type="range" id="lk-g" min="8" max="255" value="40"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">한 프레임 유지 시간</span><span class="v" id="lk-o-t">—</span></div>
+        <div class="stat"><span class="k">게이트 전압 변화</span><span class="v" id="lk-o-v">—</span></div>
+        <div class="stat"><span class="k">프레임 내 휘도 변화</span><span class="v" id="lk-o-l">—</span></div>
+      </div>
+      <div class="sim-note">저장 커패시터 ~100 fF, 꺼짐 전류 LTPS ~0.3 pA, 산화물 ~0.3 fA로 둔 개념 모델. 휘도가 프레임마다 톱니처럼 떨어졌다가 갱신 때 복원되는 것이 깜빡임으로 보인다. 저계조일수록 같은 전압 변화가 큰 휘도 변화가 된다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 8 -->
+  <section id="dimming">
+    <h2>PWM 디밍과 DC 디밍: 어둡게 하는 두 가지 방법</h2>
+    <p>화면을 어둡게 하려면 OLED 전류를 줄이면 된다(<span class="term">DC 디밍</span>). 그런데 앞의 얼룩 시뮬레이터에서 봤듯이, 아주 낮은 전류에서는 구동 TFT 편차가 크게 드러나고 색 좌표도 틀어진다. 그래서 OLED는 저휘도에서 전류는 일정 수준 이상으로 두고 <b>켜져 있는 시간 비율</b>을 줄이는 <span class="term">PWM 디밍</span><span class="en">(Pulse Width Modulation)</span>을 많이 쓴다. 한 프레임 안에서 발광 제어 신호가 여러 번 켜졌다 꺼진다.</p>
+    <p>PWM은 화질에 유리하지만, 낮은 주파수에서는 일부 사람에게 눈의 피로·두통을 일으킨다고 알려져 있고, 카메라로 화면을 찍으면 줄무늬가 생긴다. 전통적으로 스마트폰 OLED의 PWM 주파수는 240~480 Hz였고, 최근에는 1,920~3,840 Hz 이상의 고주파 PWM이나 일정 휘도 이상에서는 DC로 전환하는 하이브리드 방식이 늘었다.</p>
+    <div class="sim" id="sim-pwm">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>디밍 파형과 카메라에 찍히는 줄무늬</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-pwm"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>밝기 <output id="pm-b-out"></output></span><input type="range" id="pm-b" min="2" max="100" value="20"></label>
+          <div class="ctrl"><span>디밍 방식</span><div class="seg" id="pm-m"><button data-value="pwm" class="on">PWM</button><button data-value="dc">DC</button><button data-value="hyb">하이브리드</button></div></div>
+          <label class="ctrl"><span>PWM 주파수 <output id="pm-f-out"></output></span><input type="range" id="pm-f" min="0" max="5" step="1" value="0"></label>
+          <div class="ctrl"><span>카메라 셔터</span><div class="seg" id="pm-s"><button data-value="30">1/30</button><button data-value="250" class="on">1/250</button><button data-value="1000">1/1000</button><button data-value="8000">1/8000</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">듀티 / 진폭</span><span class="v" id="pm-o-d">—</span></div>
+        <div class="stat"><span class="k">변조 깊이(% flicker)</span><span class="v" id="pm-o-m">—</span></div>
+        <div class="stat"><span class="k">IEEE 1789 판정</span><span class="v" id="pm-o-i">—</span></div>
+        <div class="stat"><span class="k">사진 줄무늬 대비</span><span class="v" id="pm-o-b">—</span></div>
+      </div>
+      <div class="sim-note">위: 10 ms 동안의 발광 파형. 아래: 롤링 셔터 카메라(전체 읽기 20 ms)로 흰 화면을 찍은 결과. 각 행은 서로 다른 시각에 노출되므로, 노출 시간이 PWM 주기보다 짧으면 행마다 켜짐 시간을 다르게 잡아 줄무늬가 된다. 해볼 것: 셔터를 1/8000로 하고 주파수를 바꿔 보라. 줄무늬 간격은 \(1/(f \cdot t_\text{line})\) 행이다.</div>
+    </div>
+    <p>깜빡임 위험의 지표로 흔히 IEEE 1789-2015의 권고를 인용한다. 변조 깊이 \(\mathrm{Mod} = (L_{\max} - L_{\min})/(L_{\max} + L_{\min})\)가 90~1,250 Hz에서 \(0.08 \times f\) 이하면 저위험, \(0.0333 \times f\) 이하면 영향 없음으로 본다(1,250 Hz 이상은 저위험, 3,000 Hz 이상은 영향 없음). 듀티가 낮은 PWM은 변조 깊이가 100 %이므로 사실상 주파수만이 판정을 가른다. 다만 이 권고는 조명용이고, 화면 깜빡임 민감도는 개인차가 크다는 점도 함께 기억하자.</p>
+  </section>
+
+  <!-- =============================================================== 9 -->
+  <section id="touch">
+    <h2>터치 센서: 손가락이 빼앗는 전기력선</h2>
+    <p>스마트폰 터치는 <span class="term">상호정전용량</span><span class="en">(mutual capacitance)</span> 방식이다. 송신(Tx) 전극 줄과 수신(Rx) 전극 줄이 격자를 이루고, 교차점마다 1~2 pF 남짓한 상호 용량이 있다. 손가락이 다가오면 Tx에서 Rx로 가던 전기력선의 일부가 손가락(인체는 큰 접지)으로 빠져 교차점의 용량이 수 %~20 % 줄어든다. 터치 IC는 Tx 줄을 하나씩(또는 코드로 동시에) 구동하면서 모든 Rx의 전하를 읽어, 교차점 용량 변화의 2차원 지도를 1초에 수백 번 만든다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 300" role="img" aria-label="상호정전용량 터치 센서 전극과 전기력선">
+        <text x="20" y="24" class="t-acc">전극 배치 (위에서 본 모습)</text>
+        <g transform="translate(30,40)">
+          <g fill="var(--accent-soft)" stroke="var(--accent)">
+            <path d="M0 40 l20 -20 l20 20 l-20 20z M40 40 l20 -20 l20 20 l-20 20z M80 40 l20 -20 l20 20 l-20 20z M120 40 l20 -20 l20 20 l-20 20z M160 40 l20 -20 l20 20 l-20 20z M200 40 l20 -20 l20 20 l-20 20z"/>
+            <path d="M0 120 l20 -20 l20 20 l-20 20z M40 120 l20 -20 l20 20 l-20 20z M80 120 l20 -20 l20 20 l-20 20z M120 120 l20 -20 l20 20 l-20 20z M160 120 l20 -20 l20 20 l-20 20z M200 120 l20 -20 l20 20 l-20 20z"/>
+            <path d="M0 200 l20 -20 l20 20 l-20 20z M40 200 l20 -20 l20 20 l-20 20z M80 200 l20 -20 l20 20 l-20 20z M120 200 l20 -20 l20 20 l-20 20z M160 200 l20 -20 l20 20 l-20 20z M200 200 l20 -20 l20 20 l-20 20z"/>
+          </g>
+          <g fill="var(--accent-2-soft)" stroke="var(--accent-2)">
+            <path d="M20 60 l20 20 l-20 20 l-20 -20z M20 140 l20 20 l-20 20 l-20 -20z M20 -20 l20 20 l-20 20 l-20 -20z" transform="translate(20,0)"/>
+            <path d="M20 60 l20 20 l-20 20 l-20 -20z M20 140 l20 20 l-20 20 l-20 -20z M20 -20 l20 20 l-20 20 l-20 -20z" transform="translate(100,0)"/>
+            <path d="M20 60 l20 20 l-20 20 l-20 -20z M20 140 l20 20 l-20 20 l-20 -20z M20 -20 l20 20 l-20 20 l-20 -20z" transform="translate(180,0)"/>
+          </g>
+          <text x="250" y="44" class="t-mono">Tx0</text><text x="250" y="124" class="t-mono">Tx1</text><text x="250" y="204" class="t-mono">Tx2</text>
+          <text x="30" y="250" class="t-mono">Rx0</text><text x="110" y="250" class="t-mono">Rx1</text><text x="190" y="250" class="t-mono">Rx2</text>
+        </g>
+        <text x="330" y="24" class="t-acc">단면: 손가락이 전기력선을 가로챈다</text>
+        <rect x="330" y="200" width="410" height="14" fill="var(--surface-2)"/><text x="336" y="232" class="t-mono">커버 글라스 아래 터치 층</text>
+        <rect x="400" y="194" width="70" height="8" fill="var(--accent)"/><text x="410" y="186" class="t-mono">Tx</text>
+        <rect x="600" y="194" width="70" height="8" fill="var(--accent-2)"/><text x="612" y="186" class="t-mono">Rx</text>
+        <path d="M455 194 C470 120, 600 120, 615 194" class="s-line"/>
+        <path d="M440 194 C450 80, 620 80, 630 194" class="s-line" stroke-dasharray="4 4"/>
+        <path d="M430 194 C430 60, 520 50, 530 70" stroke="var(--bad)" stroke-width="1.6" fill="none"/>
+        <path d="M640 194 C640 60, 560 50, 545 70" stroke="var(--bad)" stroke-width="1.6" fill="none"/>
+        <ellipse cx="537" cy="56" rx="48" ry="20" fill="var(--warn)" fill-opacity=".35" stroke="var(--warn)"/>
+        <text x="537" y="60" class="t" text-anchor="middle">손가락</text>
+        <text x="350" y="270" class="t-dim">손가락으로 빠지는 전기력선만큼 Tx–Rx 상호 용량 C_M이 감소</text>
+      </svg>
+      <figcaption><b>그림 2-4.</b> 다이아몬드 패턴 Tx/Rx 전극. 실제 on-cell 터치는 투명 ITO 대신 화소 사이의 비발광 영역을 따라 그물처럼 지나가는 메탈 메시로 만든다(저항이 낮고 휘어도 잘 깨지지 않는다). 교차점 피치는 대략 4~5 mm다.</figcaption>
+    </figure>
+    <p>교차점 피치(4~5 mm)는 필요한 좌표 정밀도(1 mm 이하)보다 훨씬 크다. 그래도 손가락 접촉 면적이 여러 교차점에 걸치기 때문에, 이웃 교차점들의 신호를 가중 평균<span class="en">(centroid)</span>하면 피치의 1/10 수준까지 위치를 보간할 수 있다.</p>
+    <div class="formula">$$\hat{x} = \frac{\sum_i x_i\,\Delta C_i}{\sum_i \Delta C_i}$$
+      <div class="where">합은 최대 신호 교차점 주변 3×3 영역. 접촉 지름이 피치보다 작으면(가는 스타일러스) 보간할 이웃 신호가 없어 좌표가 교차점 위치로 "달라붙는다".</div>
+    </div>
+    <div class="sim" id="sim-touch">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>상호정전용량 그리드: 드래그해서 그려 보기</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-touch" class="cv-touch"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>전극 피치 <output id="tc-p-out"></output></span><input type="range" id="tc-p" min="3" max="7" step="0.1" value="4.5"></label>
+          <label class="ctrl"><span>접촉 지름 <output id="tc-d-out"></output></span><input type="range" id="tc-d" min="1.5" max="12" step="0.1" value="7"></label>
+          <label class="ctrl"><span>잡음 <output id="tc-n-out"></output></span><input type="range" id="tc-n" min="0" max="25" step="0.5" value="4"></label>
+          <div class="ctrl"><span>좌표 계산</span><div class="seg" id="tc-m"><button data-value="peak">최대 교차점</button><button data-value="cent" class="on">무게중심 보간</button></div></div>
+          <button class="btn" id="tc-clr">궤적 지우기</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">전체 Tx × Rx (70×150 mm)</span><span class="v" id="tc-o-g">—</span></div>
+        <div class="stat"><span class="k">최대 ΔC / C</span><span class="v" id="tc-o-c">—</span></div>
+        <div class="stat"><span class="k">좌표 오차</span><span class="v" id="tc-o-e">—</span></div>
+      </div>
+      <div class="sim-note">캔버스 위를 드래그(터치)하면 손가락이 움직인다. 가만히 두면 자동으로 원을 그린다. 색칸은 교차점별 용량 변화, 흰 원은 실제 손가락, 십자와 선은 계산된 좌표와 궤적이다. 해볼 것: 접촉 지름을 2 mm(스타일러스)로 줄이고 "무게중심"과 "최대 교차점"을 비교하라.</div>
+    </div>
+    <h3>터치 샘플링 레이트와 지연</h3>
+    <p>"터치 샘플링 240 Hz"는 터치 IC가 좌표를 보고하는 빈도다. 하지만 손가락이 움직인 뒤 화면이 따라오기까지의 <b>종단 간 지연</b>은 터치 스캔만이 아니라 OS의 입력 처리, 앱의 렌더링, 화면 합성기의 버퍼, 패널 스캔 아웃이 모두 더해진 값이다. 대개 수십 ms이고, 렌더 파이프라인의 프레임 버퍼 수가 가장 큰 항목인 경우가 많다.</p>
+    <div class="sim" id="sim-lat">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>터치 → 화면 지연 분해</h3></div>
+      <div class="sim-body">
+        <div class="sim-view"><canvas id="cv-lat"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>터치 샘플링</span><div class="seg" id="la-t"><button data-value="120">120 Hz</button><button data-value="240" class="on">240 Hz</button><button data-value="480">480 Hz</button><button data-value="1000">1000 Hz</button></div></div>
+          <div class="ctrl"><span>화면 주사율</span><div class="seg" id="la-d"><button data-value="60">60 Hz</button><button data-value="90">90 Hz</button><button data-value="120" class="on">120 Hz</button><button data-value="144">144 Hz</button></div></div>
+          <div class="ctrl"><span>렌더 버퍼(파이프라인 깊이)</span><div class="seg" id="la-b"><button data-value="1">1</button><button data-value="2" class="on">2</button><button data-value="3">3</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">평균 종단 지연</span><span class="v" id="la-o-t">—</span></div>
+        <div class="stat"><span class="k">터치 관련 몫</span><span class="v" id="la-o-p">—</span></div>
+        <div class="stat"><span class="k">100 mm/s 드래그 시 뒤처짐</span><span class="v" id="la-o-d">—</span></div>
+      </div>
+      <div class="sim-note">평균값 모델: 샘플링 대기는 주기의 절반, 스캔·필터 1주기, 앱 렌더 1프레임, 합성 버퍼 × 프레임, 스캔 아웃은 평균 반 프레임. 터치 샘플링을 120→1000 Hz로 올려도 총 지연은 몇 ms밖에 안 줄고, 버퍼를 하나 줄이는 것이 더 크다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 10 -->
+  <section id="udc">
+    <h2>펀치홀과 언더디스플레이 카메라</h2>
+    <p>전면 카메라는 디스플레이를 뚫어야 빛을 받는다. 지금 가장 흔한 방식은 패널에 지름 3 mm 남짓한 구멍을 내는 <span class="term">펀치홀</span>이다. 구멍 둘레에는 봉지막이 끊어진 단면으로 수분이 들어오지 않도록 하는 차단 구조와 배선이 돌아가는 우회 영역이 필요해서, 실제로 화면에서 빠지는 영역은 렌즈보다 상당히 크다. 렌즈 앞에 남는 것은 커버 글라스뿐이라 투과율은 90 %가 넘는다.</p>
+    <p><span class="term">언더디스플레이 카메라</span><span class="en">(UDC)</span>는 구멍 대신 카메라 위에도 화소를 둔다. 빛이 지나갈 틈을 만들려고 그 영역의 화소 밀도를 낮추고(예: 1/2~1/4), 배선을 투명 전극으로 바꾸고, 그 부분의 불투명한 하부 필름을 제거한다. 그래도 투과율은 수십 % 수준에 그치고, 주기적인 화소 구조가 회절 격자처럼 작용해 빛 번짐과 플레어가 생긴다. 이를 영상 처리로 복원해야 하므로 화질은 아직 펀치홀에 못 미친다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 250" role="img" aria-label="펀치홀과 UDC 단면 비교">
+        <text x="30" y="24" class="t-acc">펀치홀</text>
+        <rect x="30" y="40" width="320" height="20" fill="#9fd3ff" fill-opacity=".35" stroke="var(--border)"/>
+        <rect x="30" y="62" width="120" height="30" fill="var(--surface-2)" stroke="var(--border)"/><rect x="230" y="62" width="120" height="30" fill="var(--surface-2)" stroke="var(--border)"/>
+        <rect x="150" y="62" width="14" height="30" fill="var(--warn)" fill-opacity=".5"/><rect x="216" y="62" width="14" height="30" fill="var(--warn)" fill-opacity=".5"/>
+        <text x="157" y="110" class="t-mono" text-anchor="middle">차단·우회</text>
+        <rect x="160" y="130" width="70" height="80" rx="6" fill="var(--text-faint)" fill-opacity=".5"/><ellipse cx="195" cy="128" rx="24" ry="6" fill="#9fd3ff" stroke="var(--accent)"/>
+        <text x="195" y="230" class="t-mono" text-anchor="middle">카메라 · 투과율 &gt;90 %</text>
+        <path d="M195 20 V120" class="s-acc" stroke-dasharray="4 3"/>
+        <text x="420" y="24" class="t-acc">언더디스플레이 카메라 (UDC)</text>
+        <rect x="410" y="40" width="320" height="20" fill="#9fd3ff" fill-opacity=".35" stroke="var(--border)"/>
+        <rect x="410" y="62" width="320" height="30" fill="var(--surface-2)" stroke="var(--border)"/>
+        <g fill="#2da44e"><rect x="420" y="70" width="10" height="10"/><rect x="440" y="70" width="10" height="10"/><rect x="460" y="70" width="10" height="10"/><rect x="480" y="70" width="10" height="10"/><rect x="500" y="70" width="10" height="10"/><rect x="535" y="70" width="10" height="10"/><rect x="575" y="70" width="10" height="10"/><rect x="615" y="70" width="10" height="10"/><rect x="650" y="70" width="10" height="10"/><rect x="670" y="70" width="10" height="10"/><rect x="690" y="70" width="10" height="10"/><rect x="710" y="70" width="10" height="10"/></g>
+        <rect x="520" y="62" width="120" height="30" fill="var(--accent-soft)" stroke="var(--accent)" stroke-dasharray="3 3"/>
+        <text x="580" y="110" class="t-mono" text-anchor="middle">저밀도 화소 + 투명 배선</text>
+        <rect x="545" y="130" width="70" height="80" rx="6" fill="var(--text-faint)" fill-opacity=".5"/><ellipse cx="580" cy="128" rx="24" ry="6" fill="#9fd3ff" stroke="var(--accent)"/>
+        <text x="580" y="230" class="t-mono" text-anchor="middle">투과율 수십 % · 회절 플레어</text>
+        <path d="M560 20 V120 M600 20 V120" class="s-acc" stroke-dasharray="4 3" opacity=".6"/>
+      </svg>
+      <figcaption><b>그림 2-5.</b> 펀치홀은 화면 일부를 포기하는 대신 카메라 화질을 지키고, UDC는 화면을 지키는 대신 카메라가 빛과 선명도를 잃는다. UDC 영역은 화소 밀도가 낮아 특정 각도에서 화면의 그 부분이 보이기도 한다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-udc">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>UDC 영역의 화소 밀도 트레이드오프</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-udc"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>카메라 영역 화소 밀도</span><div class="seg" id="ud-k"><button data-value="0">펀치홀</button><button data-value="1">1/1</button><button data-value="2" class="on">1/2</button><button data-value="4">1/4</button><button data-value="9">1/9</button></div></div>
+          <label class="check"><input type="checkbox" id="ud-tr" checked> 투명 배선 · 하부 필름 제거</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">카메라 투과율</span><span class="v" id="ud-o-t">—</span></div>
+        <div class="stat"><span class="k">상대 노출(광량)</span><span class="v" id="ud-o-e">—</span></div>
+        <div class="stat"><span class="k">카메라 영역 화면 품질</span><span class="v" id="ud-o-q">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽은 카메라 주변 화소의 확대 모습, 오른쪽은 그 조건에서 카메라가 찍는 점광원의 모습(회절·헤이즈를 단순화)이다. 화소 밀도를 낮출수록 카메라는 좋아지고 그 부분 화면은 거칠어진다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 11 -->
+  <section id="burnin">
+    <h2>번인: 유기물은 쓴 만큼 늙는다</h2>
+    <p>OLED 화소는 흘린 전하량만큼 유기물이 열화되어 같은 전류에서 휘도가 떨어진다. 화면 전체가 똑같이 늙으면 사용자는 모른다. 문제는 상태 표시줄, 내비게이션 바, 키보드처럼 <b>항상 같은 자리에 같은 밝은 그림</b>이 있을 때다. 그 화소만 더 늙어 회색 배경에서 잔상처럼 보이는 것이 <span class="term">번인</span><span class="en">(burn-in, 영구 잔상)</span>이다.</p>
+    <p>세 색 중 청색 발광 재료의 수명이 가장 짧다. 청색 광자는 에너지가 커서(~2.7 eV) 분자를 손상시키기 쉽고, 효율 높은 인광 청색 재료가 아직 상용화 초기라 많은 패널이 효율 낮은 형광 청색을 쓴다. 그래서 청색 서브픽셀을 가장 크게 만들어 전류 밀도를 낮춘다(펜타일 배열의 큰 청색 다이아몬드가 그 흔적이다). 수명은 휘도에 대해 거듭제곱으로 짧아진다.</p>
+    <div class="formula">$$\frac{L(t)}{L_0} = \exp\!\left[-\left(\frac{t}{\tau}\right)^{\beta}\right], \qquad \tau(L) = \tau_\text{ref}\left(\frac{L_\text{ref}}{L}\right)^{n}$$
+      <div class="where">늘어진 지수 감쇠 모델. \(\beta\) ≈ 0.5–0.8, 가속 지수 \(n\) ≈ 1.5–2. 밝기를 2배로 쓰면 수명은 약 3~4배 짧아진다. 수명은 보통 LT95(초기 휘도의 95 %까지 걸리는 시간)처럼 표기한다.</div>
+    </div>
+    <div class="sim" id="sim-burn">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>번인 시뮬레이터: 정적 UI를 몇 시간 띄우면</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-burn"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>누적 화면 켜짐 <output id="bn-h-out"></output></span><input type="range" id="bn-h" min="0" max="8000" step="50" value="2500"></label>
+          <label class="ctrl"><span>평소 밝기 <output id="bn-L-out"></output></span><input type="range" id="bn-L" min="100" max="1000" step="10" value="400"></label>
+          <label class="check"><input type="checkbox" id="bn-shift"> 픽셀 시프트(정적 요소 미세 이동)</label>
+          <label class="check"><input type="checkbox" id="bn-comp"> 열화 보상(누적 사용량 기반 전류 보정)</label>
+          <label class="check"><input type="checkbox" id="bn-amp" checked> 차이 ×5 강조 표시</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">상태 표시줄 청색 손실</span><span class="v" id="bn-o-b">—</span></div>
+        <div class="stat"><span class="k">배경 영역 청색 손실</span><span class="v" id="bn-o-g">—</span></div>
+        <div class="stat"><span class="k">잔상 대비(50 % 회색)</span><span class="v" id="bn-o-c">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽: 사용 중 화면(밝은 상태 표시줄 아이콘·내비게이션 바·키보드). 오른쪽: 같은 패널에 50 % 회색을 띄운 모습. 청색이 먼저 떨어지므로 잔상은 누렇게 보인다. 수명 파라미터는 교육용 가정값이다.</div>
+    </div>
+    <p>제조사들은 번인을 여러 겹으로 막는다. 정적 UI를 몇 화소씩 주기적으로 옮기는 픽셀 시프트, 상태 표시줄 밝기 자동 감소, AOD의 위치 이동, 그리고 화소별 누적 사용량(전류×시간)을 메모리에 기록해 많이 쓴 화소에 전류를 조금 더 주는 열화 보상이다. 보상은 잔상을 지우지만, 늙은 화소를 더 세게 구동하는 것이므로 열화 자체를 가속한다. 결국 휘도 여유(헤드룸)를 미리 남겨 두는 설계가 필요하다.</p>
+  </section>
+
+  <!-- =============================================================== 12 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <p>디스플레이는 폰에서 가장 비싼 부품 중 하나이고(플래그십 BOM의 대략 10~20 %), 전력·두께·외관·내구성이 모두 걸린 부품이다. 설계자가 붙잡고 있는 핵심 트레이드오프는 다음과 같다.</p>
+    <ul>
+      <li><b>휘도 vs 전력 vs 수명.</b> 야외 시인성을 위해 HBM 휘도를 올리면 전류가 늘어 전력과 발열이 커지고, 수명은 휘도의 1.5~2제곱으로 줄어든다. 탠덤 OLED(발광층 2단 적층)는 같은 휘도를 절반 전류로 내서 수명과 고휘도 효율을 개선하지만 구동 전압이 높아지고 증착 공정·원가가 늘어난다.</li>
+      <li><b>반사 억제 vs 효율.</b> 원편광판은 반사를 잘 막지만 빛의 절반 이상을 버린다. 무편광판은 효율과 두께에서 이기고 반사율·색 균일도에서 진다.</li>
+      <li><b>주사율 vs 전력.</b> 120 Hz 이상은 부드러움을 주지만 LTPO 없이는 정지 화면 전력을 낭비한다. LTPO는 공정(마스크 수)이 늘어 원가가 오른다.</li>
+      <li><b>베젤 축소.</b> 패널 아래쪽 끝의 배선 팬아웃과 구동 IC를 어디에 두느냐가 하단 베젤을 결정한다. 구동 IC를 패널 기판 위에 붙이고 그 부분을 뒤로 접는 COP<span class="en">(Chip On Plastic)</span>가 가장 얇은 베젤을 만든다. 벤딩 영역은 곡률 반경이 수백 µm라, 이 영역의 배선은 균열에 강하게 설계하고 그 위에 보호 수지를 덮는다.</li>
+      <li><b>두께와 강성.</b> 패널이 얇아질수록 배터리(<a href="battery.html">5장</a>)에 공간을 내주지만, 낙하 시 커버 글라스가 휘면 그 아래 패널의 TFT 배선이 깨지기 쉽다(<a href="mechanical.html">12장</a>). 쿠션 층은 줄이기 어렵다.</li>
+      <li><b>다른 부품과의 상호작용.</b> 펀치홀 위치·크기는 전면 카메라·근접/조도 센서와, 터치 센서는 디스플레이 구동 잡음 및 충전기 잡음과(동기화·주파수 호핑), 패널 하부 금속층은 안테나(<a href="rf.html">7장</a>)와, 고휘도 발열은 AP 발열(<a href="thermal.html">11장</a>)과 합쳐진다.</li>
+    </ul>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 250" role="img" aria-label="COF와 COP 패널 벤딩 비교">
+        <text x="30" y="24" class="t-acc">COG/COF: 구동 IC가 앞면 또는 별도 필름</text>
+        <rect x="30" y="50" width="300" height="16" fill="var(--surface-2)" stroke="var(--border)"/>
+        <rect x="30" y="68" width="300" height="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+        <rect x="250" y="56" width="40" height="10" fill="var(--accent-2)"/><text x="270" y="44" class="t-mono" text-anchor="middle">IC</text>
+        <path d="M330 73 C 360 73, 360 120, 330 120 H 200" stroke="var(--warn)" stroke-width="5" fill="none"/>
+        <text x="210" y="140" class="t-mono">FPC 접힘</text>
+        <path d="M230 90 V 100 M330 90 V100 M230 95 H330" class="s-line"/><text x="280" y="112" class="t-mono" text-anchor="middle">하단 베젤 넓음</text>
+        <text x="420" y="24" class="t-acc">COP: 패널 기판 자체를 뒤로 접음</text>
+        <rect x="420" y="50" width="290" height="16" fill="var(--surface-2)" stroke="var(--border)"/>
+        <path d="M420 73 H 690 C 730 73, 730 130, 690 130 H 560" stroke="var(--accent)" stroke-width="10" fill="none" stroke-opacity=".35"/>
+        <rect x="590" y="134" width="40" height="10" fill="var(--accent-2)"/><text x="610" y="160" class="t-mono" text-anchor="middle">IC (뒤쪽)</text>
+        <text x="745" y="104" class="t-mono" text-anchor="end">R ~0.3 mm</text>
+        <path d="M690 190 V200 M712 190 V200 M690 195 H712" class="s-line"/><text x="701" y="218" class="t-mono" text-anchor="middle">베젤 최소</text>
+      </svg>
+      <figcaption><b>그림 2-6.</b> 하단 베젤을 줄이는 패널 벤딩. COP는 PI 기판의 끝을 접어 구동 IC를 화면 뒤로 숨긴다. 벤딩부의 배선이 끊어지지 않도록 중립면 설계와 보호 수지가 필요하다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-design">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>패널 사양 트레이드오프</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-design"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>HBM 목표 휘도(전체 화면) <output id="dg-L-out"></output></span><input type="range" id="dg-L" min="600" max="2000" step="50" value="1200"></label>
+          <div class="ctrl"><span>발광 구조</span><div class="seg" id="dg-e"><button data-value="single" class="on">단일 스택</button><button data-value="tandem">탠덤 2스택</button></div></div>
+          <div class="ctrl"><span>반사 억제</span><div class="seg" id="dg-p"><button data-value="cp" class="on">원편광판</button><button data-value="coe">무편광판</button></div></div>
+          <div class="ctrl"><span>백플레인</span><div class="seg" id="dg-b"><button data-value="ltps">LTPS</button><button data-value="ltpo" class="on">LTPO</button></div></div>
+          <div class="ctrl"><span>구동 IC 실장</span><div class="seg" id="dg-c"><button data-value="cof">COF</button><button data-value="cop" class="on">COP</button></div></div>
+        </div>
+      </div>
+      <div class="sim-note">기준(단일 스택·원편광판·LTPS·COF)을 1로 둔 상대 지표와 대표 절댓값을 함께 보여 주는 교육용 모델이다. 해볼 것: HBM을 2,000 nit로 올려 단일 스택의 수명이 얼마나 줄어드는지 보고, 탠덤+무편광판으로 얼마나 회복되는지, 그 대가로 원가가 얼마나 오르는지 확인하라.</div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>흔한 실패</th><th>원인</th><th>대책</th></tr></thead>
+      <tbody>
+        <tr><td>저휘도 녹색 얼룩·색 틀어짐</td><td>저전류 영역 TFT 편차, demura 부족</td><td>내부 보상 회로, 공장 demura, 저휘도 PWM</td></tr>
+        <tr><td>낙하 후 화면 줄·검은 번짐</td><td>커버 글라스 굽힘으로 TFT/배선 균열, 봉지 손상</td><td>쿠션 층, 프레임 강성, 패널 가장자리 응력 완화</td></tr>
+        <tr><td>터치 오동작(충전 중)</td><td>충전기 공통 모드 잡음, 디스플레이 구동 잡음</td><td>주파수 호핑, 디스플레이 동기 스캔, 차폐</td></tr>
+        <tr><td>벤딩부 단선</td><td>반복 응력, 수분 침투</td><td>중립면 설계, 보호 수지, 배선 형상(메시·지그재그)</td></tr>
+        <tr><td>정적 UI 잔상</td><td>청색 열화 편중</td><td>픽셀 시프트, 열화 보상, 휘도 헤드룸</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="keypoints" id="summary"><h2>핵심 정리</h2><ol>
+    <li>OLED 모듈은 커버 글라스–OCA–원편광판–터치–TFE–유기층–TFT–PI–하부 필름으로 쌓이고, 커버를 뺀 두께는 약 0.6~1.0 mm다. 빛을 내는 유기층은 수백 nm뿐이며, 수분 차단(TFE)이 플렉시블 OLED의 핵심이다.</li>
+    <li>원편광판은 금속 전극의 외광 반사를 λ/4판의 회전 반전으로 막지만, 발광의 55 % 이상을 잃는다. 무편광판(컬러 필터+블랙 매트릭스)은 효율과 두께를 얻고 반사율을 약간 내준다.</li>
+    <li>스마트폰 OLED는 대부분 펜타일/다이아몬드 배열로 R·B 해상도가 \(1/\sqrt{2}\)이지만, 400 ppi 이상에서는 일반 시청 거리에서 구분되지 않는다.</li>
+    <li>OLED 휘도는 구동 TFT 전류 \(\propto (V_{SG}-|V_{th}|)^2\)로 정해져 저계조에서 \(V_{th}\) 편차가 얼룩을 만든다. 6~8T 내부 보상과 공장 demura로 해결한다.</li>
+    <li>OLED 전력은 내용(채널별 APL)에 비례하고 검은색은 0 W다. 청색이 가장 비싼 색이다. LCD는 내용과 무관하게 백라이트 전력이 든다.</li>
+    <li>구동 전력은 주사율에 비례한다. LTPO는 산화물 스위칭 TFT의 낮은 누설로 1 Hz까지 낮춰 정지 화면 전력을 줄인다.</li>
+    <li>PWM 디밍은 저휘도 화질에 유리하지만 저주파에서 깜빡임과 카메라 줄무늬를 만든다. 고주파 PWM이나 DC·하이브리드로 완화한다.</li>
+    <li>상호정전용량 터치는 4~5 mm 피치 교차점의 용량 감소를 측정하고 무게중심 보간으로 서브 mm 정확도를 얻는다. 체감 지연은 터치 샘플링보다 렌더 파이프라인이 좌우한다.</li>
+    <li>설계의 축은 휘도·전력·수명, 반사·효율, 베젤(COP 벤딩)·두께·강성, 그리고 원가다.</li>
+  </ol></section>
+
+  <section class="quiz-sec" id="quiz"><h2>확인 퀴즈</h2><div class="quiz">
+    <div class="quiz-q"><p>원편광판이 외광 반사를 막는 핵심 원리는?</p><div class="opts">
+      <button class="opt">편광자가 외광을 모두 흡수한다</button>
+      <button class="opt" data-correct>원편광이 금속에 반사되면 회전 방향이 바뀌어, λ/4판을 되돌아 지난 뒤 편광자와 직교하는 직선 편광이 된다</button>
+      <button class="opt">λ/4판이 외광의 파장을 바꿔 적외선으로 만든다</button>
+      <button class="opt">OLED 발광이 외광과 상쇄 간섭한다</button>
+    </div><div class="quiz-exp">반사 시 원편광의 회전 방향이 반전되고, λ/4판을 두 번 지나면 편광 방향이 90° 돌아가 편광자에 막힌다. 비편광인 OLED 발광은 편광자에서 절반 이상 손실된다.</div></div>
+    <div class="quiz-q"><p>460 ppi 다이아몬드(펜타일) 배열에서 적·청색 서브픽셀의 유효 밀도에 가장 가까운 것은?</p><div class="opts">
+      <button class="opt">460 ppi</button><button class="opt" data-correct>약 325 ppi</button><button class="opt">230 ppi</button><button class="opt">약 650 ppi</button>
+    </div><div class="quiz-exp">R·B는 두 픽셀에 하나꼴(체커보드)이라 각 방향 밀도가 \(1/\sqrt{2}\)배, 460/1.414 ≈ 325 ppi다. 녹색은 모든 픽셀에 있어 휘도 해상도는 거의 유지된다.</div></div>
+    <div class="quiz-q"><p>보상 회로가 없는 OLED 패널에서 얼룩(mura)이 가장 잘 보이는 조건은?</p><div class="opts">
+      <button class="opt">최대 밝기의 흰 화면</button><button class="opt" data-correct>어두운 회색(저계조) 화면</button><button class="opt">빨간색 단색 화면</button><button class="opt">완전히 검은 화면</button>
+    </div><div class="quiz-exp">휘도 편차 ≈ \(2\Delta V_{th}/V_{ov}\). 저계조에서는 과구동 전압 \(V_{ov}\)가 작아 같은 \(V_{th}\) 편차가 큰 휘도 차이가 된다. 완전 검정은 꺼져 있으므로 얼룩이 없다.</div></div>
+    <div class="quiz-q"><p>같은 300 nit에서 OLED 폰을 라이트 모드에서 다크 모드로 바꿨다. 옳은 설명은?</p><div class="opts">
+      <button class="opt">LCD 폰에서도 똑같은 비율로 전력이 준다</button>
+      <button class="opt">패널 전력은 줄지만 주사율 구동 전력이 크게 늘어 상쇄된다</button>
+      <button class="opt" data-correct>꺼진 화소는 전력을 거의 쓰지 않아 패널 발광 전력이 크게 줄지만, 시스템 전체의 절감률은 그보다 작다</button>
+      <button class="opt">OLED 전력은 휘도 설정에만 의존하므로 변화가 없다</button>
+    </div><div class="quiz-exp">OLED 발광 전력은 채널별 APL에 비례한다. 다만 구동 전력, AP·모뎀 등 나머지 시스템 전력은 그대로라 배터리 사용 시간 개선은 패널 절감률보다 작다.</div></div>
+    <div class="quiz-q"><p>LTPO가 1 Hz 주사율을 가능하게 하는 주된 이유는?</p><div class="opts">
+      <button class="opt">LTPS보다 이동도가 높은 산화물 TFT로 구동 전류를 키워서</button>
+      <button class="opt" data-correct>꺼짐 전류가 매우 작은 산화물 TFT를 스위칭에 써서 저장 전압이 오래 유지되므로</button>
+      <button class="opt">OLED 재료의 응답 속도가 느려져서</button>
+      <button class="opt">터치 센서의 샘플링을 꺼서</button>
+    </div><div class="quiz-exp">산화물 TFT는 이동도가 LTPS보다 낮지만 꺼짐 누설이 수 자릿수 작다. 그래서 유지 시간이 1초로 길어져도 게이트 전압이 거의 변하지 않아 깜빡임이 없다.</div></div>
+    <div class="quiz-q"><p>휴대폰 화면을 1/8000 s 셔터로 찍었더니 가로 줄무늬가 보였다. 가장 그럴듯한 원인은?</p><div class="opts">
+      <button class="opt">터치 센서 전극 패턴</button><button class="opt">원편광판의 회절</button>
+      <button class="opt" data-correct>PWM 디밍으로 휘도가 깜빡이고, 롤링 셔터의 행마다 노출 시각이 달라서</button>
+      <button class="opt">서브픽셀 배열의 모아레만 원인이다</button>
+    </div><div class="quiz-exp">노출 시간이 PWM 주기보다 짧으면 각 행이 켜짐/꺼짐 구간을 다르게 잡는다. 줄무늬 간격은 \(1/(f\,t_\text{line})\) 행이다.</div></div>
+    <div class="quiz-q"><p>상호정전용량 터치에서 전극 피치가 4.5 mm인데도 0.5 mm 이하의 좌표 정확도가 나오는 이유는?</p><div class="opts">
+      <button class="opt">교차점이 실제로는 0.5 mm 간격이다</button>
+      <button class="opt" data-correct>손가락이 여러 교차점에 걸쳐 신호를 만들고, 그 분포의 무게중심으로 보간하기 때문</button>
+      <button class="opt">디스플레이 화소를 센서로 함께 쓰기 때문</button>
+      <button class="opt">터치 샘플링 레이트가 높기 때문</button>
+    </div><div class="quiz-exp">접촉 지름(~7–10 mm)이 피치보다 커서 이웃 교차점들의 ΔC 분포가 생기고, 가중 평균으로 서브 피치 위치를 구한다. 접촉이 피치보다 작으면 보간이 실패한다.</div></div>
+    <div class="quiz-q"><p>하단 베젤을 가장 얇게 만드는 구동 IC 실장 방식은?</p><div class="opts">
+      <button class="opt">COG (유리 위 칩)</button><button class="opt">COF (필름 위 칩)</button><button class="opt" data-correct>COP (패널 PI 기판 위 칩을 뒤로 벤딩)</button><button class="opt">구동 IC를 커버 글라스에 접착</button>
+    </div><div class="quiz-exp">COP는 플렉시블 PI 기판 끝을 수백 µm 반경으로 접어 구동 IC와 팬아웃 배선을 화면 뒤로 숨긴다.</div></div>
+  </div></section>
+</main>
+<script>
+"use strict";
+const FONT = () => getComputedStyle(document.body).getPropertyValue("--font");
+const MONO = () => getComputedStyle(document.body).getPropertyValue("--mono");
+
+/* ============================================================ 1. 폰 속 위치 */
+(function () {
+  const el = document.getElementById("v-where");
+  const T = PB.three(el, { camera: [150, 135, 175], target: [0, 0, 0], fov: 35, minDistance: 80, maxDistance: 480 });
+  if (!T) return;
+  const P = PB.phone3d(T);
+  const card = document.getElementById("where-card");
+  function show(part) {
+    if (!part) { card.hidden = true; return; }
+    card.innerHTML = PB.partCardHTML(part, "");
+    card.hidden = false;
+    card.querySelector(".x").onclick = () => (card.hidden = true);
+  }
+  const ex = PB.range("wh-ex", (v) => Math.round(v * 100) + "%", (v) => P.setExplode(v));
+  P.setExplode(ex());
+  P.highlight("display");
+  PB.seg("wh-hl", (v) => { P.highlight(v); show(P.byId[v]); });
+  document.getElementById("wh-lab").addEventListener("change", (e) => P.setLabels(e.target.checked));
+  T.pick([P.group], (hit) => { const part = hit && P.partAt(hit.object); if (part) { P.highlight(part.id); show(part); } });
+})();
+
+/* ============================================================ 2. 적층 3D */
+(function () {
+  const LAYERS = [
+    { id: "cover", name: "커버 글라스", th: "0.5–0.7 mm", t: 3.0, color: 0x9fd3ff, op: 0.28,
+      desc: "화학 강화 알루미노실리케이트 유리. 표면 압축응력 층이 긁힘·균열 성장을 막는다. 반사 방지·지문 방지 코팅이 올라가며, 터치 신호는 이 유리를 통과해 아래 센서에 닿는다. 두꺼울수록 낙하에 강하지만 터치 감도와 무게에 불리하다." },
+    { id: "oca", name: "OCA", th: "50–150 µm", t: 0.8, color: 0xdfe6f0, op: 0.5,
+      desc: "광학 투명 접착제(Optically Clear Adhesive). 공기층을 없애 계면 반사(유리–공기 각 4 %)를 제거하고, 충격을 일부 흡수한다. 굴절률을 유리와 맞춘다." },
+    { id: "pol", name: "원편광판", th: "40–100 µm", t: 1.2, color: 0x4a505c, op: 0.75,
+      desc: "선형 편광자(PVA-요오드) + λ/4 위상차 필름. 금속 전극의 외광 반사를 막아 검은색을 검게 만든다. 대신 OLED 발광의 약 55–58 %를 흡수한다. 무편광판(CoE) 구조에서는 이 층 대신 봉지막 위 컬러 필터+블랙 매트릭스가 들어간다." },
+    { id: "touch", name: "터치 센서 (on-cell)", th: "수 µm", t: 0.6, color: 0x2dd4bf, op: 0.35,
+      desc: "봉지막 위에 직접 패터닝한 메탈 메시 Tx/Rx 전극(Y-OCTA류). 별도 터치 필름과 접착층이 사라져 수십 µm 얇아지고 투과율·원가가 좋아진다. 메시 선은 화소 사이의 비발광 영역을 지나가 보이지 않는다." },
+    { id: "tfe", name: "박막 봉지 (TFE)", th: "5–15 µm", t: 1.0, color: 0xff9a52, op: 0.45,
+      desc: "무기막(SiNx, CVD) / 유기막(잉크젯) / 무기막 3중 구조. 수증기 투과율 10⁻⁶ g/m²/day급을 목표로 한다. 유기막은 파티클을 덮어 평탄화하고 응력을 완화하며, 무기막이 실제 차단을 한다." },
+    { id: "oled", name: "OLED 유기층 + 전극", th: "유기 ~0.1–0.3 µm", t: 0.8, color: 0x20232b, op: 1,
+      desc: "애노드(ITO/Ag/ITO 반사 전극) – HIL/HTL(정공 주입·수송) – EML(발광층: R·G·B를 FMM으로 따로 증착) – ETL – 반투명 캐소드(Mg:Ag). 정공과 전자가 EML에서 만나 엑시톤이 되고 빛을 낸다. 화소 정의막(PDL)이 서브픽셀 경계를 만든다. 적·녹은 인광, 청색은 주로 형광 재료라 청색 효율·수명이 가장 낮다." },
+    { id: "tft", name: "TFT 백플레인", th: "수 µm", t: 1.2, color: 0x8a93a8, op: 1,
+      desc: "서브픽셀마다 6~8개 박막 트랜지스터와 저장 커패시터, 그리고 데이터·스캔·발광 제어·전원 배선. LTPS(고이동도)와 산화물(저누설)을 섞은 LTPO가 가변 주사율 패널의 표준이 되었다. 패널 가장자리에는 게이트 드라이버 회로(GIP)도 TFT로 만든다." },
+    { id: "pi", name: "PI 기판 + 배리어", th: "10–30 µm", t: 1.0, color: 0xd9a441, op: 0.9,
+      desc: "폴리이미드 기판. 고온 TFT 공정을 견디고 휘어진다. 보통 PI–무기 배리어–PI 이중 구조로 수분 차단과 전기적 안정성을 확보한다. 유리 캐리어 위에서 공정 후 레이저로 떼어 낸다(LLO). 노란 빛깔은 PI 고유의 흡수 때문이다." },
+    { id: "back", name: "백 필름 (보호 필름)", th: "50–100 µm", t: 1.6, color: 0xc7ccd6, op: 1,
+      desc: "PET 등 지지 필름. 얇은 PI 패널을 기계적으로 받쳐 공정 중 취급과 벤딩부 형상 유지를 돕는다. 패널 아래쪽 끝(COP 벤딩부)에는 이 필름을 일부 제거해 접히게 한다." },
+    { id: "cushion", name: "쿠션·방열 시트", th: "100–300 µm", t: 2.4, color: 0x6b5b45, op: 1,
+      desc: "엠보 폼(충격·눌림 완화) + 그래파이트(면 방향 열 확산) + 구리 시트(차폐·접지·열). 낙하나 강한 손 누름이 TFT 배선에 전달되는 것을 막는다. 광학식 화면 지문 센서가 있으면 이 층에 창을 낸다." },
+  ];
+  const el = document.getElementById("v-stack");
+  const T = PB.three(el, { camera: [56, 44, 86], target: [0, 1, 0], fov: 40, minDistance: 40, maxDistance: 260 });
+  if (!T) return;
+  const THREE = T.THREE;
+  const W = 40, D = 28, GAP = 8.5;
+  const root = new THREE.Group(); T.scene.add(root);
+  const geoBox = new THREE.BoxGeometry(1, 1, 1);
+  const N = LAYERS.length;
+  let base = 0; const bases = [];
+  for (let i = N - 1; i >= 0; i--) { bases[i] = base + LAYERS[i].t / 2; base += LAYERS[i].t; }
+  const totalH = base;
+  const pickables = [];
+  LAYERS.forEach((Ly, i) => {
+    const g = new THREE.Group(); g.userData.layer = i; root.add(g);
+    const m = T.material(Ly.color, { transparent: Ly.op < 1, opacity: Ly.op, roughness: Ly.id === "cover" ? 0.08 : 0.6, metalness: Ly.id === "cushion" ? 0.3 : 0.02, depthWrite: Ly.op >= 1 });
+    const slab = new THREE.Mesh(geoBox, m); slab.scale.set(W, Ly.t, D); g.add(slab);
+    Ly.group = g; Ly.mat = m; Ly.slab = slab; pickables.push(g);
+    if (Ly.id === "cover") slab.renderOrder = 5;
+  });
+  // 서브픽셀 (다이아몬드)
+  const oled = LAYERS.find((l) => l.id === "oled");
+  const subMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const pitch = 2.5, nx = Math.floor(W / pitch) - 1, nz = Math.floor(D / pitch) - 1;
+  const subList = [];
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+    const x = (i - (nx - 1) / 2) * pitch, z = (j - (nz - 1) / 2) * pitch;
+    subList.push([x + pitch / 2, z + pitch / 2, 0x3fcf6f, 0.55, 0.55, 0]);
+    const rb = (i + j) % 2 === 0;
+    subList.push([x, z, rb ? 0xff4a3d : 0x3b6dff, rb ? 0.85 : 1.05, rb ? 0.85 : 1.05, Math.PI / 4]);
+  }
+  const subs = new THREE.InstancedMesh(geoBox, subMat, subList.length);
+  const dummy = new THREE.Object3D(), col = new THREE.Color();
+  subList.forEach((s, k) => {
+    dummy.position.set(s[0], oled.t / 2 + 0.12, s[1]); dummy.rotation.set(0, s[5], 0); dummy.scale.set(s[3], 0.24, s[4]); dummy.updateMatrix();
+    subs.setMatrixAt(k, dummy.matrix); subs.setColorAt(k, col.setHex(s[2]));
+  });
+  oled.group.add(subs);
+  // TFT: 화소마다 트랜지스터 + 배선
+  const tft = LAYERS.find((l) => l.id === "tft");
+  const tMat = T.material(0x3a4150, { metalness: 0.5, roughness: 0.4 });
+  const tr = new THREE.InstancedMesh(geoBox, tMat, nx * nz * 2);
+  let k = 0;
+  for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
+    const x = (i - (nx - 1) / 2) * pitch, z = (j - (nz - 1) / 2) * pitch;
+    dummy.rotation.set(0, 0, 0);
+    dummy.position.set(x - 0.4, tft.t / 2 + 0.15, z); dummy.scale.set(0.7, 0.3, 0.9); dummy.updateMatrix(); tr.setMatrixAt(k++, dummy.matrix);
+    dummy.position.set(x + 0.55, tft.t / 2 + 0.1, z + 0.4); dummy.scale.set(0.5, 0.2, 0.5); dummy.updateMatrix(); tr.setMatrixAt(k++, dummy.matrix);
+  }
+  tft.group.add(tr);
+  const lineMat = T.material(0xc9a75a, { metalness: 0.7, roughness: 0.35 });
+  const nLines = nx + nz;
+  const lines = new THREE.InstancedMesh(geoBox, lineMat, nLines);
+  k = 0;
+  for (let i = 0; i < nx; i++) { dummy.position.set((i - (nx - 1) / 2) * pitch + 1.05, tft.t / 2 + 0.05, 0); dummy.scale.set(0.18, 0.1, D - 0.6); dummy.updateMatrix(); lines.setMatrixAt(k++, dummy.matrix); }
+  for (let j = 0; j < nz; j++) { dummy.position.set(0, tft.t / 2 + 0.05, (j - (nz - 1) / 2) * pitch - 1.05); dummy.scale.set(W - 0.6, 0.1, 0.18); dummy.updateMatrix(); lines.setMatrixAt(k++, dummy.matrix); }
+  tft.group.add(lines);
+  // 터치 메탈 메시 (대각선 그물)
+  const touch = LAYERS.find((l) => l.id === "touch");
+  const meshMat = T.material(0xd0d6e0, { metalness: 0.8, roughness: 0.3 });
+  const meshPitch = 3.4, nm = 22;
+  const mesh = new THREE.InstancedMesh(geoBox, meshMat, nm * 2);
+  k = 0;
+  const diagLen = Math.hypot(W, D);
+  for (let s = 0; s < 2; s++) for (let i = 0; i < nm; i++) {
+    const off = (i - (nm - 1) / 2) * meshPitch;
+    const ang = s ? Math.PI / 4 : -Math.PI / 4;
+    dummy.position.set(off * Math.cos(ang + Math.PI / 2), touch.t / 2 + 0.06, off * Math.sin(ang + Math.PI / 2));
+    dummy.rotation.set(0, ang, 0); dummy.scale.set(diagLen, 0.12, 0.12); dummy.updateMatrix();
+    mesh.setMatrixAt(k++, dummy.matrix);
+  }
+  // 메시는 판 밖으로 나가지 않도록 클리핑 대신 판 크기에 맞춘 그룹 스케일 사용
+  const meshHolder = new THREE.Group(); meshHolder.add(mesh); touch.group.add(meshHolder);
+  T.renderer.localClippingEnabled = true;
+  const clipLocal = [new THREE.Plane(new THREE.Vector3(1, 0, 0), W / 2), new THREE.Plane(new THREE.Vector3(-1, 0, 0), W / 2), new THREE.Plane(new THREE.Vector3(0, 0, 1), D / 2), new THREE.Plane(new THREE.Vector3(0, 0, -1), D / 2)];
+  meshMat.clippingPlanes = clipLocal; // x, z 방향만 자르므로 층 이동(y)과 무관
+
+  // 라벨
+  const labels = LAYERS.map((Ly, i) => { const L = T.label(Ly.name, i % 2 ? [W / 2 + 2, 0, -D / 2] : [-W / 2 - 2, 0, D / 2]); L.obj = Ly.group; return L; });
+  const info = document.getElementById("st-info");
+  const chips = document.getElementById("st-chips");
+  chips.innerHTML = LAYERS.map((l, i) => `<button data-i="${i}">${l.name}</button>`).join("");
+  let sel = -1;
+  function select(i) {
+    sel = i;
+    LAYERS.forEach((Ly, j) => { Ly.mat.emissive.setHex(j === i ? 0x2dd4bf : 0x000000); Ly.mat.emissiveIntensity = j === i ? 0.45 : 1; });
+    [...chips.children].forEach((b, j) => b.classList.toggle("on", j === i));
+    if (i < 0) return;
+    const Ly = LAYERS[i];
+    const hex = "#" + Ly.color.toString(16).padStart(6, "0");
+    info.innerHTML = `<h4><i style="background:${hex}"></i>${Ly.name} <span class="th">${Ly.th}</span></h4><p>${Ly.desc}</p>`;
+  }
+  chips.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) select(+b.dataset.i); });
+  T.pick(pickables, (hit) => {
+    if (!hit) return;
+    let o = hit.object; while (o && o.userData.layer == null) o = o.parent;
+    if (o) select(o.userData.layer);
+  });
+  let ex = 0.7;
+  function layout() {
+    const span = (N - 1) * GAP * ex;
+    LAYERS.forEach((Ly, i) => { Ly.group.position.y = bases[i] - totalH / 2 + (N - 1 - i) * GAP * ex - span / 2; });
+    labels.forEach((L) => L.setVisible(document.getElementById("st-lab").checked && ex > 0.25));
+  }
+  PB.range("st-ex", (v) => Math.round(v * 100) + "%", (v) => { ex = v; layout(); });
+  document.getElementById("st-lab").addEventListener("change", layout);
+  layout();
+  select(5);
+  const glow = document.getElementById("st-glow");
+  T.onFrame((dt, t) => {
+    const s = glow.checked ? 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 2.2)) : 1;
+    subMat.color.setScalar(s);
+  });
+})();
+
+/* ============================================================ 3. 편광판 명암비 */
+(function () {
+  const MODES = { none: { T: 1.0, R: 0.4, name: "없음" }, cp: { T: 0.44, R: 0.045, name: "원편광판" }, coe: { T: 0.68, R: 0.07, name: "무편광판" } };
+  const lux = PB.range("pol-lux", (v) => PB.fmt(Math.pow(10, v), 2) + " lx", () => cv.redraw());
+  const Le = PB.range("pol-L", (v) => v + " nit", () => cv.redraw());
+  const mode = PB.seg("pol-mode", () => cv.redraw());
+  const acr = (m, E, L) => (m.T * L + (m.R * E) / Math.PI) / (0.0005 + (m.R * E) / Math.PI);
+  const cv = PB.canvas("#cv-pol", (ctx, w, h) => {
+    const P = PB.palette();
+    const E = Math.pow(10, lux()), L = Le(), m = MODES[mode()];
+    const Lw = m.T * L, Lr = (m.R * E) / Math.PI, cr = acr(m, E, L);
+    PB.stat("pol-o-L", Math.round(Lw) + " <small>nit</small>");
+    PB.stat("pol-o-R", PB.fmt(Lr, 3) + " <small>nit</small>");
+    PB.stat("pol-o-cr", (cr > 9999 ? "&gt;10⁴" : PB.fmt(cr, 3)) + " <small>: 1</small>");
+    // preview phone
+    const pw = Math.min(w * 0.3, h * 0.48), ph = Math.min(pw * 1.9, h - 44);
+    const px = 14, py = (h - 20 - ph) / 2;
+    const bgv = Math.round(255 * Math.pow(Math.min(1, Lr / (Lw + Lr)), 1 / 2.2));
+    ctx.fillStyle = P.text; ctx.globalAlpha = 0.85;
+    roundRect(ctx, px - 4, py - 4, pw + 8, ph + 8, 12); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.fillStyle = `rgb(${bgv},${bgv},${Math.min(255, bgv + 4)})`;
+    roundRect(ctx, px, py, pw, ph, 9); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = `700 ${Math.max(10, pw * 0.1)}px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("12:30", px + pw * 0.1, py + ph * 0.06);
+    ctx.font = `${Math.max(8, pw * 0.065)}px ${FONT()}`;
+    const lines = ["오늘의 일정", "· 10:00 설계 리뷰", "· 13:30 패널 평가", "· 16:00 낙하 시험", "날씨 맑음 31°"];
+    lines.forEach((s, i) => ctx.fillText(s, px + pw * 0.1, py + ph * (0.22 + i * 0.1)));
+    for (let i = 0; i < 4; i++) { ctx.globalAlpha = 0.85; ctx.fillRect(px + pw * (0.1 + i * 0.21), py + ph * 0.8, pw * 0.16, pw * 0.16); }
+    ctx.globalAlpha = 1;
+    // sun glare overlay
+    if (E > 2000) { const gr = ctx.createRadialGradient(px + pw * 0.8, py + ph * 0.15, 2, px + pw * 0.8, py + ph * 0.15, pw); gr.addColorStop(0, `rgba(255,255,255,${Math.min(0.5, Lr / (Lw + Lr) * 0.6)})`); gr.addColorStop(1, "rgba(255,255,255,0)"); ctx.fillStyle = gr; roundRect(ctx, px, py, pw, ph, 9); ctx.fill(); }
+    ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "center";
+    ctx.fillText(m.name, px + pw / 2, py + ph + 8);
+    // chart
+    const bx = px + pw + 62, box = { x: bx, y: 16, w: w - bx - 14, h: h - 62 };
+    const ser = Object.entries(MODES).map(([k, mm], i) => {
+      const data = []; for (let e = 1; e <= 5.001; e += 0.05) data.push([Math.pow(10, e), acr(mm, Math.pow(10, e), L)]);
+      return { data, color: [P.bad, P.accent, P.accent2][i], width: k === mode() ? 3 : 1.5, dash: k === mode() ? [] : [5, 4] };
+    });
+    PB.chart(ctx, box, { x: [10, 1e5], y: [1, 1e5], logX: true, logY: true, xLabel: "주변 조도 (lx)", yLabel: "", series: ser,
+      hlines: [{ y: 3, label: "~3:1 판독 곤란", color: P.warn }], points: [{ x: E, y: Math.min(1e5, cr), color: P.text, r: 5 }],
+      vlines: [{ x: 500, label: "사무실", color: P.faint }, { x: 1e4, label: "흐린 야외", color: P.faint }, { x: 1e5, label: "", color: P.faint }] });
+    ctx.save(); ctx.translate(bx - 44, box.y + box.h / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "center"; ctx.fillText("명실 명암비", 0, 0); ctx.restore();
+    ctx.font = `11px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    [["없음", P.bad], ["원편광판", P.accent], ["무편광판", P.accent2]].forEach(([s, c], i) => { ctx.fillStyle = c; ctx.fillRect(box.x + 8, box.y + h * 0.42 + i * 16, 14, 3); ctx.fillStyle = P.dim; ctx.fillText(s, box.x + 26, box.y + h * 0.42 + i * 16 - 6); });
+  }, { aspect: 0.56, minHeight: 280, maxHeight: 420 });
+})();
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+/* ============================================================ 4. 서브픽셀 */
+(function () {
+  const lay = PB.seg("sub-lay", () => cv.redraw());
+  const pat = PB.seg("sub-pat", () => { srcKey = ""; cv.redraw(); });
+  const nPx = PB.range("sub-n", (v) => v + " px", () => { srcKey = ""; cv.redraw(); });
+  const ppi = PB.range("sub-ppi", (v) => v + " ppi", () => cv.redraw());
+  const dist = PB.range("sub-d", (v) => v + " cm", () => cv.redraw());
+  const SS = 8;
+  const src = document.createElement("canvas"); const sctx = src.getContext("2d", { willReadFrequently: true });
+  let srcKey = "", srcData = null, srcN = 0;
+  function buildSrc() {
+    const N = nPx(), key = N + pat(); if (key === srcKey) return; srcKey = key; srcN = N;
+    src.width = src.height = N * SS;
+    const S = N * SS;
+    sctx.fillStyle = "#000"; sctx.fillRect(0, 0, S, S);
+    if (pat() === "text") {
+      sctx.fillStyle = "#fff"; sctx.textAlign = "center"; sctx.textBaseline = "middle";
+      sctx.font = `700 ${S * 0.42}px ${FONT()}`; sctx.fillText("가", S * 0.3, S * 0.5);
+      sctx.font = `400 ${S * 0.42}px Georgia, serif`; sctx.fillText("e", S * 0.74, S * 0.5);
+    } else if (pat() === "lines") {
+      sctx.strokeStyle = "#fff"; sctx.lineWidth = SS * 0.7;
+      for (let k = 0; k < 5; k++) { sctx.beginPath(); const a = 0.15 + k * 0.32; sctx.moveTo(S * 0.05, S * (0.1 + k * 0.17)); sctx.lineTo(S * 0.95, S * (0.1 + k * 0.17) + S * 0.6 * Math.tan(a) * 0.3); sctx.stroke(); }
+      sctx.beginPath(); sctx.arc(S * 0.5, S * 0.5, S * 0.3, 0, 7); sctx.stroke();
+    } else {
+      const c = ["#ff0000", "#0000ff", "#ffffff", "#00ff00"];
+      for (let k = 0; k < 4; k++) { sctx.fillStyle = c[k]; sctx.beginPath(); sctx.moveTo(k * S / 4 - S * 0.2, S); sctx.lineTo(k * S / 4 + S * 0.1, 0); sctx.lineTo((k + 1) * S / 4 + S * 0.1, 0); sctx.lineTo((k + 1) * S / 4 - S * 0.2, S); sctx.fill(); }
+      sctx.fillStyle = "#000"; sctx.beginPath(); sctx.arc(S * 0.5, S * 0.5, S * 0.18, 0, 7); sctx.fill();
+    }
+    srcData = sctx.getImageData(0, 0, S, S).data;
+  }
+  function samp(ch, cx, cy, half) { // 픽셀 좌표계, 박스 평균 (선형광)
+    const S = srcN * SS; let sum = 0, n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = Math.floor((cx + dx * half * 0.66) * SS), y = Math.floor((cy + dy * half * 0.66) * SS);
+      if (x < 0 || y < 0 || x >= S || y >= S) { n++; continue; }
+      sum += Math.pow(srcData[(y * S + x) * 4 + ch] / 255, 2.2); n++;
+    }
+    return Math.pow(sum / n, 1 / 2.2);
+  }
+  const off = document.createElement("canvas"), octx = off.getContext("2d");
+  const tiny = document.createElement("canvas"), tctx = tiny.getContext("2d");
+  const RGBc = (ch, v) => { const c = Math.round(22 + 233 * v); const z = Math.round(8 * (1 - v)); return ch === 0 ? `rgb(${c},${z},${z})` : ch === 1 ? `rgb(${z},${c},${z})` : `rgb(${z},${Math.round(z + 40 * v)},${c})`; };
+  const cv = PB.canvas("#cv-sub", (ctx, w, h) => {
+    const P = PB.palette();
+    buildSrc();
+    const N = nPx(), L = lay();
+    const side = Math.floor(Math.min((w - 30) / 2, h - 34));
+    off.width = off.height = side;
+    octx.fillStyle = "#050507"; octx.fillRect(0, 0, side, side);
+    const pp = side / N;
+    if (L === "stripe") {
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) for (let c = 0; c < 3; c++) {
+        const v = samp(c, i + (c + 0.5) / 3, j + 0.5, 0.35);
+        octx.fillStyle = RGBc(c, v); octx.fillRect(i * pp + c * pp / 3 + pp * 0.04, j * pp + pp * 0.08, pp / 3 * 0.78, pp * 0.84);
+      }
+    } else if (L === "pentile") {
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        const rb = (i + j) % 2 === 0 ? 0 : 2;
+        octx.fillStyle = RGBc(rb, samp(rb, i + 0.3, j + 0.5, 0.8)); octx.fillRect(i * pp + pp * 0.05, j * pp + pp * 0.08, pp * 0.52, pp * 0.84);
+        octx.fillStyle = RGBc(1, samp(1, i + 0.8, j + 0.5, 0.4)); octx.fillRect(i * pp + pp * 0.64, j * pp + pp * 0.08, pp * 0.3, pp * 0.84);
+      }
+    } else {
+      for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+        const rb = (i + j) % 2 === 0 ? 0 : 2, r = rb === 0 ? pp * 0.36 : pp * 0.44;
+        octx.fillStyle = RGBc(rb, samp(rb, i, j, 0.9));
+        octx.beginPath(); octx.moveTo(i * pp, j * pp - r); octx.lineTo(i * pp + r, j * pp); octx.lineTo(i * pp, j * pp + r); octx.lineTo(i * pp - r, j * pp); octx.fill();
+        if (i < N && j < N) { octx.fillStyle = RGBc(1, samp(1, i + 0.5, j + 0.5, 0.45)); octx.beginPath(); octx.ellipse(i * pp + pp / 2, j * pp + pp / 2, pp * 0.17, pp * 0.24, (i + j) % 2 ? 0.6 : -0.6, 0, 7); octx.fill(); }
+      }
+    }
+    const x0 = 10, y0 = 24, x1 = w - 10 - side;
+    ctx.drawImage(off, x0, y0);
+    // eye view
+    const p_mm = 25.4 / ppi(), blurPx = (dist() * 10 * Math.tan(Math.PI / 180 / 60)) / p_mm; // 픽셀 단위 흐림 폭
+    const blurScreen = Math.max(1, blurPx * pp * 0.6);
+    const ts = Math.max(3, Math.round(side / blurScreen));
+    tiny.width = tiny.height = ts;
+    tctx.imageSmoothingEnabled = true; tctx.imageSmoothingQuality = "high";
+    tctx.drawImage(off, 0, 0, ts, ts);
+    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high"; ctx.drawImage(tiny, x1, y0, side, side); ctx.globalCompositeOperation = "lighter"; ctx.drawImage(tiny, x1, y0, side, side); ctx.restore();
+    ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("현미경 확대", x0, 4); ctx.fillText(`${dist()} cm에서 눈으로 본 근사`, x1, 4);
+    const n = L === "stripe" ? 3 : 2, rb = L === "stripe" ? ppi() : ppi() / Math.SQRT2;
+    PB.stat("sub-o-n", n + " <small>개</small>");
+    PB.stat("sub-o-rb", Math.round(rb) + " <small>ppi</small>");
+    PB.stat("sub-o-d", PB.fmt(3438 * p_mm / 10, 3) + " <small>cm</small>");
+    const ang = (p_mm / (dist() * 10)) * 180 / Math.PI * 60;
+    PB.stat("sub-o-a", PB.fmt(ang, 2) + " <small>′</small>");
+  }, { aspect: 0.52, minHeight: 200, maxHeight: 440 });
+})();
+
+/* ============================================================ 5. 픽셀 회로 얼룩 */
+(function () {
+  const NX = 24, NY = 16;
+  let dv = [];
+  const resample = () => { dv = Array.from({ length: NX * NY }, () => PB.randn()); };
+  resample();
+  const g = PB.range("mu-g", (v) => v, () => cv.redraw());
+  const s = PB.range("mu-s", (v) => v + " mV", () => cv.redraw());
+  const c = PB.seg("mu-c", () => cv.redraw());
+  document.getElementById("mu-re").addEventListener("click", () => { resample(); cv.redraw(); });
+  const Vov = (gg) => 2.0 * Math.pow(gg / 255, 1.1);
+  function lums(gg, sig, comp) {
+    const vo = Vov(gg);
+    return dv.map((d) => { const e = d * sig * (comp ? 0.05 : 1); const x = Math.max(0, vo - e); return (x * x) / (vo * vo); });
+  }
+  const stats = (a) => { const m = a.reduce((p, q) => p + q, 0) / a.length; const sd = Math.sqrt(a.reduce((p, q) => p + (q - m) * (q - m), 0) / a.length); return { m, sd, mx: Math.max(...a), mn: Math.min(...a) }; };
+  const cv = PB.canvas("#cv-mura", (ctx, w, h) => {
+    const P = PB.palette();
+    const sig = s() / 1000, comp = c() === "7t";
+    const L = lums(g(), sig, comp), st = stats(L);
+    const gw = Math.min(w * 0.5, (h - 30) * NX / NY), cs = gw / NX;
+    const ox = 10, oy = 22;
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+      const v = Math.round(PB.clamp(128 * L[j * NX + i] / st.m, 0, 255));
+      ctx.fillStyle = `rgb(${v},${v},${v})`; ctx.fillRect(ox + i * cs, oy + j * cs, cs - 1, cs - 1);
+    }
+    ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("화소 휘도 (평균으로 정규화)", ox, 4);
+    // curve
+    const bx = ox + gw + 56, box = { x: bx, y: 16, w: w - bx - 12, h: h - 62 };
+    const curve = (cmp) => { const d = []; for (let k = 0; k <= 40; k++) { const gg = 4 * Math.pow(255 / 4, k / 40); const q = stats(lums(gg, sig, cmp)); d.push([gg, Math.min(100, (q.sd / q.m) * 100)]); } return d; };
+    PB.chart(ctx, box, { x: [4, 255], y: [0, 60], logX: true, xTicks: [4, 8, 16, 32, 64, 128, 255], xLabel: "계조", series: [
+      { data: curve(false), color: P.bad, width: comp ? 1.5 : 3, dash: comp ? [5, 4] : [] },
+      { data: curve(true), color: P.ok, width: comp ? 3 : 1.5, dash: comp ? [] : [5, 4] }],
+      points: [{ x: g(), y: Math.min(60, (st.sd / st.m) * 100), color: P.text, r: 5 }], hlines: [{ y: 2, label: "~2 % 가시 한계(근사)", color: P.faint }] });
+    ctx.save(); ctx.translate(bx - 40, box.y + box.h / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = P.dim; ctx.textAlign = "center"; ctx.fillText("휘도 불균일 σ/평균 (%)", 0, 0); ctx.restore();
+    ctx.font = `11px ${FONT()}`; ctx.fillStyle = P.bad; ctx.textAlign = "right"; ctx.fillText("2T1C", box.x + box.w - 4, box.y + 6); ctx.fillStyle = P.ok; ctx.fillText("7T1C", box.x + box.w - 4, box.y + 22);
+    PB.stat("mu-o-v", Math.round(Vov(g()) * 1000) + " <small>mV</small>");
+    PB.stat("mu-o-u", PB.fmt((st.sd / st.m) * 100, 3) + " <small>%</small>");
+    PB.stat("mu-o-r", PB.fmt((st.mx / st.m) * 100, 3) + " / " + PB.fmt((st.mn / st.m) * 100, 3) + " <small>%</small>");
+  }, { aspect: 0.45, minHeight: 230, maxHeight: 380 });
+})();
+
+/* ============================================================ 6. 전력 */
+(function () {
+  const A = 0.011, WC = [0.2126, 0.7152, 0.0722], ETA = [9, 28, 2.8], PDRV = 0.2;
+  const CONTENT = { light: [0.78, 0.78, 0.8], dark: [0.06, 0.06, 0.07], photo: [0.24, 0.24, 0.2], white: [1, 1, 1], black: [0, 0, 0] };
+  const L = PB.range("pw-L", (v) => v + " nit", () => cv.redraw());
+  const mode = PB.seg("pw-c", () => cv.redraw());
+  const r = PB.range("pw-r", null, () => { mode.set("custom"); }), gg = PB.range("pw-g", null, () => mode.set("custom")), b = PB.range("pw-b", null, () => mode.set("custom"));
+  const lin = (v) => Math.pow(v / 255, 2.2);
+  const xOf = (m) => (m === "custom" ? [lin(r()), lin(gg()), lin(b())] : CONTENT[m]);
+  const em = (x, Lp) => x.map((xc, c) => (Math.PI * A * Lp * WC[c] * xc) / ETA[c]);
+  function drawScreen(ctx, x, y, w, h, m) {
+    const dark = m === "dark" || m === "black";
+    ctx.save(); roundRect(ctx, x, y, w, h, 8); ctx.clip();
+    if (m === "photo") {
+      const gr = ctx.createLinearGradient(x, y, x, y + h); gr.addColorStop(0, "#6aa3d8"); gr.addColorStop(0.55, "#d9c38f"); gr.addColorStop(0.56, "#3d6b3a"); gr.addColorStop(1, "#22351f");
+      ctx.fillStyle = gr; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = "#f4e7b0"; ctx.beginPath(); ctx.arc(x + w * 0.7, y + h * 0.2, w * 0.1, 0, 7); ctx.fill();
+    } else if (m === "custom") {
+      ctx.fillStyle = `rgb(${r()},${gg()},${b()})`; ctx.fillRect(x, y, w, h);
+    } else {
+      const bg = m === "white" ? "#fff" : m === "black" ? "#000" : dark ? "#0b0b0d" : "#f5f6f8";
+      ctx.fillStyle = bg; ctx.fillRect(x, y, w, h);
+      if (m === "light" || m === "dark") {
+        const fg = dark ? "#c9ccd4" : "#30343c";
+        ctx.fillStyle = fg;
+        for (let i = 0; i < 9; i++) { ctx.globalAlpha = 0.85; ctx.fillRect(x + w * 0.1, y + h * (0.1 + i * 0.085), w * (0.4 + 0.4 * ((i * 37) % 10) / 10), h * 0.025); }
+        ctx.globalAlpha = 1; ctx.fillStyle = dark ? "#1d2230" : "#dfe8ff"; roundRect(ctx, x + w * 0.1, y + h * 0.86, w * 0.8, h * 0.08, 6); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+  const cv = PB.canvas("#cv-power", (ctx, w, h) => {
+    const P = PB.palette(), m = mode(), Lp = L();
+    const x = xOf(m), e = em(x, Lp), pO = e[0] + e[1] + e[2] + PDRV;
+    const pL = 0.15 + 0.0022 * Lp;
+    const eLight = em(CONTENT.light, Lp), pLight = eLight[0] + eLight[1] + eLight[2] + PDRV;
+    const apl = WC[0] * x[0] + WC[1] * x[1] + WC[2] * x[2];
+    PB.stat("pw-o-apl", PB.fmt(apl * 100, 3) + " <small>%</small>");
+    PB.stat("pw-o-oled", PB.fmt(pO, 3) + " <small>W</small>");
+    PB.stat("pw-o-lcd", PB.fmt(pL, 3) + " <small>W</small>");
+    { const d = (pO / pLight - 1) * 100; PB.stat("pw-o-save", Math.abs(d) < 0.5 ? "0 <small>%</small>" : (d < 0 ? "−" : "+") + PB.fmt(Math.abs(d), 2) + " <small>%</small>"); }
+    const sw = Math.min(w * 0.26, (h - 30) / 2), sh = sw * 2;
+    ctx.fillStyle = P.text; ctx.globalAlpha = 0.85; roundRect(ctx, 10, 12, sw + 8, sh + 8, 11); ctx.fill(); ctx.globalAlpha = 1;
+    drawScreen(ctx, 14, 16, sw, sh, m);
+    // bars
+    const bx = sw + 40, bw = w - bx - 16, maxP = Math.max(1.0, Math.ceil(Math.max(pO, pL, pLight) * 2) / 2);
+    const rows = [
+      { name: "OLED · 이 화면", segs: [[e[0], "#e0443e", "R"], [e[1], "#2da44e", "G"], [e[2], "#2f6fe0", "B"], [PDRV, P.faint, "구동"]] },
+      { name: "OLED · 라이트 UI", segs: [[eLight[0], "#e0443e", "R"], [eLight[1], "#2da44e", "G"], [eLight[2], "#2f6fe0", "B"], [PDRV, P.faint, "구동"]] },
+      { name: "LCD · 어떤 화면이든", segs: [[pL - 0.15, P.warn, "백라이트"], [0.15, P.faint, "구동"]] },
+    ];
+    const rh = Math.min(46, (h - 70) / 3);
+    ctx.font = `12px ${FONT()}`; ctx.textBaseline = "middle";
+    rows.forEach((row, i) => {
+      const y = 30 + i * (rh + 22);
+      ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.fillText(row.name, bx, y - 9);
+      let xx = bx;
+      row.segs.forEach(([v, c, lab]) => { const ww = (v / maxP) * bw; ctx.fillStyle = c; ctx.fillRect(xx, y, Math.max(0, ww - 1), rh * 0.62); if (ww > 26) { ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(lab, xx + ww / 2, y + rh * 0.31); } xx += ww; });
+      const tot = row.segs.reduce((p, q) => p + q[0], 0);
+      ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = `600 12px ${MONO()}`; ctx.fillText(PB.fmt(tot, 3) + " W", Math.min(xx + 6, w - 52), y + rh * 0.31); ctx.font = `12px ${FONT()}`;
+    });
+    const ay = 30 + 3 * (rh + 22) - 8;
+    ctx.strokeStyle = P.axis; ctx.beginPath(); ctx.moveTo(bx, ay); ctx.lineTo(bx + bw, ay); ctx.stroke();
+    ctx.fillStyle = P.dim; ctx.font = `11px ${MONO()}`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    for (let v = 0; v <= maxP + 1e-6; v += maxP > 2 ? 1 : 0.5) { const px = bx + (v / maxP) * bw; ctx.fillText(v + " W", px, ay + 4); }
+  }, { aspect: 0.5, minHeight: 260, maxHeight: 400 });
+})();
+
+/* ============================================================ 7. LTPO 시나리오 */
+(function () {
+  const SEG = [[0, 10, "읽기", "static"], [10, 20, "스크롤", "scroll"], [20, 30, "동영상", "video"], [30, 40, "게임", "game"], [40, 50, "사진", "static"], [50, 60, "AOD", "aod"]];
+  const mode = PB.seg("lt-m", () => cv.redraw());
+  const p120 = PB.range("lt-p", (v) => v.toFixed(2) + " W", () => cv.redraw());
+  function fAt(t, m) {
+    const s = SEG.find((q) => t >= q[0] && t < q[1]) || SEG[5], k = s[3], u = t - s[0];
+    if (m === "f120") return k === "aod" ? 30 : 120;
+    if (m === "f60") return k === "aod" ? 30 : 60;
+    if (m === "ltps") return { static: 30, scroll: 120, video: 48, game: 120, aod: 30 }[k];
+    // LTPO
+    if (k === "static") return u < 1.2 ? 120 : u < 1.8 ? 60 : u < 2.4 ? 10 : 1;
+    if (k === "scroll") { const v = u % 5; return v < 1.5 ? 120 : v < 2.5 ? 90 : v < 3.3 ? 60 : v < 4 ? 30 : 10; }
+    if (k === "video") return 24;
+    if (k === "game") return 120;
+    return 1;
+  }
+  const PMIN = 0.02;
+  const pw = (f) => PMIN + (p120() - PMIN) * (f / 120);
+  let cursor = 0;
+  const cv = PB.canvas("#cv-ltpo", (ctx, w, h) => {
+    const P = PB.palette(), m = mode();
+    const box = { x: 50, y: 30, w: w - 64, h: h - 76 };
+    const X = (t) => box.x + (t / 60) * box.w;
+    SEG.forEach((s, i) => { ctx.fillStyle = i % 2 ? P.surface : "transparent"; ctx.fillRect(X(s[0]), box.y, X(s[1]) - X(s[0]), box.h); ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillText(s[2], (X(s[0]) + X(s[1])) / 2, box.y - 4); });
+    const data = [], ref = [];
+    let E = 0, F = 0, E120 = 0;
+    for (let t = 0; t < 60; t += 0.02) { const f = fAt(t, m); data.push([t, f]); ref.push([t, fAt(t, "f120")]); E += pw(f) * 0.02; E120 += pw(fAt(t, "f120")) * 0.02; F += f * 0.02; }
+    PB.chart(ctx, box, { x: [0, 60], y: [0, 130], yTicks: [1, 30, 60, 90, 120], xLabel: "시간 (s)", series: [{ data: ref, color: P.faint, width: 1.5, dash: [5, 4] }, { data, color: P.accent, width: 2.5 }], yFmt: (v) => v + "" });
+    ctx.save(); ctx.translate(13, box.y + box.h / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "center"; ctx.fillText("주사율 (Hz)", 0, 0); ctx.restore();
+    // cursor
+    const fc = fAt(cursor, m);
+    ctx.strokeStyle = P.accent2; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(cursor), box.y); ctx.lineTo(X(cursor), box.y + box.h); ctx.stroke();
+    ctx.fillStyle = P.accent2; ctx.font = `600 12px ${MONO()}`; ctx.textAlign = X(cursor) > w - 120 ? "right" : "left"; ctx.textBaseline = "top";
+    ctx.fillText(`${fc} Hz · ${pw(fc).toFixed(3)} W`, X(cursor) + (X(cursor) > w - 120 ? -6 : 6), box.y + 4);
+    PB.stat("lt-o-f", PB.fmt(F / 60, 3) + " <small>Hz</small>");
+    PB.stat("lt-o-p", PB.fmt(E / 60, 3) + " <small>W</small>");
+    PB.stat("lt-o-s", m === "f120" ? "기준" : "−" + PB.fmt((1 - E / E120) * 100, 3) + " <small>%</small>");
+    PB.stat("lt-o-q", m === "f60" ? "60 Hz" : "120 Hz");
+  }, { aspect: 0.38, minHeight: 230, maxHeight: 340 });
+  PB.loop(document.getElementById("cv-ltpo"), (dt) => { cursor = (cursor + dt * 4) % 60; cv.redraw(); });
+})();
+
+/* ============================================================ 7b. 누설 */
+(function () {
+  const FS = [1, 5, 10, 24, 30, 60, 90, 120];
+  const fi = PB.range("lk-f", (v) => FS[v] + " Hz", () => cv.redraw());
+  const tt = PB.seg("lk-t", () => cv.redraw());
+  const g = PB.range("lk-g", (v) => v, () => cv.redraw());
+  const C = 1e-13;
+  const cv = PB.canvas("#cv-leak", (ctx, w, h) => {
+    const P = PB.palette();
+    const f = FS[fi()], I = tt() === "ltps" ? 3e-13 : 3e-16, rate = I / C; // V/s
+    const vo = 2.0 * Math.pow(g() / 255, 1.1);
+    const Tf = 1 / f, win = PB.clamp(3 / f, 0.06, 2);
+    const lum = (t) => { const u = t % Tf; const x = Math.max(0, vo - rate * u); return (x * x) / (vo * vo); };
+    const d = [], d2 = [];
+    for (let k = 0; k <= 1200; k++) { const t = (k / 1200) * win; d.push([t * 1000, lum(t) * 100]); }
+    const other = tt() === "ltps" ? 3e-16 / C : 3e-13 / C;
+    for (let k = 0; k <= 1200; k++) { const t = (k / 1200) * win; const u = t % Tf; const x = Math.max(0, vo - other * u); d2.push([t * 1000, ((x * x) / (vo * vo)) * 100]); }
+    PB.chart(ctx, null, { x: [0, win * 1000], y: [0, 105], xLabel: "시간 (ms)", yLabel: "목표 대비 휘도 (%)", series: [{ data: d2, color: P.faint, width: 1.2, dash: [4, 4] }, { data: d, color: tt() === "ltps" ? P.bad : P.ok, width: 2.2 }] });
+    const dV = rate * Tf, dl = 100 * (1 - Math.pow(Math.max(0, vo - dV) / vo, 2));
+    PB.stat("lk-o-t", Tf >= 0.1 ? PB.fmt(Tf, 3) + " <small>s</small>" : PB.fmt(Tf * 1000, 3) + " <small>ms</small>");
+    PB.stat("lk-o-v", dV >= 1 ? PB.fmt(dV, 3) + " <small>V</small>" : PB.fmt(dV * 1000, 3) + " <small>mV</small>");
+    PB.stat("lk-o-l", PB.fmt(dl, 3) + " <small>%</small>");
+  }, { aspect: 0.5, minHeight: 220, maxHeight: 330 });
+})();
+
+/* ============================================================ 8. PWM */
+(function () {
+  const FS = [240, 480, 960, 1920, 2160, 3840];
+  const b = PB.range("pm-b", (v) => v + " %", () => cv.redraw());
+  const mode = PB.seg("pm-m", () => cv.redraw());
+  const fi = PB.range("pm-f", (v) => FS[v] + " Hz", () => cv.redraw());
+  const sh = PB.seg("pm-s", () => cv.redraw());
+  let phase = 0;
+  function wave() {
+    const bb = b() / 100, m = mode();
+    if (m === "dc") return { amp: bb, duty: 1 };
+    if (m === "hyb" && bb >= 0.3) return { amp: bb, duty: 1 };
+    if (m === "hyb") return { amp: 0.3, duty: bb / 0.3 };
+    return { amp: 1, duty: bb };
+  }
+  const cv = PB.canvas("#cv-pwm", (ctx, w, h) => {
+    const P = PB.palette(), f = FS[fi()], T = 1 / f, { amp, duty } = wave();
+    const F = (t) => { const n = Math.floor(t / T); return amp * (n * duty * T + Math.min(t - n * T, duty * T)); };
+    // waveform
+    const wh = Math.round(h * 0.36);
+    const box = { x: 44, y: 14, w: w - 58, h: wh - 36 };
+    const data = [], win = 0.01;
+    const N = 1400;
+    for (let k = 0; k <= N; k++) { const t = (k / N) * win + phase; const u = t - Math.floor(t / T) * T; data.push([(k / N) * win * 1000, u < duty * T ? amp : 0]); }
+    PB.chart(ctx, box, { x: [0, 10], y: [0, 1.1], yTicks: [0, 0.5, 1], xFmt: (v) => v + " ms", series: [{ data, color: P.accent, width: 1.6, fill: P.accent + "33" }], hlines: [{ y: amp * duty, label: "평균", color: P.accent2 }] });
+    // photo
+    const Te = 1 / Number(sh()), rows = 220, tRead = 0.02, tl = tRead / rows;
+    const py = wh + 8, ph = h - py - 8, pwid = Math.min(w - 20, ph * 1.2), px = (w - pwid) / 2;
+    ctx.fillStyle = P.text; ctx.globalAlpha = 0.9; roundRect(ctx, px - 5, py - 5, pwid + 10, ph + 10, 10); ctx.fill(); ctx.globalAlpha = 1;
+    const vals = [];
+    for (let i = 0; i < rows; i++) { const t0 = phase + i * tl; vals.push((F(t0 + Te) - F(t0)) / Te); }
+    const mean = amp * duty, rhpx = ph / rows;
+    let mx = 0, mn = 1e9; vals.forEach((v) => { mx = Math.max(mx, v); mn = Math.min(mn, v); });
+    vals.forEach((v, i) => { const g = Math.round(255 * Math.pow(PB.clamp((v / Math.max(1e-6, mean)) * 0.82, 0, 1), 1 / 2.2)); ctx.fillStyle = `rgb(${g},${g},${Math.min(255, g + 6)})`; ctx.fillRect(px, py + i * rhpx, pwid, rhpx + 0.6); });
+    ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(px + 8, py + 8, 150, 20); ctx.fillStyle = "#fff"; ctx.font = `12px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(`카메라 1/${sh()} s로 촬영`, px + 14, py + 18);
+    const mod = duty < 0.999 ? 100 : 0;
+    PB.stat("pm-o-d", Math.round(duty * 100) + "% / " + Math.round(amp * 100) + "%");
+    PB.stat("pm-o-m", mod + " <small>%</small>");
+    let verdict;
+    if (mod === 0) verdict = "무플리커";
+    else if (f > 3000 || mod <= 0.0333 * f) verdict = "영향 없음";
+    else if (f > 1250 || mod <= 0.08 * f) verdict = "저위험";
+    else verdict = "<span style='color:var(--bad)'>권고 초과</span>";
+    PB.stat("pm-o-i", verdict);
+    PB.stat("pm-o-b", PB.fmt(mx + mn > 0 ? ((mx - mn) / (mx + mn)) * 100 : 0, 2) + " <small>%</small>");
+  }, { aspect: 0.82, minHeight: 360, maxHeight: 560 });
+  PB.loop(document.getElementById("cv-pwm"), (dt) => { phase += dt * 0.0011; cv.redraw(); });
+})();
+
+/* ============================================================ 9. 터치 */
+(function () {
+  const pitch = PB.range("tc-p", (v) => v.toFixed(1) + " mm", () => {});
+  const dia = PB.range("tc-d", (v) => v.toFixed(1) + " mm", () => {});
+  const noise = PB.range("tc-n", (v) => v + " %", () => {});
+  const meth = PB.seg("tc-m", () => {});
+  const VIEW = 40;
+  let fx = 20, fy = 20, drag = false, lastDrag = -10, tAll = 0, trail = [], errAvg = 0, lastStats = 0;
+  document.getElementById("tc-clr").addEventListener("click", () => (trail = []));
+  const canvas = document.getElementById("cv-touch");
+  let geom = { ox: 0, oy: 0, s: 1 };
+  const toMM = (ev) => { const r = canvas.getBoundingClientRect(); return [PB.clamp((ev.clientX - r.left - geom.ox) / geom.s, 0, VIEW), PB.clamp((ev.clientY - r.top - geom.oy) / geom.s, 0, VIEW)]; };
+  canvas.addEventListener("pointerdown", (e) => { drag = true; canvas.setPointerCapture(e.pointerId); [fx, fy] = toMM(e); });
+  canvas.addEventListener("pointermove", (e) => { if (drag) { [fx, fy] = toMM(e); lastDrag = tAll; } });
+  const up = () => { drag = false; lastDrag = tAll; };
+  canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
+  const cv = PB.canvas(canvas, (ctx, w, h) => {
+    const P = PB.palette();
+    const s = Math.min(w - 20, h - 20) / VIEW; const ox = (w - VIEW * s) / 2, oy = 10; geom = { ox, oy, s };
+    const p = pitch(), d = dia(), sig = d / 2.6, Smax = 0.18 * (1 - Math.exp(-((d / 6) ** 2)));
+    const n = Math.floor(VIEW / p) + 1, off = (VIEW - (n - 1) * p) / 2;
+    const vals = [];
+    let best = -1, bi = 0, bj = 0;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const x = off + i * p, y = off + j * p, r2 = (x - fx) ** 2 + (y - fy) ** 2;
+      const v = Smax * Math.exp(-r2 / (2 * sig * sig)) + (noise() / 100) * 0.18 * PB.randn() * 0.5;
+      vals.push(v); if (v > best) { best = v; bi = i; bj = j; }
+    }
+    // cells
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const v = PB.clamp(vals[j * n + i] / 0.18, 0, 1);
+      ctx.fillStyle = P.accent; ctx.globalAlpha = 0.06 + 0.9 * v;
+      ctx.fillRect(ox + (off + i * p - p / 2) * s + 1, oy + (off + j * p - p / 2) * s + 1, p * s - 2, p * s - 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = P.accent2; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
+    for (let k = 0; k < n; k++) { const q = off + k * p; ctx.beginPath(); ctx.moveTo(ox, oy + q * s); ctx.lineTo(ox + VIEW * s, oy + q * s); ctx.stroke(); }
+    ctx.strokeStyle = P.blue;
+    for (let k = 0; k < n; k++) { const q = off + k * p; ctx.beginPath(); ctx.moveTo(ox + q * s, oy); ctx.lineTo(ox + q * s, oy + VIEW * s); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    // estimate
+    let ex = off + bi * p, ey = off + bj * p;
+    if (meth() === "cent") {
+      let sw = 0, sx = 0, sy = 0;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        const i = bi + di, j = bj + dj; if (i < 0 || j < 0 || i >= n || j >= n) continue;
+        const v = Math.max(0, vals[j * n + i] - 0.1 * best); sw += v; sx += v * (off + i * p); sy += v * (off + j * p);
+      }
+      if (sw > 0) { ex = sx / sw; ey = sy / sw; }
+    }
+    const err = Math.hypot(ex - fx, ey - fy);
+    errAvg = errAvg * 0.92 + err * 0.08;
+    trail.push([ex, ey, fx, fy]); if (trail.length > 160) trail.shift();
+    ctx.strokeStyle = P.text; ctx.globalAlpha = 0.25; ctx.lineWidth = 1.5; ctx.beginPath(); trail.forEach((q, k) => (k ? ctx.lineTo(ox + q[2] * s, oy + q[3] * s) : ctx.moveTo(ox + q[2] * s, oy + q[3] * s))); ctx.stroke();
+    ctx.strokeStyle = P.bad; ctx.globalAlpha = 0.9; ctx.lineWidth = 2; ctx.beginPath(); trail.forEach((q, k) => (k ? ctx.lineTo(ox + q[0] * s, oy + q[1] * s) : ctx.moveTo(ox + q[0] * s, oy + q[1] * s))); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.strokeStyle = P.text; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ox + fx * s, oy + fy * s, (d / 2) * s, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = P.bad; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(ox + ex * s - 9, oy + ey * s); ctx.lineTo(ox + ex * s + 9, oy + ey * s); ctx.moveTo(ox + ex * s, oy + ey * s - 9); ctx.lineTo(ox + ex * s, oy + ey * s + 9); ctx.stroke();
+    ctx.fillStyle = P.dim; ctx.font = `11px ${MONO()}`; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+    ctx.fillText("40 × 40 mm 영역", ox + 4, oy + VIEW * s - 4);
+    if (tAll - lastStats > 0.2) {
+      lastStats = tAll;
+      PB.stat("tc-o-g", Math.ceil(70 / p) + " × " + Math.ceil(150 / p));
+      PB.stat("tc-o-c", PB.fmt(Smax * 100, 3) + " <small>%</small>");
+      PB.stat("tc-o-e", PB.fmt(errAvg, 2) + " <small>mm</small>");
+    }
+  }, { aspect: 0.85, minHeight: 280, maxHeight: 460 });
+  PB.loop(canvas, (dt) => {
+    tAll += dt;
+    if (!drag && tAll - lastDrag > 2) { const a = tAll * 0.9; fx = 20 + 11 * Math.cos(a) + 3 * Math.cos(a * 3.1); fy = 20 + 11 * Math.sin(a); }
+    cv.redraw();
+  });
+})();
+
+/* ============================================================ 9b. 지연 */
+(function () {
+  const ft = PB.seg("la-t", () => cv.redraw()), fd = PB.seg("la-d", () => cv.redraw()), nb = PB.seg("la-b", () => cv.redraw());
+  const comps = (t, d, b) => [
+    ["샘플링 대기", 0.5 * 1000 / t, "t"], ["터치 스캔·필터", 1000 / t, "t"], ["OS 입력 전달", 2, "o"],
+    ["앱 처리·렌더", 1000 / d, "o"], ["합성 버퍼", b * 1000 / d, "o"], ["스캔 아웃", 0.5 * 1000 / d, "d"], ["화소 응답", 0.3, "d"]];
+  const cv = PB.canvas("#cv-lat", (ctx, w, h) => {
+    const P = PB.palette();
+    const cols = [P.accent, P.ok, P.faint, P.accent2, P.warn, P.blue, P.bad];
+    const sets = [["현재 설정", +ft(), +fd(), +nb()], ["느린 설정 120/60/3", 120, 60, 3], ["빠른 설정 1000/144/1", 1000, 144, 1]];
+    const maxT = 100, bx = 12, bw = w - 24;
+    ctx.font = `12px ${FONT()}`;
+    sets.forEach((st, i) => {
+      const c = comps(st[1], st[2], st[3]); const y = 24 + i * 52;
+      ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.fillText(st[0], bx, y - 3);
+      let x = bx;
+      c.forEach((q, k) => { const ww = (q[1] / maxT) * bw; ctx.fillStyle = cols[k]; ctx.fillRect(x, y, Math.max(0.5, ww - 1), 24); x += ww; });
+      const tot = c.reduce((p, q) => p + q[1], 0);
+      ctx.fillStyle = P.text; ctx.font = `600 12px ${MONO()}`; ctx.textBaseline = "middle"; ctx.fillText(PB.fmt(tot, 3) + " ms", Math.min(x + 6, w - 64), y + 12); ctx.font = `12px ${FONT()}`;
+    });
+    // legend
+    let lx = bx, ly = 24 + 3 * 52 - 4;
+    comps(1, 1, 1).forEach((q, k) => { const tw = ctx.measureText(q[0]).width + 26; if (lx + tw > w - 8) { lx = bx; ly += 18; } ctx.fillStyle = cols[k]; ctx.fillRect(lx, ly + 3, 12, 10); ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(q[0], lx + 16, ly + 1); lx += tw; });
+    const c = comps(+ft(), +fd(), +nb()), tot = c.reduce((p, q) => p + q[1], 0), tp = c.filter((q) => q[2] === "t").reduce((p, q) => p + q[1], 0);
+    PB.stat("la-o-t", PB.fmt(tot, 3) + " <small>ms</small>");
+    PB.stat("la-o-p", PB.fmt(tp, 3) + " <small>ms</small> (" + Math.round((tp / tot) * 100) + "%)");
+    PB.stat("la-o-d", PB.fmt(tot * 0.1, 3) + " <small>mm</small>");
+  }, { height: 240 });
+})();
+
+/* ============================================================ 10. UDC */
+(function () {
+  const kk = PB.seg("ud-k", () => cv.redraw());
+  const trc = document.getElementById("ud-tr"); trc.addEventListener("change", () => cv.redraw());
+  const cv = PB.canvas("#cv-udc", (ctx, w, h) => {
+    const P = PB.palette(), k = +kk(), tr = trc.checked;
+    const side = Math.min((w - 30) / 2, h - 30), NX = 18, pp = side / NX, ox = 10, oy = 22, cx = ox + side / 2, cy = oy + side / 2, R = side * 0.27;
+    ctx.fillStyle = "#060608"; ctx.fillRect(ox, oy, side, side);
+    const keep = (i, j) => (k === 1 ? true : k === 2 ? (i + j) % 2 === 0 : k === 4 ? i % 2 === 0 && j % 2 === 0 : i % 3 === 1 && j % 3 === 1);
+    for (let j = 0; j < NX; j++) for (let i = 0; i < NX; i++) {
+      const x = ox + i * pp, y = oy + j * pp, inside = Math.hypot(x + pp / 2 - cx, y + pp / 2 - cy) < R;
+      if (inside && (k === 0 || !keep(i, j))) continue;
+      if (inside && k === 0) continue;
+      const sc = inside && k > 1 ? 1.25 : 1;
+      ctx.fillStyle = "#e0443e"; ctx.fillRect(x + pp * 0.08, y + pp * 0.15, pp * 0.22 * sc, pp * 0.6);
+      ctx.fillStyle = "#2da44e"; ctx.fillRect(x + pp * 0.38, y + pp * 0.15, pp * 0.2 * sc, pp * 0.6);
+      ctx.fillStyle = "#2f6fe0"; ctx.fillRect(x + pp * 0.64, y + pp * 0.15, pp * 0.28 * sc, pp * 0.6);
+    }
+    if (k === 0) {
+      ctx.fillStyle = "#2a2d35"; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
+      ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(cx, cy, R * 0.7, 0, 7); ctx.fill();
+      ctx.strokeStyle = "#4a5060"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R * 0.45, 0, 7); ctx.stroke();
+    } else {
+      ctx.strokeStyle = tr ? "rgba(160,200,255,.18)" : "rgba(170,170,180,.75)"; ctx.lineWidth = tr ? 1 : 2.2;
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.clip();
+      for (let q = 0; q <= NX; q++) { ctx.beginPath(); ctx.moveTo(ox + q * pp, oy); ctx.lineTo(ox + q * pp, oy + side); ctx.stroke(); ctx.beginPath(); ctx.moveTo(ox, oy + q * pp); ctx.lineTo(ox + side, oy + q * pp); ctx.stroke(); }
+      ctx.restore();
+      ctx.strokeStyle = P.accent; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    }
+    // transmission model
+    const fill = 0.55, wire = tr ? 0.05 : 0.25, base = tr ? 0.5 : 0.3;
+    const T = k === 0 ? 0.92 : base * Math.max(0, 1 - fill / k - wire);
+    const haze = k === 0 ? 0.02 : (1 - T / 0.92) * 0.6 + (tr ? 0.05 : 0.2);
+    // PSF
+    const x1 = w - 10 - side;
+    ctx.fillStyle = "#020203"; ctx.fillRect(x1, oy, side, side);
+    const qx = x1 + side / 2, qy = oy + side / 2;
+    const gl = ctx.createRadialGradient(qx, qy, 0, qx, qy, side * 0.45);
+    gl.addColorStop(0, `rgba(255,250,235,${0.25 + haze * 0.5})`); gl.addColorStop(1, "rgba(255,250,235,0)");
+    ctx.fillStyle = gl; ctx.fillRect(x1, oy, side, side);
+    if (k > 0) {
+      const per = k === 2 ? Math.SQRT2 : Math.sqrt(k), sp = side * 0.11 / per;
+      for (let a = -3; a <= 3; a++) for (let b2 = -3; b2 <= 3; b2++) {
+        if (!a && !b2) continue;
+        const o = Math.hypot(a, b2), I = (0.55 * (1 - T / 0.6)) / (o * o);
+        const rr = 3 + 5 * I;
+        const g2 = ctx.createRadialGradient(qx + a * sp, qy + b2 * sp, 0, qx + a * sp, qy + b2 * sp, rr);
+        g2.addColorStop(0, `rgba(255,240,220,${PB.clamp(I * 1.6, 0, 1)})`); g2.addColorStop(1, "rgba(255,240,220,0)");
+        ctx.fillStyle = g2; ctx.beginPath(); ctx.arc(qx + a * sp, qy + b2 * sp, rr, 0, 7); ctx.fill();
+      }
+    }
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(qx, qy, 3 + 4 * haze, 0, 7); ctx.fill();
+    ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("카메라 주변 화소", ox, 4); ctx.fillText("카메라가 본 점광원", x1, 4);
+    PB.stat("ud-o-t", Math.round(T * 100) + " <small>%</small>");
+    PB.stat("ud-o-e", (k === 0 ? "기준" : PB.fmt(Math.log2(T / 0.92), 2) + " <small>EV</small>"));
+    PB.stat("ud-o-q", k === 0 ? "화면 없음" : k === 1 ? "주변과 동일" : "≈" + Math.round(460 / Math.sqrt(k)) + " <small>ppi</small>");
+  }, { aspect: 0.52, minHeight: 200, maxHeight: 400 });
+})();
+
+/* ============================================================ 11. 번인 */
+(function () {
+  const GW = 54, GH = 117;
+  const hrs = PB.range("bn-h", (v) => v.toLocaleString() + " h", () => cv.redraw());
+  const Lb = PB.range("bn-L", (v) => v + " nit", () => cv.redraw());
+  ["bn-shift", "bn-comp", "bn-amp"].forEach((id) => document.getElementById(id).addEventListener("change", () => cv.redraw()));
+  // 사용 패턴 맵(시간 평균 상대 휘도)
+  const mk = document.createElement("canvas"); mk.width = GW; mk.height = GH;
+  const m = mk.getContext("2d", { willReadFrequently: true });
+  m.fillStyle = "#000"; m.fillRect(0, 0, GW, GH);
+  m.fillStyle = "#fff"; m.font = "bold 6px sans-serif"; m.textBaseline = "top"; m.fillText("12:30", 3, 1.5);
+  m.fillRect(43, 2.5, 7, 3.5); m.fillRect(50, 3.3, 1, 2); for (let i = 0; i < 4; i++) m.fillRect(32 + i * 2, 6 - i * 1.1, 1.2, i * 1.1 + 0.6);
+  m.fillRect(18, GH - 3.5, 18, 1.6);
+  const staticMask = m.getImageData(0, 0, GW, GH).data;
+  const kb = document.createElement("canvas"); kb.width = GW; kb.height = GH; const kc = kb.getContext("2d", { willReadFrequently: true });
+  kc.fillStyle = "#000"; kc.fillRect(0, 0, GW, GH); kc.fillStyle = "#fff"; kc.font = "5px sans-serif"; kc.textBaseline = "top";
+  const keys = "QWERTYUIOPASDFGHJKLZXCVBNM";
+  for (let i = 0; i < 26; i++) { const row = i < 10 ? 0 : i < 19 ? 1 : 2, col = i < 10 ? i : i < 19 ? i - 10 : i - 19; kc.fillText(keys[i], 2 + col * 5.2 + row * 2.5, 78 + row * 9); }
+  const kbMask = kc.getImageData(0, 0, GW, GH).data;
+  function usage(shift) {
+    const a = new Float32Array(GW * GH);
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+      const i = y * GW + x, st = staticMask[i * 4] / 255, kbv = y > 72 && y < 106 ? 0.15 * (0.22 + 0.78 * kbMask[i * 4] / 255) : 0;
+      const content = y > 72 && y < 106 ? 0.85 * 0.35 : 0.35;
+      a[i] = st > 0.05 ? st * 1.0 + (1 - st) * 0.35 : content + kbv;
+    }
+    if (!shift) return a;
+    const b = new Float32Array(a.length);
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) { let s = 0, n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= GW || yy >= GH) continue; s += a[yy * GW + xx]; n++; } b[y * GW + x] = s / n; }
+    return b;
+  }
+  const TAU = [852000, 1.28e6, 426000], BETA = 0.6, NEXP = 1.7;
+  const loss = (H, Le, c) => 1 - Math.exp(-Math.pow((H * Math.pow(Le / 200, NEXP)) / TAU[c], BETA));
+  const off1 = document.createElement("canvas"), off2 = document.createElement("canvas");
+  off1.width = off2.width = GW; off1.height = off2.height = GH;
+  const cv = PB.canvas("#cv-burn", (ctx, w, h) => {
+    const P = PB.palette();
+    const H = hrs(), L = Lb(), shift = document.getElementById("bn-shift").checked, comp = document.getElementById("bn-comp").checked, amp = document.getElementById("bn-amp").checked ? 5 : 1;
+    const a = usage(shift);
+    const lossBg = [0, 1, 2].map((c) => loss(H, L * 0.35, c));
+    const img1 = off1.getContext("2d").createImageData(GW, GH), img2 = off2.getContext("2d").createImageData(GW, GH);
+    let maxB = 0, worstY = 1;
+    for (let i = 0; i < GW * GH; i++) {
+      const st = staticMask[i * 4] / 255, y = Math.floor(i / GW);
+      // 사용 화면
+      let r, g, b;
+      if (st > 0.05) { r = g = b = 235; }
+      else if (y > 72 && y < 106) { const kv = kbMask[i * 4] / 255; r = g = b = 40 + 180 * kv; }
+      else { r = 60 + 40 * Math.sin(i * 0.013); g = 80 + 30 * Math.sin(i * 0.007 + 1); b = 120 + 40 * Math.cos(i * 0.011); }
+      img1.data.set([r, g, b, 255], i * 4);
+      const ls = [0, 1, 2].map((c) => { let l = loss(H, L * a[i], c); if (comp) l = lossBg[c] + (l - lossBg[c]) * 0.1; return l; });
+      if (st > 0.5) maxB = Math.max(maxB, ls[2]);
+      const shown = ls.map((l, c) => PB.clamp(1 - (lossBg[c] + amp * (l - lossBg[c])), 0, 1));
+      const Y = (0.2126 * (1 - ls[0]) + 0.7152 * (1 - ls[1]) + 0.0722 * (1 - ls[2])) / (0.2126 * (1 - lossBg[0]) + 0.7152 * (1 - lossBg[1]) + 0.0722 * (1 - lossBg[2]));
+      worstY = Math.min(worstY, Y);
+      const g8 = (v) => Math.round(255 * Math.pow(0.5 * v * 0.9 + 0.0, 1 / 2.2));
+      img2.data.set([g8(shown[0]), g8(shown[1]), g8(shown[2]), 255], i * 4);
+    }
+    off1.getContext("2d").putImageData(img1, 0, 0); off2.getContext("2d").putImageData(img2, 0, 0);
+    const ph = h - 40, pw = ph * GW / GH;
+    const gap = Math.max(16, (w - 2 * pw) / 3);
+    const x1 = gap, x2 = 2 * gap + pw;
+    [[off1, x1, "사용 화면(정적 UI)"], [off2, x2, "50 % 회색 테스트"]].forEach(([o, x, lab]) => {
+      ctx.fillStyle = P.text; ctx.globalAlpha = 0.85; roundRect(ctx, x - 4, 22, pw + 8, ph + 8, 10); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.save(); roundRect(ctx, x, 26, pw, ph, 7); ctx.clip(); ctx.imageSmoothingEnabled = true; ctx.drawImage(o, x, 26, pw, ph); ctx.restore();
+      ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText(lab, x + pw / 2, 4);
+    });
+    PB.stat("bn-o-b", PB.fmt(maxB * 100, 3) + " <small>%</small>");
+    PB.stat("bn-o-g", PB.fmt(lossBg[2] * 100, 3) + " <small>%</small>");
+    PB.stat("bn-o-c", PB.fmt((1 - worstY) * 100, 2) + " <small>%</small>");
+  }, { aspect: 0.75, minHeight: 300, maxHeight: 460 });
+})();
+
+/* ============================================================ 12. 설계 트레이드오프 */
+(function () {
+  const L = PB.range("dg-L", (v) => v.toLocaleString() + " nit", () => cv.redraw());
+  const se = PB.seg("dg-e", () => cv.redraw()), sp = PB.seg("dg-p", () => cv.redraw()), sb = PB.seg("dg-b", () => cv.redraw()), sc = PB.seg("dg-c", () => cv.redraw());
+  function calc(o) {
+    const emF = (o.e === "tandem" ? 0.85 : 1) * (o.p === "coe" ? 1 / 1.4 : 1);
+    const drv = o.b === "ltpo" ? 0.09 : 0.2;
+    const white300 = 0.78; // 300 nit 전체 흰 화면 발광 전력(W, 원편광판 기준)
+    const typ = white300 * 0.4 * emF + drv;
+    const hbm = white300 * (o.L / 300) * emF + (o.b === "ltpo" ? 0.2 : 0.2);
+    const life = Math.pow(1200 / o.L, 1.7) * (o.e === "tandem" ? Math.pow(2, 1.7) : 1) * (o.p === "coe" ? Math.pow(1.4, 1.7) : 1);
+    const thick = 0.8 - (o.p === "coe" ? 0.07 : 0);
+    const bezel = o.c === "cop" ? 1.8 : 3.0;
+    const refl = o.p === "coe" ? 6.5 : 4.5;
+    const cost = 1 + (o.e === "tandem" ? 0.15 : 0) + (o.p === "coe" ? 0.08 : 0) + (o.b === "ltpo" ? 0.12 : 0) + (o.c === "cop" ? 0.1 : 0);
+    return { typ, hbm, life, thick, bezel, refl, cost };
+  }
+  const cv = PB.canvas("#cv-design", (ctx, w, h) => {
+    const P = PB.palette();
+    const cur = calc({ L: L(), e: se(), p: sp(), b: sb(), c: sc() });
+    const ref = calc({ L: 1200, e: "single", p: "cp", b: "ltps", c: "cof" });
+    const rows = [
+      ["일반 사용 전력", cur.typ, ref.typ, "W", -1, 3],
+      ["HBM 전체 화면 전력", cur.hbm, ref.hbm, "W", -1, 3],
+      ["HBM 수명 지수", cur.life, ref.life, "×", 1, 3],
+      ["모듈 두께", cur.thick, ref.thick, "mm", -1, 2],
+      ["하단 베젤(근사)", cur.bezel, ref.bezel, "mm", -1, 2],
+      ["외광 반사율", cur.refl, ref.refl, "%", -1, 2],
+      ["패널 원가 지수", cur.cost, ref.cost, "×", -1, 3],
+    ];
+    const lw = Math.min(140, w * 0.34), bx = lw + 16, bw = w - bx - 70, rh = (h - 20) / rows.length;
+    ctx.font = `12.5px ${FONT()}`;
+    rows.forEach((r, i) => {
+      const y = 10 + i * rh, ratio = r[1] / r[2], maxR = 3.2;
+      const better = r[4] > 0 ? ratio > 1.001 : ratio < 0.999, worse = r[4] > 0 ? ratio < 0.999 : ratio > 1.001;
+      ctx.fillStyle = P.text; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(r[0], lw + 6, y + rh / 2);
+      ctx.fillStyle = P.surface; ctx.fillRect(bx, y + rh * 0.2, bw, rh * 0.6);
+      ctx.fillStyle = better ? P.ok : worse ? P.bad : P.faint;
+      ctx.fillRect(bx, y + rh * 0.2, (Math.min(ratio, maxR) / maxR) * bw, rh * 0.6);
+      const x1 = bx + (1 / maxR) * bw; ctx.strokeStyle = P.text; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x1, y + rh * 0.1); ctx.lineTo(x1, y + rh * 0.9); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = `600 12px ${MONO()}`; ctx.fillText(PB.fmt(r[1], r[5]) + " " + r[3], bx + bw + 6, y + rh / 2); ctx.font = `12.5px ${FONT()}`;
+    });
+    ctx.fillStyle = P.dim; ctx.font = `11px ${FONT()}`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  }, { height: 300 });
+})();
+</script>
+</body>
+</html>

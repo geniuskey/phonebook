@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<title>PhoneBook · 스마트폰 해부 교과서</title>
+<meta name="description" content="스마트폰을 한 겹씩 분해하며 배우는 인터랙티브 하드웨어 교과서. 디스플레이, AP, 보드, 배터리, 안테나, 카메라, 센서, 열, 기구 설계까지 3D와 시뮬레이터로 익히고, 좋은 폰 설계가 무엇인지 배운다.">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="js/phone3d.js"></script>
+<style>
+  .hero-3d { height: 520px; }
+  @media (max-width: 640px) { .hero-3d { height: 380px; } }
+  .hero-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .hero-badges span { font-size: 13px; padding: 4px 11px; border-radius: 999px; background: var(--surface); color: var(--text-dim); border: 1px solid var(--border); }
+  .hero-ctrl { position: absolute; left: 14px; right: 14px; bottom: 34px; display: flex; gap: 10px; align-items: center; z-index: 2; }
+  .hero-ctrl input { flex: 1; }
+  .hero-ctrl span { font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
+  .hero-3d .part-card { top: 12px; }
+  .numbers { display: grid; gap: 1px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .numbers div { background: var(--bg-elev); padding: 18px 20px; }
+  .numbers b { display: block; font-family: var(--mono); font-size: 26px; letter-spacing: -0.02em; color: var(--accent); }
+  .numbers span { font-size: 14px; color: var(--text-dim); line-height: 1.5; display: block; margin-top: 4px; }
+  .paths { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .path { padding: 18px 20px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-elev); }
+  .path h3 { margin: 0 0 6px; font-size: 17px; }
+  .path p { margin: 0 0 10px; color: var(--text-dim); font-size: 14.5px; }
+  .path .steps { display: flex; flex-wrap: wrap; gap: 6px; }
+  .path .steps a { font-family: var(--mono); font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .path .steps a:hover { text-decoration: none; filter: brightness(1.1); }
+  .map-wrap { overflow-x: auto; }
+  .map-wrap svg { min-width: 720px; }
+  .map-wrap .hot { cursor: pointer; }
+  .map-wrap .hot rect { transition: fill .15s, stroke .15s; }
+  .map-wrap .hot:hover rect { fill: var(--accent-soft); stroke: var(--accent); }
+</style>
+</head>
+<body data-root="">
+
+<section class="home-hero">
+  <div class="inner">
+    <div>
+      <div class="eyebrow">Interactive Smartphone Teardown Textbook</div>
+      <h1>8 mm 두께 안의<br><span class="grad">작은 도시를 해부하다</span></h1>
+      <p>매일 손에 쥐는 스마트폰 속에는 컴퓨터, 카메라 서너 대, 무전기 십여 대, 배터리, 스피커, 나침반이 들어 있습니다. 폰을 한 겹씩 분해하고 다시 조립하며 — 부품마다 슬라이더를 움직이고 3D로 돌려 보며 — <b>스마트폰을 설계할 때 무엇이 중요한지</b> 배우는 교과서입니다.</p>
+      <div class="cta">
+        <a class="primary" href="chapters/anatomy.html">분해부터 시작하기 →</a>
+        <a class="ghost" href="chapters/design.html">설계 플레이그라운드</a>
+      </div>
+      <div class="hero-badges">
+        <span>14개 챕터</span><span>100여 개 시뮬레이터</span><span>3D 분해·조립</span><span>공대 학부 수준</span>
+      </div>
+    </div>
+    <div class="hero-3d" id="hero3d">
+      <div class="part-card" id="hero-card" hidden></div>
+      <div class="hero-ctrl"><span>조립</span><input type="range" id="hero-ex" min="0" max="100" value="0" aria-label="분해 정도"><span>분해</span></div>
+      <span class="hint">드래그해서 돌리고, 부품을 클릭해 보세요</span>
+    </div>
+  </div>
+</section>
+
+<section class="home-section">
+  <h2>폰을 펼치면 이렇게 생겼습니다</h2>
+  <p class="sub">스마트폰은 <b>화면 층 · 뼈대(프레임) · 내장 층</b>의 세 겹입니다. 아래 지도의 부품을 클릭하면 그 부품을 다루는 장으로 이동합니다.</p>
+  <figure class="diagram map-wrap">
+    <svg viewBox="0 0 1100 430" role="img" aria-label="스마트폰 부품 지도와 챕터">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+      </defs>
+      <!-- 측면 적층 그림 -->
+      <g transform="translate(30,40)">
+        <text x="0" y="-12" class="t-mono">측면 단면 (화면이 위)</text>
+        <a href="chapters/mechanical.html" class="hot"><rect x="0" y="0" width="420" height="16" rx="6" fill="#7cc4f0" opacity=".75"/><text x="430" y="12" class="t">커버 글라스 · 12장</text></a>
+        <a href="chapters/display.html" class="hot"><rect x="4" y="20" width="412" height="20" rx="4" fill="#6c5ce7" opacity=".8"/><text x="430" y="34" class="t">OLED·터치 · 2장</text></a>
+        <a href="chapters/mechanical.html" class="hot"><rect x="0" y="44" width="420" height="14" rx="3" fill="#a7adb8"/><text x="430" y="55" class="t">프레임·미드플레이트 · 12장</text></a>
+        <a href="chapters/thermal.html" class="hot"><rect x="10" y="62" width="150" height="6" rx="2" fill="#d08a52"/></a>
+        <a href="chapters/board.html" class="hot"><rect x="10" y="72" width="150" height="34" rx="3" fill="#2f8f5b" opacity=".85"/><text x="85" y="94" text-anchor="middle" fill="#fff" font-size="12">보드 샌드위치</text></a>
+        <a href="chapters/battery.html" class="hot"><rect x="170" y="62" width="200" height="64" rx="5" fill="#3fcf7f" opacity=".85"/><text x="270" y="99" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">배터리</text></a>
+        <a href="chapters/audio.html" class="hot"><rect x="378" y="72" width="42" height="40" rx="3" fill="#8e6bd8" opacity=".85"/></a>
+        <a href="chapters/camera.html" class="hot"><rect x="40" y="108" width="60" height="44" rx="3" fill="#4f6bed" opacity=".9"/><text x="70" y="135" text-anchor="middle" fill="#fff" font-size="11">카메라</text></a>
+        <a href="chapters/power.html" class="hot"><rect x="160" y="128" width="200" height="6" rx="2" fill="#d9822b"/></a>
+        <a href="chapters/mechanical.html" class="hot"><rect x="0" y="136" width="420" height="10" rx="4" fill="#3d4a5c"/></a>
+        <text x="430" y="82" class="t">베이퍼 챔버 · 11장 / AP·보드 · 3·4장</text>
+        <text x="430" y="104" class="t">배터리 · 5장 / 하단 모듈 · 10장</text>
+        <text x="430" y="132" class="t">무선충전 · 6장 / 후면 글라스 · 12장</text>
+        <text x="430" y="152" class="t">카메라 범프 · 8장</text>
+      </g>
+      <!-- 시스템 흐름 -->
+      <g transform="translate(30,250)">
+        <text x="0" y="-14" class="t-mono">에너지와 정보의 흐름</text>
+        <a href="chapters/battery.html" class="hot"><rect x="0" y="0" width="120" height="56" rx="10" class="f-elev"/><text x="60" y="26" text-anchor="middle" class="t" font-weight="700">배터리</text><text x="60" y="44" text-anchor="middle" class="t-mono">Ch.05</text></a>
+        <path d="M125 28 H160" class="s-acc" marker-end="url(#arr)"/>
+        <a href="chapters/power.html" class="hot"><rect x="165" y="0" width="120" height="56" rx="10" class="f-elev"/><text x="225" y="26" text-anchor="middle" class="t" font-weight="700">PMIC·충전</text><text x="225" y="44" text-anchor="middle" class="t-mono">Ch.06</text></a>
+        <path d="M290 28 H325" class="s-acc" marker-end="url(#arr)"/>
+        <a href="chapters/soc.html" class="hot"><rect x="330" y="-14" width="150" height="84" rx="12" class="f-acc-soft"/><text x="405" y="22" text-anchor="middle" class="t-acc">AP (SoC)</text><text x="405" y="42" text-anchor="middle" class="t-dim">CPU·GPU·NPU·모뎀</text><text x="405" y="60" text-anchor="middle" class="t-mono">Ch.03</text></a>
+        <path d="M485 10 L540 -20" class="s-acc" marker-end="url(#arr)"/>
+        <path d="M485 28 H540" class="s-acc" marker-end="url(#arr)"/>
+        <path d="M485 46 L540 76" class="s-acc" marker-end="url(#arr)"/>
+        <a href="chapters/display.html" class="hot"><rect x="545" y="-46" width="130" height="44" rx="10" class="f-elev"/><text x="610" y="-24" text-anchor="middle" class="t">화면·터치</text><text x="610" y="-9" text-anchor="middle" class="t-mono">Ch.02</text></a>
+        <a href="chapters/rf.html" class="hot"><rect x="545" y="6" width="130" height="44" rx="10" class="f-elev"/><text x="610" y="28" text-anchor="middle" class="t">안테나·무선</text><text x="610" y="43" text-anchor="middle" class="t-mono">Ch.07</text></a>
+        <a href="chapters/camera.html" class="hot"><rect x="545" y="58" width="130" height="44" rx="10" class="f-elev"/><text x="610" y="80" text-anchor="middle" class="t">카메라</text><text x="610" y="95" text-anchor="middle" class="t-mono">Ch.08</text></a>
+        <path d="M680 28 H715" class="s-line" marker-end="url(#arr)"/>
+        <a href="chapters/sensors.html" class="hot"><rect x="720" y="-30" width="130" height="44" rx="10" class="f-elev"/><text x="785" y="-8" text-anchor="middle" class="t">센서·인증</text><text x="785" y="7" text-anchor="middle" class="t-mono">Ch.09</text></a>
+        <a href="chapters/audio.html" class="hot"><rect x="720" y="40" width="130" height="44" rx="10" class="f-elev"/><text x="785" y="62" text-anchor="middle" class="t">오디오·햅틱</text><text x="785" y="77" text-anchor="middle" class="t-mono">Ch.10</text></a>
+        <a href="chapters/thermal.html" class="hot"><rect x="330" y="96" width="150" height="40" rx="10" class="f-acc2-soft"/><text x="405" y="121" text-anchor="middle" class="t">모든 전력 → 열 · Ch.11</text></a>
+        <path d="M405 74 V92" class="s-line" marker-end="url(#arr)"/>
+        <a href="chapters/design.html" class="hot"><rect x="880" y="-46" width="170" height="182" rx="14" class="f-acc-soft"/><text x="965" y="30" text-anchor="middle" class="t-acc">설계 플레이그라운드</text><text x="965" y="52" text-anchor="middle" class="t-dim">모든 것을 한 번에</text><text x="965" y="74" text-anchor="middle" class="t-mono">Ch.13</text></a>
+      </g>
+    </svg>
+    <figcaption><b>그림 0-1.</b> 위: 폰의 측면 적층 구조. 아래: 배터리에서 출발한 에너지가 AP를 거쳐 화면·무선·카메라로 가고, 결국 모두 열이 된다. 각 블록은 해당 장으로 연결됩니다.</figcaption>
+  </figure>
+</section>
+
+<section class="home-section" style="padding-top:0">
+  <h2>숫자로 보는 요즘 스마트폰</h2>
+  <p class="sub">이 책을 끝내면 아래 숫자들이 왜 그 값인지, 서로 어떻게 얽혀 있는지 설명할 수 있게 됩니다.</p>
+  <div class="numbers">
+    <div><b>~8 mm</b><span>본체 두께. 0.1 mm마다 배터리·카메라·강성이 다툰다</span></div>
+    <div><b>15–19 Wh</b><span>배터리 에너지. 노트북의 1/4도 안 되는 양으로 하루를 버틴다</span></div>
+    <div><b>~1 W</b><span>하루 사용을 위한 평균 소비 전력의 목표치</span></div>
+    <div><b>3–5 W</b><span>손에 쥐고 계속 버릴 수 있는 열 — 지속 성능의 천장</span></div>
+    <div><b>수백억 개</b><span>AP 한 칩에 든 트랜지스터 수 (3 nm급 공정)</span></div>
+    <div><b>30+ 대역</b><span>한 대의 폰이 지원하는 셀룰러·Wi-Fi·GNSS·NFC 주파수 대역</span></div>
+    <div><b>~800 MPa</b><span>강화 유리 표면의 압축 응력. 균열을 눌러 닫는다</span></div>
+    <div><b>1/3</b><span>내부 부피 중 배터리 몫. 나머지 모든 부품이 쓰고 남은 공간이다</span></div>
+  </div>
+</section>
+
+<section class="home-section" style="padding-top:0">
+  <h2>전체 챕터</h2>
+  <p class="sub">1장에서 폰 전체를 분해해 지도를 그린 뒤, 부품별로 깊이 들어가고, 13장에서 다시 전체로 돌아와 직접 폰을 설계합니다. 각 장은 부품 소개 → 원리 → 시뮬레이터 → 설계 트레이드오프 → 퀴즈 순서입니다.</p>
+  <div class="ch-grid" id="chgrid"></div>
+</section>
+
+<section class="home-section" style="padding-top:0">
+  <h2>추천 학습 경로</h2>
+  <p class="sub">전공이나 관심사에 따라 이렇게 읽어 보세요.</p>
+  <div class="paths">
+    <div class="path"><h3>입문 · 전체 그림</h3><p>스마트폰 하드웨어가 처음이라면. 분해해서 지도를 그리고 큰 부품부터.</p><div class="steps"><a href="chapters/anatomy.html">01</a><a href="chapters/display.html">02</a><a href="chapters/soc.html">03</a><a href="chapters/battery.html">05</a><a href="chapters/design.html">13</a></div></div>
+    <div class="path"><h3>전자 · 회로</h3><p>전기전자 전공. 칩, 보드, 전원, 무선 회로의 설계 제약.</p><div class="steps"><a href="chapters/soc.html">03</a><a href="chapters/board.html">04</a><a href="chapters/power.html">06</a><a href="chapters/rf.html">07</a><a href="chapters/sensors.html">09</a></div></div>
+    <div class="path"><h3>기계 · 열 · 소재</h3><p>기계·재료 전공. 두께 예산, 열 설계, 유리와 프레임, 낙하와 방수.</p><div class="steps"><a href="chapters/anatomy.html">01</a><a href="chapters/battery.html">05</a><a href="chapters/thermal.html">11</a><a href="chapters/mechanical.html">12</a><a href="chapters/design.html">13</a></div></div>
+    <div class="path"><h3>광학 · 감각 기관</h3><p>폰이 세상을 보고 듣고 느끼는 방법. 카메라, 센서, 오디오.</p><div class="steps"><a href="chapters/display.html">02</a><a href="chapters/camera.html">08</a><a href="chapters/sensors.html">09</a><a href="chapters/audio.html">10</a></div></div>
+    <div class="path"><h3>제품 기획 · 시스템</h3><p>PM·시스템 엔지니어. 예산(두께·부피·전력·원가)과 트레이드오프 중심.</p><div class="steps"><a href="chapters/anatomy.html">01</a><a href="chapters/thermal.html">11</a><a href="chapters/design.html">13</a><a href="chapters/glossary.html">14</a></div></div>
+  </div>
+</section>
+
+<section class="home-section" style="padding-top:0">
+  <h2>이 사이트 사용법</h2>
+  <div class="flow">
+    <div><b>분해하기</b>3D 모델을 돌리고 부품을 클릭해 정체를 확인합니다.</div>
+    <div><b>만지기</b>시뮬레이터의 슬라이더를 끝까지 움직여 보세요. 극단에서 배웁니다.</div>
+    <div><b>계산하기</b>두께·전력·열 예산을 직접 계산하며 감을 잡습니다.</div>
+    <div><b>비교하기</b>모든 장의 끝에는 '설계 시 무엇이 중요한가'가 있습니다.</div>
+    <div><b>확인하기</b>장마다 퀴즈, 마지막 장에서 종합 퀴즈로 마무리합니다.</div>
+  </div>
+  <p class="sub" style="margin-top:24px">카메라 센서를 더 깊이 알고 싶다면 자매편 <a href="https://sensorbook.euiyun.com/">SensorBook · 이미지 센서 교과서</a>를 함께 보세요.</p>
+</section>
+
+<script>
+(function () {
+  const grid = document.getElementById("chgrid");
+  const tagName = { sim: "시뮬레이터", "3d": "3D" };
+  grid.innerHTML = PB.CHAPTERS.map((c) => `
+    <a class="ch-card" href="chapters/${c.slug}.html">
+      <span class="num">CHAPTER ${c.num}</span>
+      <h3>${c.title}</h3>
+      <p>${c.desc}</p>
+      <span class="tags">${c.tags.map((t) => `<span class="${t === "sim" ? "sim" : t === "3d" ? "d3" : ""}">${tagName[t] || t}</span>`).join("")}</span>
+    </a>`).join("");
+
+  // 히어로 3D: 천천히 숨 쉬듯 분해·조립을 반복하는 폰
+  const el = document.getElementById("hero3d");
+  const T = PB.three(el, { camera: [180, 115, 180], target: [0, -6, 0], fov: 34, autoRotate: true, autoRotateSpeed: 0.7, pan: false, minDistance: 90, maxDistance: 520 });
+  if (!T) return;
+  const P = PB.phone3d(T);
+  const ex = document.getElementById("hero-ex");
+  let auto = true, t0 = 0, cur = 0;
+  ex.addEventListener("input", () => { auto = false; cur = ex.value / 100; P.setExplode(cur); ex.style.setProperty("--fill", ex.value + "%"); });
+  T.onFrame((dt) => {
+    if (!auto) return;
+    t0 += dt;
+    // 3초 대기 → 분해 → 4초 머묾 → 조립 (주기 14초)
+    const ph = t0 % 14;
+    const k = ph < 2.5 ? 0 : ph < 5.5 ? (ph - 2.5) / 3 : ph < 10 ? 1 : ph < 13 ? 1 - (ph - 10) / 3 : 0;
+    const e = k * k * (3 - 2 * k) * 0.9;
+    if (Math.abs(e - cur) > 1e-4) { cur = e; P.setExplode(e); ex.value = Math.round(e * 100); ex.style.setProperty("--fill", ex.value + "%"); }
+  });
+  ex.style.setProperty("--fill", "0%");
+  const card = document.getElementById("hero-card");
+  T.pick(() => P.parts.map((p) => p.group), (hit) => {
+    const p = hit && P.partAt(hit.object);
+    if (!p) { card.hidden = true; P.highlight(null); return; }
+    auto = false; T.controls.autoRotate = false;
+    P.highlight(p.id);
+    card.innerHTML = PB.partCardHTML(p, "chapters/");
+    card.hidden = false;
+    card.querySelector(".x").addEventListener("click", () => { card.hidden = true; P.highlight(null); });
+  }, (hit) => { el.style.cursor = hit ? "pointer" : ""; });
+})();
+</script>
+</body>
+</html>

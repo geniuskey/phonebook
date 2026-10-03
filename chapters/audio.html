@@ -190,7 +190,7 @@
         <div class="sim-view"><canvas id="cv-amp"></canvas></div>
         <div class="sim-controls">
           <label class="ctrl"><span>구동 전압(피크) <output id="amp-v-out"></output></span><input type="range" id="amp-v" min="1" max="11" step="0.1" value="8"></label>
-          <div class="ctrl"><span>콘텐츠(파고율)</span><div class="seg" id="amp-c"><button data-value="12">음성 12 dB</button><button data-value="9" class="on">음악 9 dB</button><button data-value="4">EDM 4 dB</button></div></div>
+          <div class="ctrl"><span>콘텐츠(파고율)</span><div class="seg" id="amp-c"><button data-value="15">음성 15 dB</button><button data-value="11" class="on">음악 11 dB</button><button data-value="7">EDM 7 dB</button></div></div>
           <label class="check"><input type="checkbox" id="amp-p" checked> 스마트 보호 켜기</label>
         </div>
       </div>
@@ -365,9 +365,9 @@
       </div>
       <div class="sim-readout">
         <div class="stat"><span class="k">소음 감소</span><span class="v" id="lms-o-nr">—</span></div>
-        <div class="stat"><span class="k">음성 손실</span><span class="v" id="lms-o-sd">—</span></div>
+        <div class="stat"><span class="k">음성 왜곡(낮을수록 좋음)</span><span class="v" id="lms-o-sd">—</span></div>
       </div>
-      <div class="sim-note">위: 회색 = 주 마이크 입력, 색 = 캔슬러 출력, 점선 = 깨끗한 음성(정답). 아래: 시간에 따른 소음 감소량. 해볼 것: '필터 초기화' 뒤 수렴 속도를 μ에 따라 비교하고, 새는 음성을 0.4 이상으로 올려 음성 손실이 커지는 것을 확인하자. 필터 길이가 소음 경로(약 5탭)보다 짧으면 감소량이 제한된다.</div>
+      <div class="sim-note">위: 회색 = 주 마이크 입력, 색 = 캔슬러 출력, 점선 = 깨끗한 음성(정답). 아래: 시간에 따른 소음 감소량. 해볼 것: '필터 초기화' 뒤 수렴 속도를 μ에 따라 비교하고, 새는 음성을 0.4 이상으로 올려 음성 왜곡이 커지는 것을 확인하자. 필터 길이가 소음 경로(약 5탭)보다 짧으면 감소량이 제한된다.</div>
     </div>
   </section>
 
@@ -595,7 +595,870 @@
   </section>
 </main>
 <script>
-/*JS*/
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const TAU = Math.PI * 2;
+  const logF = (v, a, b) => a * Math.pow(b / a, v);
+  const fmtHz = (f) => (f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 1 : 2) + " kHz" : Math.round(f) + " Hz");
+  const dB = (x) => 20 * Math.log10(Math.max(1e-12, x));
+
+  /* ---------------- 공통 스피커 모델 (Thiele–Small, 단순화) ---------------- */
+  const RHOC2 = 1.42e5, SD = 1.2e-4, MMS = 8e-5, BL = 0.8, RE = 7, XMAX = 0.35e-3;
+  const FH = 6000, QH = 2.5; // 전면 헬름홀츠
+  function boxModel(vbcc, fs, qts, abs, leak) {
+    const vas = RHOC2 * SD * SD / (Math.pow(TAU * fs, 2) * MMS);   // m^3
+    const vb = vbcc * 1e-6 * (abs ? 1.6 : 1);
+    const a = Math.sqrt(1 + vas / vb);
+    let qtc = qts * a;
+    if (leak) qtc *= 0.7;
+    return { vas, fc: fs * a, qtc, leak: !!leak };
+  }
+  const hp2 = (f, fc, q) => { const r = f / fc; return (r * r) / Math.sqrt(Math.pow(1 - r * r, 2) + Math.pow(r / q, 2)); };
+  const lp2 = (f, fc, q) => { const r = f / fc; return 1 / Math.sqrt(Math.pow(1 - r * r, 2) + Math.pow(r / q, 2)); };
+  const hp1 = (f, fc) => { const r = f / fc; return r / Math.sqrt(1 + r * r); };
+  function respMag(f, m) {
+    let h = hp2(f, m.fc, m.qtc) * lp2(f, FH, QH);
+    if (m.leak) h *= hp1(f, m.fc * 0.6);
+    return h;
+  }
+  function excursion(f, Vpk, m) { // m 단위, 사인 피크
+    const k = Math.pow(TAU * m.fc, 2) * MMS;
+    return (BL * Vpk / RE) / k * lp2(f, m.fc, m.qtc);
+  }
+  const AUD = { m: boxModel(1, 700, 0.8, false, false), listeners: [] };
+  AUD.update = () => AUD.listeners.forEach((f) => f());
+
+  /* ---------------- 1. 정면도 클릭 ---------------- */
+  (function () {
+    const info = {
+      ear: "<b>수화부 스피커</b> — 화면 상단 틈 뒤의 작은 스피커(리시버). 통화 때는 귀에 대고 작게, 음악 재생 때는 하단 스피커와 짝을 이뤄 스테레오의 한 채널이 된다. 공간이 더 좁아 공기실이 작고 저역이 약하므로 소프트웨어로 두 채널의 음색을 맞춘다.",
+      mtop: "<b>상단 마이크</b> — 입에서 가장 먼 쪽. 통화 소음 제거의 '기준 마이크'이자 스테레오 녹음의 한 채널. 하단 마이크와 약 140 mm 떨어져 있어 레벨차·시간차가 크다.",
+      mrear: "<b>후면 마이크</b> — 카메라 옆. 영상 녹음 때 피사체 쪽 소리를 받고, 상단 마이크와 짝을 이뤄 앞뒤 방향을 구분한다(줌 오디오, 바람 소음 검출).",
+      spk: "<b>하단 스피커</b> — 11×15 mm급 마이크로 스피커 + 후방 공기실(~0.5–1.5 cc). 정격 ~1 W, 부스트 스마트 앰프로 순간 수 W까지 구동. 소리는 하단 그릴로 나간다.",
+      lra: "<b>X축 LRA</b> — 길쭉한 직육면체 안에서 추가 폰의 긴 변 방향으로 왕복. 공진 ~100–170 Hz, 넓은 대역 구동으로 다양한 질감의 햅틱을 낸다. 부피 ~1 cc.",
+      mbot: "<b>하단 주 마이크</b> — 통화 때 입에서 2–5 cm. 음성이 가장 크게 들어오는 '주 마이크'. 빔포밍 쌍의 한쪽이 되기도 한다.",
+    };
+    const box = $("au-info");
+    document.querySelectorAll(".au-hot").forEach((g) => g.addEventListener("click", () => {
+      document.querySelectorAll(".au-hot").forEach((x) => x.classList.remove("on"));
+      g.classList.add("on");
+      box.innerHTML = info[g.dataset.k];
+    }));
+  })();
+
+  /* ---------------- 2. 3D ---------------- */
+  (function () {
+    const el = $("v3d-aud");
+    if (!el || !PB.phone3d) return;
+    const T = PB.three(el, { camera: [120, 150, 250], target: [0, 0, 45], fov: 35, minDistance: 80, maxDistance: 420 });
+    if (!T) return;
+    const P = PB.phone3d(T);
+    const card = $("aud-card");
+    let cur = "bottom";
+    function showCard(part) {
+      card.innerHTML = PB.partCardHTML(part, "");
+      card.hidden = false;
+      card.querySelector(".x").onclick = () => (card.hidden = true);
+    }
+    P.highlight(cur);
+    P.setExplode(0.6);
+    PB.range("aud-ex", (v) => Math.round(v * 100) + "%", (v) => P.setExplode(v));
+    const seg = PB.seg("aud-part", (v) => {
+      cur = v; P.highlight(v);
+      showCard(P.byId[v]);
+      const c = P.center(v);
+      PB.flyTo(T, v === "bottom" ? [c.x + 110, c.y + 120, c.z + 150] : [c.x + 110, c.y + 140, c.z - 60], [c.x, c.y, c.z], 1.0);
+    });
+    $("aud-xray").addEventListener("change", (e) => P.setXray(e.target.checked));
+    $("aud-lbl").addEventListener("change", (e) => P.setLabels(e.target.checked));
+    T.pick([P.group], (hit) => {
+      if (!hit) { card.hidden = true; return; }
+      const part = P.partAt(hit.object);
+      if (!part) return;
+      P.highlight(part.id);
+      if (part.id === "bottom" || part.id === "frontcam") seg.set(part.id, false);
+      showCard(part);
+    });
+  })();
+
+  /* ---------------- 3. 스피커 단면 애니메이션 ---------------- */
+  (function () {
+    const gV = PB.range("spk-v", (v) => v.toFixed(1) + " V");
+    const gF = PB.range("spk-f", (v) => fmtHz(logF(v, 50, 5000)));
+    const gS = PB.range("spk-s", (v) => "×" + v.toFixed(1));
+    const cbB = $("spk-b"), cbA = $("spk-air");
+    let phase = 0;
+    const air = [];
+    for (let i = 0; i < 70; i++) air.push([Math.random(), Math.random()]);
+    function stats() {
+      const f = logF(gF(), 50, 5000), V = gV();
+      const x = excursion(f, V, AUD.m);
+      const i = V / RE;
+      PB.stat("spk-o-i", (i * 1000).toFixed(0) + "<small>mA</small>");
+      PB.stat("spk-o-f", (BL * i).toFixed(2) + "<small>N</small>");
+      PB.stat("spk-o-x", "±" + (x * 1000).toFixed(3) + "<small>mm</small>");
+      PB.stat("spk-o-vd", (SD * x * 1e9).toFixed(1) + "<small>mm³</small>");
+      return { f, V, x, i };
+    }
+    let S = stats();
+    [gV, gF].forEach((g) => g.el.addEventListener("input", () => (S = stats())));
+    AUD.listeners.push(() => (S = stats()));
+    const cv = PB.canvas($("cv-spk"), (ctx, w, h) => {
+      const P = PB.palette();
+      const s = Math.min(w / 480, h / 270);
+      const ox = (w - 470 * s) / 2 + 180 * s, oy = (h - 250 * s) / 2 - 18 * s;
+      const X = (x) => ox + x * s, Y = (y) => oy + y * s;
+      const off = PB.clamp(S.x / XMAX, -1.6, 1.6) * Math.sin(phase) * 12;   // 표시용 변위(단위)
+      const iSign = Math.cos(phase) >= 0 ? 1 : -1; // 표시 위상(속도 대신 힘 기준)
+      const force = Math.sin(phase);
+      ctx.lineJoin = "round";
+      // 프레임
+      ctx.fillStyle = P.surface; ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.fillRect(X(-175), Y(30), 350 * s, 215 * s); ctx.strokeRect(X(-175), Y(30), 350 * s, 215 * s);
+      // 후방 공기실
+      ctx.fillStyle = PB.isDark() ? "rgba(120,160,255,0.08)" : "rgba(60,100,220,0.07)";
+      ctx.fillRect(X(-170), Y(195), 340 * s, 45 * s);
+      // 전면 공기실 + 출구
+      ctx.fillStyle = P.bg;
+      ctx.fillRect(X(-170), Y(34), 340 * s, 38 * s);
+      ctx.fillRect(X(170), Y(34), 110 * s, 22 * s);
+      // 그릴
+      ctx.fillStyle = P.dim;
+      for (let k = 0; k < 4; k++) ctx.fillRect(X(278), Y(36 + k * 5.5), 4 * s, 3 * s);
+      // 요크(U자)
+      ctx.fillStyle = P.dim; ctx.globalAlpha = 0.55;
+      ctx.fillRect(X(-125), Y(180), 250 * s, 15 * s);
+      ctx.fillRect(X(-125), Y(105), 22 * s, 75 * s);
+      ctx.fillRect(X(103), Y(105), 22 * s, 75 * s);
+      ctx.globalAlpha = 1;
+      // 자석 + 상판
+      ctx.fillStyle = PB.isDark() ? "#c45a5a" : "#d46a6a"; ctx.fillRect(X(-70), Y(122), 140 * s, 58 * s);
+      ctx.fillStyle = PB.isDark() ? "#5a78c4" : "#6a88d4"; ctx.fillRect(X(-70), Y(140), 140 * s, 40 * s);
+      ctx.fillStyle = P.dim; ctx.globalAlpha = 0.75; ctx.fillRect(X(-72), Y(105), 144 * s, 17 * s); ctx.globalAlpha = 1;
+      ctx.fillStyle = "#fff"; ctx.font = `${Math.max(10, 12 * s)}px ${getComputedStyle(document.body).getPropertyValue("--font")}`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("N", X(0), Y(131)); ctx.fillText("S", X(0), Y(162));
+      // 자기장
+      if (cbB.checked) {
+        ctx.strokeStyle = P.accent2; ctx.fillStyle = P.accent2; ctx.lineWidth = 1.5;
+        [-1, 1].forEach((sd) => {
+          [108, 114, 119].forEach((yy) => {
+            const x0 = sd * 73, x1 = sd * 101;
+            ctx.beginPath(); ctx.moveTo(X(x0), Y(yy)); ctx.lineTo(X(x1), Y(yy)); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(X(x1), Y(yy)); ctx.lineTo(X(x1 - sd * 5), Y(yy - 2.5)); ctx.lineTo(X(x1 - sd * 5), Y(yy + 2.5)); ctx.fill();
+          });
+        });
+        ctx.font = `bold ${Math.max(10, 12 * s)}px sans-serif`; ctx.fillText("B", X(140), Y(118));
+      }
+      // 보이스코일 + 보빈
+      const cy = 92 + off;
+      ctx.fillStyle = PB.isDark() ? "#e0a040" : "#d08a20";
+      ctx.fillRect(X(-96), Y(cy), 14 * s, 30 * s); ctx.fillRect(X(82), Y(cy), 14 * s, 30 * s);
+      ctx.strokeStyle = P.dim; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(X(-89), Y(cy)); ctx.lineTo(X(-89), Y(68 + off)); ctx.moveTo(X(89), Y(cy)); ctx.lineTo(X(89), Y(68 + off)); ctx.stroke();
+      // 전류 기호
+      const sym = (x, y, dot) => { ctx.strokeStyle = "#fff"; ctx.fillStyle = "#fff"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(X(x), Y(y), 4 * s, 0, TAU); ctx.stroke(); if (dot) { ctx.beginPath(); ctx.arc(X(x), Y(y), 1.4 * s, 0, TAU); ctx.fill(); } else { const r = 2.6 * s; ctx.beginPath(); ctx.moveTo(X(x) - r, Y(y) - r); ctx.lineTo(X(x) + r, Y(y) + r); ctx.moveTo(X(x) + r, Y(y) - r); ctx.lineTo(X(x) - r, Y(y) + r); ctx.stroke(); } };
+      if (S.V > 0.05) { sym(-89, cy + 15, force < 0); sym(89, cy + 15, force >= 0); }
+      // 진동판
+      const over = Math.abs(S.x) > XMAX * 0.85;
+      ctx.strokeStyle = over ? P.bad : P.accent; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(X(-165), Y(70));
+      ctx.quadraticCurveTo(X(-130), Y(56 + off * 0.5), X(-92), Y(68 + off));
+      ctx.quadraticCurveTo(X(0), Y(58 + off), X(92), Y(68 + off));
+      ctx.quadraticCurveTo(X(130), Y(56 + off * 0.5), X(165), Y(70));
+      ctx.stroke();
+      // 힘 화살표
+      if (S.V > 0.05) {
+        const L = -force * 22 * PB.clamp(S.V / 6, 0.2, 1.4);
+        ctx.strokeStyle = P.warn; ctx.fillStyle = P.warn; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(X(0), Y(90 + off)); ctx.lineTo(X(0), Y(90 + off + L)); ctx.stroke();
+        if (Math.abs(L) > 3) { const d = Math.sign(L); ctx.beginPath(); ctx.moveTo(X(0), Y(90 + off + L + d * 5)); ctx.lineTo(X(-5), Y(90 + off + L - d * 2)); ctx.lineTo(X(5), Y(90 + off + L - d * 2)); ctx.fill(); }
+      }
+      // 공기 입자
+      if (cbA.checked) {
+        ctx.fillStyle = P.dim;
+        const amp = PB.clamp(S.x / XMAX, 0, 1.6);
+        air.forEach(([u, v], k) => {
+          let px, py;
+          if (k < 40) { // 전면 공기실: 세로 압축
+            px = -160 + u * 320; const y0 = 38 + v * 20; py = y0 + off * (y0 - 34) / 34 * 0.9;
+          } else { // 출구 채널: 진행파
+            const x0 = 175 + u * 100; px = x0 + Math.sin(phase - (x0 - 175) / 30) * amp * 6; py = 38 + v * 14;
+          }
+          ctx.beginPath(); ctx.arc(X(px), Y(py), 1.8, 0, TAU); ctx.fill();
+        });
+      }
+      // 라벨
+      ctx.fillStyle = P.text; ctx.font = `12px ${getComputedStyle(document.body).getPropertyValue("--font")}`;
+      ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      const lab = (t, x, y, col) => { ctx.fillStyle = col || P.dim; ctx.fillText(t, X(x), Y(y)); };
+      lab("진동판", -160, 22, over ? P.bad : P.accent);
+      lab("전면 공기실 → 그릴", 175, 22);
+      if (w > 420) { lab("보이스코일", 140, 100, P.warn); lab("자석", 140, 150); lab("요크·상판", 140, 178); }
+      lab("후방 공기실 " + (AUD.vb || 1).toFixed(2) + " cc", -160, 218, P.accent2);
+      ctx.textAlign = "right"; ctx.fillStyle = P.faint;
+      ctx.fillText(fmtHz(S.f) + " (슬로모션)", w - 8, h - 10);
+    }, { aspect: 0.58, minHeight: 240, maxHeight: 400 });
+    PB.loop($("cv-spk"), (dt) => {
+      const f = S.f;
+      const visF = (0.35 + 1.4 * gF()) * gS();
+      phase += TAU * visF * dt;
+      cv.redraw();
+    });
+  })();
+
+  /* ---------------- 4. 박스 시뮬 ---------------- */
+  (function () {
+    const gVb = PB.range("box-vb", (v) => v.toFixed(2) + " cc", upd);
+    const gFs = PB.range("box-fs", (v) => v + " Hz", upd);
+    const gQ = PB.range("box-q", (v) => v.toFixed(2), upd);
+    const cA = $("box-abs"), cL = $("box-leak");
+    cA.addEventListener("change", upd); cL.addEventListener("change", upd);
+    function upd() {
+      AUD.vb = gVb();
+      AUD.m = boxModel(gVb(), gFs(), gQ(), cA.checked, cL.checked);
+      const m = AUD.m;
+      PB.stat("box-o-vas", (m.vas * 1e6).toFixed(2) + "<small>cc</small>");
+      PB.stat("box-o-fc", Math.round(m.fc) + "<small>Hz</small>");
+      PB.stat("box-o-q", m.qtc.toFixed(2));
+      PB.stat("box-o-200", dB(respMag(200, m)).toFixed(1) + "<small>dB</small>");
+      if (cv) cv.redraw();
+      AUD.update();
+    }
+    const cv = PB.canvas($("cv-box"), (ctx, w, h) => {
+      const P = PB.palette(), m = AUD.m;
+      const ser = (mm, color, width, dash) => {
+        const d = [];
+        for (let i = 0; i <= 240; i++) { const f = logF(i / 240, 50, 20000); d.push([f, dB(respMag(f, mm))]); }
+        return { data: d, color, width, dash };
+      };
+      const free = { fc: gFs(), qtc: gQ(), leak: false };
+      const big = boxModel(10, gFs(), gQ(), cA.checked, false);
+      PB.chart(ctx, null, {
+        x: [50, 20000], y: [-45, 12], logX: true, xLabel: "주파수 (Hz)", yLabel: "상대 음압 (dB)",
+        xFmt: (v) => (v >= 1000 ? v / 1000 + "k" : v),
+        bands: [{ x0: 85, x1: 255, color: PB.isDark() ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)" }],
+        series: [ser(free, P.faint, 1.5, [5, 4]), ser(big, P.dim, 1.2, [2, 3]), ser(m, P.accent, 2.6)],
+        vlines: [{ x: m.fc, color: P.accent, label: "f_c " + Math.round(m.fc) + " Hz" }],
+        hlines: [{ y: -3, color: P.faint, label: "−3 dB" }],
+      });
+      ctx.fillStyle = P.faint; ctx.font = "11px sans-serif"; ctx.textAlign = "left";
+      ctx.fillText("목소리 기본음 대역", 62 + 4, h - 62);
+      ctx.fillStyle = P.dim; ctx.textAlign = "right";
+      ctx.fillText("점선: 자유 공진 / 10 cc 박스", w - 22, 30);
+    }, { aspect: 0.55, minHeight: 260, maxHeight: 420 });
+    upd();
+  })();
+
+  /* ---------------- 5. 스마트 앰프 ---------------- */
+  (function () {
+    const gV = PB.range("amp-v", (v) => v.toFixed(1) + " V", () => cv.redraw());
+    const gC = PB.seg("amp-c", () => cv.redraw());
+    const cP = $("amp-p"); cP.addEventListener("change", () => cv.redraw());
+    AUD.listeners.push(() => cv && cv.redraw());
+    const R1 = 30, C1 = 2 / 30, R2 = 45, C2 = 2, TA = 35, TLIM = 100;
+    function thermal(Pin, protect) {
+      let Tc = TA, Tm = TA, g = 1, Tmax = TA;
+      const dt = 0.05, out = [];
+      for (let i = 0; i <= 3600; i++) {
+        const t = i * dt;
+        if (protect) { g = PB.clamp(g + dt * 0.08 * (TLIM - 3 - Tc), 0.01, 1); }
+        const P = Pin * g;
+        const q1 = (Tc - Tm) / R1, q2 = (Tm - TA) / R2;
+        Tc += dt * (P - q1) / C1; Tm += dt * (q1 - q2) / C2;
+        Tmax = Math.max(Tmax, Tc);
+        if (i % 10 === 0) out.push([t, Tc]);
+      }
+      return { out, Tmax, g };
+    }
+    const cv = PB.canvas($("cv-amp"), (ctx, w, h) => {
+      const P = PB.palette(), m = AUD.m, V = gV(), cf = +gC(), prot = cP.checked;
+      const ex = [], exP = [];
+      let xmax = 0;
+      for (let i = 0; i <= 200; i++) {
+        const f = logF(i / 200, 50, 10000), x = excursion(f, V, m) * 1000;
+        xmax = Math.max(xmax, x);
+        ex.push([f, x]); exP.push([f, Math.min(x, XMAX * 1000 * 0.92)]);
+      }
+      const h1 = Math.round(h * 0.48);
+      const box1 = { x: 58, y: 14, w: w - 76, h: h1 - 50 };
+      const ymax = Math.max(0.6, Math.ceil(xmax * 10 + 1) / 10);
+      PB.chart(ctx, box1, {
+        x: [50, 10000], y: [0, ymax], logX: true, xLabel: "주파수 (Hz)", yLabel: "변위 (mm)",
+        xFmt: (v) => (v >= 1000 ? v / 1000 + "k" : v),
+        series: prot ? [{ data: ex, color: P.faint, width: 1.5, dash: [5, 4] }, { data: exP, color: P.accent, width: 2.4 }] : [{ data: ex, color: xmax > XMAX * 1000 ? P.bad : P.accent, width: 2.4 }],
+        hlines: [{ y: XMAX * 1000, color: P.bad, label: "X_max 0.35 mm" }],
+        vlines: [{ x: m.fc, color: P.faint, label: "f_c" }],
+      });
+      const Vrms = V / Math.pow(10, cf / 20);
+      const Pin = (Vrms * Vrms) / (1.5 * RE);
+      const un = thermal(Pin, false), pr = thermal(Pin, true);
+      const tTop = Math.max(130, Math.min(320, un.Tmax + 15));
+      const box2 = { x: 58, y: h1 + 10, w: w - 76, h: h - h1 - 56 };
+      PB.chart(ctx, box2, {
+        x: [0, 180], y: [20, tTop], xLabel: "재생 시간 (s)", yLabel: "코일 온도 (°C)",
+        series: prot ? [{ data: un.out, color: P.faint, width: 1.5, dash: [5, 4] }, { data: pr.out, color: P.warn, width: 2.4 }] : [{ data: un.out, color: un.Tmax > TLIM ? P.bad : P.warn, width: 2.4 }],
+        hlines: [{ y: TLIM, color: P.bad, label: "코일 한계 ~100 °C" }],
+      });
+      PB.stat("amp-o-x", (xmax).toFixed(2) + "<small>mm</small>" + (xmax > XMAX * 1000 ? ' <small style="color:var(--bad)">초과</small>' : ""));
+      PB.stat("amp-o-p", Pin.toFixed(2) + "<small>W</small>");
+      const T = prot ? pr.Tmax : un.Tmax;
+      PB.stat("amp-o-t", (un.Tmax > 300 && !prot ? ">300" : T.toFixed(0)) + "<small>°C</small>");
+      PB.stat("amp-o-g", prot ? (10 * Math.log10(pr.g)).toFixed(1) + "<small>dB</small>" : "—");
+    }, { aspect: 0.75, minHeight: 420, maxHeight: 560 });
+  })();
+
+  /* ---------------- 6. Web Audio ---------------- */
+  (function () {
+    const btn = $("ls-play"), note = $("ls-note");
+    const gSrc = PB.seg("ls-src", () => { if (playing) startSource(); });
+    const gPath = PB.seg("ls-path", () => applyPath());
+    const gVol = PB.range("ls-vol", (v) => Math.round(v * 100) + "%", (v) => { if (master) master.gain.setTargetAtTime(v, actx.currentTime, 0.03); });
+    let actx = null, master, analyser, dry, wet, hp, pk, lp, bus, src = null, playing = false, bufs = {}, spec = null;
+    function filterUpdate() {
+      const m = AUD.m;
+      PB.stat("ls-o-fc", Math.round(m.fc) + "<small>Hz</small> / " + m.qtc.toFixed(2));
+      PB.stat("ls-o-100", dB(respMag(100, m)).toFixed(0) + "<small>dB</small>");
+      if (hp) {
+        const t = actx.currentTime;
+        hp.frequency.setTargetAtTime(m.fc, t, 0.02);
+        hp.Q.setTargetAtTime(20 * Math.log10(m.qtc), t, 0.02);
+      }
+      cv && cv.redraw();
+    }
+    AUD.listeners.push(filterUpdate);
+    function makeBuffers() {
+      const sr = actx.sampleRate;
+      // 음악 루프 4 s (120 BPM, 8박)
+      const N = Math.round(sr * 4), L = new Float32Array(N);
+      const beat = 0.5;
+      const bass = [55, 55, 65.41, 73.42, 55, 55, 49, 82.41];
+      const mel = [880, 659.3, 554.4, 659.3, 740, 659.3, 554.4, 493.9, 587.3, 740, 880, 740, 659.3, 554.4, 659.3, 440];
+      let kph = 0;
+      for (let i = 0; i < N; i++) {
+        const t = i / sr, b = Math.floor(t / beat), tb = t - b * beat;
+        // kick
+        const kf = 45 + 70 * Math.exp(-tb / 0.03);
+        kph += TAU * kf / sr; if (tb < 1 / sr) kph = 0;
+        let y = 0.85 * Math.sin(kph) * Math.exp(-tb / 0.13);
+        // bass
+        const bf = bass[b % 8], te = Math.min(1, tb / 0.01) * Math.exp(-tb / 0.35);
+        y += 0.42 * te * (Math.sin(TAU * bf * t) + 0.35 * Math.sin(TAU * 2 * bf * t) + 0.18 * Math.sin(TAU * 3 * bf * t));
+        // pad
+        const chord = t < 2 ? [220, 277.2, 329.6] : [293.7, 370, 440];
+        const pe = 0.06 * Math.min(1, (t % 2) / 0.2);
+        chord.forEach((f) => { y += pe * (Math.sin(TAU * f * t) + 0.11 * Math.sin(TAU * 3 * f * t)); });
+        // melody 8분음표
+        const e8 = Math.floor(t / 0.25), t8 = t - e8 * 0.25, mf = mel[e8 % 16];
+        y += 0.1 * Math.exp(-t8 / 0.12) * Math.min(1, t8 / 0.004) * (Math.sin(TAU * mf * t) + 0.3 * Math.sin(TAU * 2 * mf * t));
+        L[i] = y;
+      }
+      // hihat (오프비트) — 차분한 노이즈
+      let prev = 0;
+      for (let i = 0; i < N; i++) {
+        const t = i / sr, tb = (t + 0.25) % 0.5;
+        const n = Math.random() * 2 - 1, hpn = n - prev; prev = n;
+        L[i] += 0.07 * hpn * Math.exp(-tb / 0.025);
+      }
+      norm(L, 0.85);
+      bufs.music = mk(L);
+      // 저음 스윕 30 → 2000 Hz, 8 s
+      const N2 = Math.round(sr * 8), S = new Float32Array(N2);
+      let ph = 0;
+      for (let i = 0; i < N2; i++) {
+        const t = i / sr, f = 30 * Math.pow(2000 / 30, t / 8);
+        ph += TAU * f / sr;
+        S[i] = 0.5 * Math.sin(ph) * Math.min(1, t / 0.05, (8 - t) / 0.05);
+      }
+      bufs.sweep = mk(S);
+      // 핑크 노이즈 (Kellet)
+      const N3 = Math.round(sr * 3), Z = new Float32Array(N3);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < N3; i++) {
+        const wn = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + wn * 0.0555179; b1 = 0.99332 * b1 + wn * 0.0750759; b2 = 0.969 * b2 + wn * 0.153852;
+        b3 = 0.8665 * b3 + wn * 0.3104856; b4 = 0.55 * b4 + wn * 0.5329522; b5 = -0.7616 * b5 - wn * 0.016898;
+        Z[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + wn * 0.5362; b6 = wn * 0.115926;
+      }
+      norm(Z, 0.5);
+      bufs.noise = mk(Z);
+      function norm(a, p) { let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i])); for (let i = 0; i < a.length; i++) a[i] *= p / m; }
+      function mk(a) { const b = actx.createBuffer(1, a.length, sr); b.copyToChannel ? b.copyToChannel(a, 0) : b.getChannelData(0).set(a); return b; }
+    }
+    function build() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) { note.textContent = "이 브라우저는 Web Audio API를 지원하지 않는다."; return false; }
+      actx = new AC();
+      master = actx.createGain(); master.gain.value = gVol();
+      analyser = actx.createAnalyser(); analyser.fftSize = 4096; analyser.smoothingTimeConstant = 0.8;
+      spec = new Float32Array(analyser.frequencyBinCount);
+      bus = actx.createGain(); dry = actx.createGain(); wet = actx.createGain();
+      hp = actx.createBiquadFilter(); hp.type = "highpass";
+      pk = actx.createBiquadFilter(); pk.type = "peaking"; pk.frequency.value = FH; pk.Q.value = 1.6; pk.gain.value = 5;
+      lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 12000; lp.Q.value = 0.7;
+      bus.connect(dry); dry.connect(master);
+      bus.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(wet); wet.connect(master);
+      master.connect(analyser); analyser.connect(actx.destination);
+      makeBuffers();
+      filterUpdate();
+      applyPath(true);
+      return true;
+    }
+    function applyPath(now) {
+      if (!actx) { cv.redraw(); return; }
+      const w = gPath() === "wet" ? 1 : 0, t = actx.currentTime;
+      if (now) { dry.gain.value = 1 - w; wet.gain.value = w * 1.4; }
+      else { dry.gain.setTargetAtTime(1 - w, t, 0.03); wet.gain.setTargetAtTime(w * 1.4, t, 0.03); }
+      cv.redraw();
+    }
+    function startSource() {
+      if (src) { try { src.stop(); } catch (e) {} src.disconnect(); }
+      src = actx.createBufferSource(); src.buffer = bufs[gSrc()]; src.loop = true;
+      src.connect(bus); src.start();
+    }
+    btn.addEventListener("click", () => {
+      if (!actx && !build()) return;
+      if (actx.state === "suspended") actx.resume();
+      if (!playing) { startSource(); playing = true; btn.textContent = "■ 정지"; PB.stat("ls-o-st", "재생 중"); note.textContent = "경로를 바꿔 가며 들어 보자. 음량에 주의."; }
+      else { if (src) { try { src.stop(); } catch (e) {} } src = null; playing = false; btn.textContent = "▶ 재생"; PB.stat("ls-o-st", "정지"); cv.redraw(); }
+    });
+    const cv = PB.canvas($("cv-listen"), (ctx, w, h) => {
+      const P = PB.palette(), m = AUD.m;
+      const ch = PB.chart(ctx, null, {
+        x: [30, 20000], y: [-100, 0], logX: true, xLabel: "주파수 (Hz)", yLabel: "레벨 (dBFS)",
+        xFmt: (v) => (v >= 1000 ? v / 1000 + "k" : v),
+      });
+      const { X, Y, box } = ch;
+      if (playing && spec) {
+        analyser.getFloatFrequencyData(spec);
+        const sr = actx.sampleRate, n = spec.length, bins = 90;
+        ctx.fillStyle = PB.isDark() ? "rgba(120,170,255,0.55)" : "rgba(60,110,230,0.45)";
+        for (let b = 0; b < bins; b++) {
+          const f0 = logF(b / bins, 30, 20000), f1 = logF((b + 1) / bins, 30, 20000);
+          const i0 = Math.max(1, Math.floor(f0 / (sr / 2) * n)), i1 = Math.max(i0 + 1, Math.floor(f1 / (sr / 2) * n));
+          let mx = -140; for (let i = i0; i < i1 && i < n; i++) mx = Math.max(mx, spec[i]);
+          const y = Y(PB.clamp(mx, -100, 0));
+          ctx.fillRect(X(f0) + 0.5, y, Math.max(1, X(f1) - X(f0) - 1), box.y + box.h - y);
+        }
+      } else {
+        ctx.fillStyle = P.faint; ctx.font = "13px sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("▶ 재생을 누르면 스펙트럼이 나타난다", box.x + box.w / 2, box.y + box.h * 0.45);
+      }
+      // 필터 응답 (0 dB = −20 dBFS 선)
+      const ref = -20;
+      ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
+      ctx.strokeStyle = P.faint; ctx.setLineDash([4, 4]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(box.x, Y(ref)); ctx.lineTo(box.x + box.w, Y(ref)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = gPath() === "wet" ? P.warn : P.dim; ctx.lineWidth = gPath() === "wet" ? 2.6 : 1.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 200; i++) {
+        const f = logF(i / 200, 30, 20000);
+        const g = dB(respMag(f, m) * lp2(f, 12000, 0.7)) + 20 * Math.log10(1.4);
+        const px = X(f), py = Y(PB.clamp(ref + g, -100, 0));
+        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.stroke(); ctx.restore();
+      ctx.fillStyle = gPath() === "wet" ? P.warn : P.dim; ctx.font = "11px sans-serif"; ctx.textAlign = "right";
+      ctx.fillText("'작은 스피커' 필터 (점선 = 0 dB)", box.x + box.w - 4, Y(ref) - 6);
+    }, { aspect: 0.5, minHeight: 240, maxHeight: 380 });
+    PB.loop($("cv-listen"), () => { if (playing) cv.redraw(); });
+    filterUpdate();
+  })();
+
+  /* ---------------- 7. MEMS 마이크 ---------------- */
+  (function () {
+    const gS = PB.range("mic-spl", (v) => v + " dB SPL", () => cv.redraw());
+    const gN = PB.range("mic-snr", (v) => v.toFixed(1) + " dB(A)", () => cv.redraw());
+    const gA = PB.range("mic-aop", (v) => v + " dB SPL", () => cv.redraw());
+    PB.seg("mic-ex", (v) => gS.set(+v));
+    const cv = PB.canvas($("cv-mic"), (ctx, w, h) => {
+      const P = PB.palette(), spl = gS(), snr = gN(), aop = gA(), nf = 94 - snr;
+      PB.stat("mic-o-n", nf.toFixed(1) + "<small>dB(A)</small>");
+      PB.stat("mic-o-s", (spl - nf).toFixed(1) + "<small>dB</small>");
+      PB.stat("mic-o-dr", (aop - nf).toFixed(1) + "<small>dB</small>");
+      const hr = aop - spl;
+      PB.stat("mic-o-h", (hr < 0 ? '<span style="color:var(--bad)">' : "") + hr.toFixed(0) + "<small>dB</small>" + (hr < 0 ? "</span>" : ""));
+      const font = getComputedStyle(document.body).getPropertyValue("--font");
+      // 사다리
+      const lw = Math.min(210, w * 0.38), top = 18, bot = h - 22;
+      const Yd = (d) => bot - (d / 145) * (bot - top);
+      const bx = 52, bw = 26;
+      ctx.fillStyle = P.surface; ctx.fillRect(bx, top, bw, bot - top);
+      ctx.fillStyle = PB.isDark() ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)";
+      ctx.fillRect(bx, Yd(nf), bw, bot - Yd(nf));
+      ctx.fillStyle = PB.isDark() ? "rgba(255,90,90,0.25)" : "rgba(220,50,50,0.18)";
+      ctx.fillRect(bx, top, bw, Yd(aop) - top);
+      ctx.fillStyle = P.dim; ctx.font = "10.5px " + font; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (let d = 0; d <= 140; d += 20) { ctx.fillText(d, bx - 6, Yd(d)); ctx.fillRect(bx - 3, Yd(d), 3, 1); }
+      const tag = (d, txt, col, bold) => {
+        ctx.strokeStyle = col; ctx.lineWidth = bold ? 2.5 : 1.5;
+        ctx.beginPath(); ctx.moveTo(bx - 2, Yd(d)); ctx.lineTo(bx + bw + 8, Yd(d)); ctx.stroke();
+        ctx.fillStyle = col; ctx.textAlign = "left"; ctx.font = (bold ? "bold " : "") + "11.5px " + font; ctx.fillText(txt, bx + bw + 11, Yd(d));
+      };
+      tag(nf, "자기 잡음 " + nf.toFixed(0), P.dim);
+      tag(aop, "AOP " + aop, P.bad);
+      tag(spl, "입력 " + spl, P.accent, true);
+      ctx.save(); ctx.translate(14, (top + bot) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillStyle = P.dim; ctx.font = "11px " + font; ctx.fillText("dB SPL", 0, 0); ctx.restore();
+      // 파형
+      const x0 = lw + 30, x1 = w - 14, mid = (top + bot) / 2, A = (bot - top) / 2 - 8;
+      ctx.strokeStyle = P.border; ctx.lineWidth = 1; ctx.strokeRect(x0, top, x1 - x0, bot - top);
+      ctx.beginPath(); ctx.moveTo(x0, mid); ctx.lineTo(x1, mid); ctx.strokeStyle = P.grid; ctx.stroke();
+      const a = 1.25 * Math.pow(10, (spl - aop) / 20), nr = 1.25 * Math.pow(10, (nf - aop) / 20);
+      const G = 0.85 / Math.max(Math.min(a, 1), 3 * nr);
+      ctx.setLineDash([3, 4]); ctx.strokeStyle = P.bad;
+      [1, -1].forEach((s) => { const y = mid - s * G * A; if (y > top && y < bot) { ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); } });
+      ctx.setLineDash([]);
+      ctx.strokeStyle = P.accent; ctx.lineWidth = 1.6; ctx.beginPath();
+      const N = 500;
+      for (let i = 0; i <= N; i++) {
+        const t = i / N * 3;
+        const v = PB.clamp(a * Math.sin(TAU * t) + nr * PB.randn(), -1, 1) * G;
+        const px = x0 + (i / N) * (x1 - x0), py = mid - PB.clamp(v, -1.1, 1.1) * A;
+        i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      }
+      ctx.stroke();
+      ctx.fillStyle = P.faint; ctx.font = "11px " + font; ctx.textAlign = "right"; ctx.textBaseline = "top";
+      ctx.fillText("표시 배율 +" + dB(G).toFixed(0) + " dB · 1 kHz, 3 ms", x1 - 6, top + 5);
+      if (a > 1) { ctx.fillStyle = P.bad; ctx.textAlign = "left"; ctx.fillText("과부하: 파형이 잘림(THD↑)", x0 + 6, top + 5); }
+    }, { aspect: 0.5, minHeight: 260, maxHeight: 360 });
+  })();
+
+  /* ---------------- 8. 빔포밍 ---------------- */
+  (function () {
+    const C = 343;
+    const gMode = PB.seg("bf-mode", () => { updLabel(); cv.redraw(); });
+    const gD = PB.range("bf-d", (v) => v + " mm", () => cv.redraw());
+    const gF = PB.range("bf-f", (v) => fmtHz(logF(v, 100, 10000)), () => cv.redraw());
+    const gP = PB.range("bf-p", (v) => pText(v), () => cv.redraw());
+    const gN = PB.range("bf-n", (v) => v + "°", () => cv.redraw());
+    function pText(v) { return gMode && gMode() === "dma" ? "τ = " + v.toFixed(2) + "·d/c" + (Math.abs(v - 1) < 0.02 ? " (카디오이드)" : Math.abs(v - 0.33) < 0.02 ? " (하이퍼)" : Math.abs(v) < 0.01 ? " (8자)" : "") : Math.round(v * 180) + "°"; }
+    function updLabel() { $("bf-p-lbl").firstChild.textContent = gMode() === "dma" ? "내부 지연 " : "조향 각 "; $("bf-p-out").textContent = pText(gP()); }
+    updLabel();
+    function B(th, f) {
+      const d = gD() / 1000, w = TAU * f, tt = d * Math.cos(th) / C;
+      if (gMode() === "ds") {
+        const ts = d * Math.cos(gP() * Math.PI) / C, ph = w * (tt - ts);
+        return Math.sqrt(Math.pow(1 + Math.cos(ph), 2) + Math.pow(Math.sin(ph), 2)) / 2;
+      }
+      const ph = w * (gP() * d / C + tt);
+      return Math.sqrt(Math.pow(1 - Math.cos(ph), 2) + Math.pow(Math.sin(ph), 2));
+    }
+    let geo = null, drag = false;
+    const cnv = $("cv-bf");
+    const cv = PB.canvas(cnv, (ctx, w, h) => {
+      const P = PB.palette(), f = logF(gF(), 100, 10000), thn = gN() * Math.PI / 180;
+      const font = getComputedStyle(document.body).getPropertyValue("--font");
+      const stacked = w < 560;
+      const R = stacked ? Math.min(w * 0.42, h * 0.27) : Math.min(w * 0.22, h * 0.42);
+      const cx = stacked ? w / 2 : R + 30, cy = stacked ? R + 26 : h / 2;
+      geo = { cx, cy, R };
+      // 패턴
+      let mx = 0; const vals = [];
+      for (let i = 0; i <= 360; i++) { const v = B(i * Math.PI / 180, f); vals.push(v); mx = Math.max(mx, v); }
+      const rOf = (v) => R * PB.clamp((dB(v / mx) + 40) / 40, 0, 1);
+      ctx.strokeStyle = P.grid; ctx.lineWidth = 1; ctx.fillStyle = P.faint; ctx.font = "10px " + font; ctx.textAlign = "left";
+      [0, 10, 20, 30].forEach((d) => { ctx.beginPath(); ctx.arc(cx, cy, R * (40 - d) / 40, 0, TAU); ctx.stroke(); ctx.fillText("−" + d, cx + 3, cy - R * (40 - d) / 40 + 10); });
+      for (let a = 0; a < 360; a += 30) { ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + R * Math.cos(a * Math.PI / 180), cy - R * Math.sin(a * Math.PI / 180)); ctx.stroke(); }
+      ctx.fillStyle = P.accent; ctx.globalAlpha = 0.18; ctx.beginPath();
+      vals.forEach((v, i) => { const a = i * Math.PI / 180, r = rOf(v); const px = cx + r * Math.cos(a), py = cy - r * Math.sin(a); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); });
+      ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = P.accent; ctx.lineWidth = 2.2; ctx.stroke();
+      // 마이크
+      const dd = Math.min(R * 0.5, 6 + gD() * 0.25);
+      ctx.fillStyle = P.accent2;
+      [-1, 1].forEach((s) => { ctx.beginPath(); ctx.arc(cx + s * dd / 2, cy, 4.5, 0, TAU); ctx.fill(); });
+      // 목표
+      ctx.fillStyle = P.ok; ctx.strokeStyle = P.ok; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx + R + 18, cy); ctx.lineTo(cx + R + 4, cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + R + 2, cy); ctx.lineTo(cx + R + 9, cy - 4); ctx.lineTo(cx + R + 9, cy + 4); ctx.fill();
+      ctx.font = "11px " + font; ctx.textAlign = "right"; ctx.fillText("입 0°", cx + R + 20, cy - 10);
+      // 소음
+      const nx = cx + (R + 12) * Math.cos(thn), ny = cy - (R + 12) * Math.sin(thn);
+      ctx.fillStyle = P.bad; ctx.beginPath(); ctx.arc(nx, ny, 7, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = "bold 10px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("N", nx, ny + 0.5);
+      ctx.textBaseline = "alphabetic";
+      ctx.strokeStyle = P.bad; ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(nx, ny); ctx.stroke(); ctx.setLineDash([]);
+      // 주파수 그래프
+      const box = stacked ? { x: 50, y: cy + R + 40, w: w - 66, h: h - (cy + R + 40) - 46 } : { x: cx + R + 80, y: 16, w: w - (cx + R + 80) - 14, h: h - 62 };
+      const on = [], nz = [];
+      for (let i = 0; i <= 160; i++) { const ff = logF(i / 160, 100, 10000); on.push([ff, dB(B(0, ff))]); nz.push([ff, dB(B(thn, ff))]); }
+      const fal = C / (2 * gD() / 1000);
+      PB.chart(ctx, box, {
+        x: [100, 10000], y: [-40, 12], logX: true, xLabel: "주파수 (Hz)", yLabel: "",
+        xFmt: (v) => (v >= 1000 ? v / 1000 + "k" : v),
+        series: [{ data: on, color: P.ok, width: 2.2 }, { data: nz, color: P.bad, width: 1.8, dash: [5, 3] }],
+        vlines: [{ x: f, color: P.accent, label: "" }].concat(fal < 10000 ? [{ x: fal, color: P.warn, label: "c/2d" }] : []),
+        hlines: [{ y: 0, color: P.faint }],
+      });
+      ctx.font = "11px " + font; ctx.textAlign = "left"; ctx.fillStyle = P.ok; ctx.fillText("— 목표(0°)", box.x + 6, box.y + 12);
+      ctx.fillStyle = P.bad; ctx.fillText("- - 소음 방향", box.x + 80, box.y + 12); ctx.fillStyle = P.dim; ctx.fillText("감도 (dB, 단일 마이크 = 0)", box.x + 6, box.y + 27);
+      // 지표
+      const b0 = B(0, f), bn = B(thn, f);
+      let integ = 0; const M = 180;
+      for (let i = 0; i < M; i++) { const th = (i + 0.5) / M * Math.PI; integ += Math.pow(B(th, f), 2) * Math.sin(th) * (Math.PI / M); }
+      const DI = 10 * Math.log10(b0 * b0 / (integ / 2));
+      PB.stat("bf-o-n", (dB(bn / b0)).toFixed(1) + "<small>dB</small>");
+      PB.stat("bf-o-g", dB(b0).toFixed(1) + "<small>dB</small>");
+      PB.stat("bf-o-di", (isFinite(DI) ? DI.toFixed(1) : "—") + "<small>dB</small>");
+      PB.stat("bf-o-al", fmtHz(fal));
+    }, { aspect: (cnv.parentElement.clientWidth || 600) < 560 ? 1.45 : 0.5, minHeight: 300, maxHeight: 640 });
+    function setFromPointer(ev) {
+      if (!geo) return false;
+      const r = cnv.getBoundingClientRect(), x = ev.clientX - r.left - geo.cx, y = -(ev.clientY - r.top - geo.cy);
+      if (Math.hypot(x, y) > geo.R + 30) return false;
+      gN.set(Math.round(Math.abs(Math.atan2(y, x)) * 180 / Math.PI));
+      return true;
+    }
+    cnv.style.touchAction = "pan-y";
+    cnv.addEventListener("pointerdown", (ev) => { if (setFromPointer(ev)) { drag = true; cnv.setPointerCapture(ev.pointerId); } });
+    cnv.addEventListener("pointermove", (ev) => { if (drag) setFromPointer(ev); });
+    cnv.addEventListener("pointerup", () => (drag = false));
+  })();
+
+  /* ---------------- 9. LMS ---------------- */
+  (function () {
+    const gMu = PB.range("lms-mu", (v) => v.toFixed(2));
+    const gX = PB.range("lms-x", (v) => v.toFixed(2));
+    const gN = PB.range("lms-n", (v) => v + " 탭");
+    const cOn = $("lms-on");
+    const FS = 8000, H = [0, 0.7, 0.35, -0.22, 0.12, 0.05];
+    const NMAX = 32, BUF = 64;
+    let w = new Float64Array(NMAX), xs = new Float64Array(BUF), ss = new Float64Array(BUF), vs = new Float64Array(BUF), p = 0, n = 0;
+    let lp = 0, Pin = 1e-6, Pout = 1e-6, Ps = 1e-6, Pd = 1e-6;
+    const WIN = 800, scope = { d: new Float32Array(WIN), e: new Float32Array(WIN), s: new Float32Array(WIN) }, hist = [];
+    let sp = 0;
+    $("lms-reset").addEventListener("click", () => { w = new Float64Array(NMAX); hist.length = 0; });
+    function speech(t) {
+      const ph = t % 2.4; if (ph > 1.7) return 0;
+      const env = Math.pow(Math.max(0, Math.sin(TAU * 3.2 * t)), 2) * Math.min(1, ph / 0.05, (1.7 - ph) / 0.05);
+      const f0 = 140 + 15 * Math.sin(TAU * 0.7 * t);
+      let y = 0; for (let k = 1; k <= 6; k++) y += Math.sin(TAU * k * f0 * t + k) / k;
+      return 0.45 * env * y;
+    }
+    function step() {
+      const t = n / FS; n++;
+      lp = 0.92 * lp + 0.35 * PB.randn();
+      const v = 0.6 * lp + 0.35 * Math.sin(TAU * 120 * t) + 0.12 * Math.sin(TAU * 240 * t + 1);
+      const s = speech(t);
+      p = (p + 1) % BUF; vs[p] = v; ss[p] = s;
+      const beta = gX();
+      xs[p] = v + beta * s;
+      let hv = 0; for (let k = 0; k < H.length; k++) hv += H[k] * vs[(p - k + BUF) % BUF];
+      const d = s + hv, N = gN();
+      let y = 0, ys = 0, yv = 0, en = 1e-6;
+      for (let k = 0; k < N; k++) { const i = (p - k + BUF) % BUF; y += w[k] * xs[i]; ys += w[k] * beta * ss[i]; yv += w[k] * vs[i]; en += xs[i] * xs[i]; }
+      const e = d - y;
+      if (cOn.checked) { const mu = gMu() / en; for (let k = 0; k < N; k++) w[k] += mu * e * xs[(p - k + BUF) % BUF]; }
+      const a = 0.9995;
+      Pin = a * Pin + (1 - a) * hv * hv;
+      Pout = a * Pout + (1 - a) * Math.pow(hv - yv, 2);
+      Ps = a * Ps + (1 - a) * s * s;
+      Pd = a * Pd + (1 - a) * ys * ys;
+      scope.d[sp] = d; scope.e[sp] = e; scope.s[sp] = s; sp = (sp + 1) % WIN;
+    }
+    const cv = PB.canvas($("cv-lms"), (ctx, w_, h) => {
+      const P = PB.palette();
+      const h1 = Math.round(h * 0.56);
+      const X = (i) => 52 + (i / (WIN - 1)) * (w_ - 66), Y = (v) => 14 + (h1 - 30) / 2 - v * (h1 - 30) / 3.2;
+      ctx.strokeStyle = P.grid; ctx.beginPath(); ctx.moveTo(52, Y(0)); ctx.lineTo(w_ - 14, Y(0)); ctx.stroke();
+      const line = (arr, col, lw, dash) => {
+        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.setLineDash(dash || []); ctx.beginPath();
+        for (let i = 0; i < WIN; i++) { const v = arr[(sp + i) % WIN], px = X(i), py = Y(PB.clamp(v, -1.6, 1.6)); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.stroke(); ctx.setLineDash([]);
+      };
+      line(scope.d, P.faint, 1.2); line(scope.e, P.accent, 1.6); line(scope.s, P.ok, 1.2, [3, 3]);
+      ctx.fillStyle = P.dim; ctx.font = "11px sans-serif"; ctx.textAlign = "left";
+      ctx.fillText("최근 0.1 s", 56, 14);
+      const box = { x: 52, y: h1 + 8, w: w_ - 66, h: h - h1 - 50 };
+      const top = Math.max(30, ...hist.map((v) => v));
+      PB.chart(ctx, box, {
+        x: [0, 600], y: [0, Math.ceil(top / 10) * 10], xLabel: "시간 →", yLabel: "감소 dB",
+        xFmt: () => "", series: [{ data: hist.map((v, i) => [i + (600 - hist.length), v]), color: P.accent, width: 2 }],
+      });
+    }, { aspect: 0.62, minHeight: 300, maxHeight: 440 });
+    PB.loop($("cv-lms"), () => {
+      for (let i = 0; i < 160; i++) step();
+      const nr = 10 * Math.log10(Pin / Math.max(Pout, 1e-9));
+      const sd = 10 * Math.log10(Math.max(Pd, 1e-9) / Ps);
+      hist.push(PB.clamp(nr, 0, 60)); if (hist.length > 600) hist.shift();
+      if (n % 1600 < 160) {
+        PB.stat("lms-o-nr", nr.toFixed(1) + "<small>dB</small>");
+        PB.stat("lms-o-sd", (Ps > 1e-4 ? sd.toFixed(1) : "—") + "<small>dB</small>");
+      }
+      cv.redraw();
+    });
+  })();
+
+  /* ---------------- 10. 햅틱 ---------------- */
+  (function () {
+    const gA = PB.seg("hap-a", () => cv.redraw());
+    const gD = PB.seg("hap-d", () => cv.redraw());
+    const gT = PB.range("hap-t", (v) => v + " ms", () => cv.redraw());
+    const gF = PB.range("hap-f", (v) => "×" + v.toFixed(2), () => cv.redraw());
+    const gQ = PB.range("hap-q", (v) => v, () => cv.redraw());
+    const M = 0.19, TMAX = 0.16;
+    function sim() {
+      const type = gA(), od = gD() === "od", dur = gT() / 1000, Q = gQ();
+      const drive = [], acc = [], env = [];
+      if (type === "erm") {
+        const m = 0.45e-3, r = 0.9e-3, wmax = TAU * 190, tau = 0.045;
+        let w = 0, th = 0; const dt = 2e-5;
+        for (let i = 0, n = TMAX / dt; i <= n; i++) {
+          const t = i * dt; let V = 0;
+          if (t < dur) V = od && w < 0.85 * wmax ? 2 : 1;
+          else if (od && w > 0.02 * wmax && t < dur + 0.06) V = -1.5;
+          const tgt = V * wmax;
+          w += dt * (tgt - w) / tau; if (t >= dur && V === 0 && od) w = Math.max(w, 0);
+          if (V < 0 && w < 0) w = 0;
+          th += w * dt;
+          const a = m * r * w * w / M;
+          if (i % 50 === 0) { drive.push([t * 1000, V]); acc.push([t * 1000, a * Math.cos(th) / 9.81]); env.push([t * 1000, a / 9.81]); }
+        }
+        return { drive, acc, env, f0: 190, tau: tau, dur };
+      }
+      const z = type === "lraz";
+      const f0 = z ? 175 : 150, m = z ? 1.2e-3 : 2.6e-3, xr = z ? 0.25e-3 : 0.5e-3;
+      const w0 = TAU * f0, fd = f0 * gF(), wd = TAU * fd;
+      const A = m * w0 * w0 * xr / 15;   // 기준 Q=15에서 정상상태 진폭 xr
+      let x = 0, v = 0, peakE = 0, braking = false, brakeEnd = 0;
+      const dt = 1 / (f0 * 400);
+      for (let i = 0, n = TMAX / dt; i <= n; i++) {
+        const t = i * dt; let V = 0;
+        if (t < dur) {
+          V = Math.sin(wd * t) >= 0 ? 1 : -1;  // 구형파 구동(드라이버 근사)
+          if (od && t < 1.5 / fd) V *= 2.2;
+        } else if (od) {
+          if (!braking) { braking = true; brakeEnd = t + 3 / f0; }
+          const E = Math.sqrt(x * x + (v / w0) * (v / w0));
+          if (t < brakeEnd && E > 0.06 * peakE) V = -2.2 * Math.sign(v); else V = 0;
+        }
+        const F = A * V * (Math.PI / 4);
+        const a = F / m - (w0 / Q) * v - w0 * w0 * x;
+        v += a * dt; x += v * dt;
+        const E = Math.sqrt(x * x + (v / w0) * (v / w0));
+        peakE = Math.max(peakE, E);
+        if (i % 20 === 0) { drive.push([t * 1000, V]); acc.push([t * 1000, -m * a / M / 9.81]); env.push([t * 1000, m * w0 * w0 * E / M / 9.81]); }
+      }
+      return { drive, acc, env, f0, tau: Q / (Math.PI * f0), dur };
+    }
+    const cv = PB.canvas($("cv-hap"), (ctx, w, h) => {
+      const P = PB.palette(), S = sim();
+      let pk = 0; S.env.forEach(([, e]) => (pk = Math.max(pk, e)));
+      const yA = Math.max(0.3, Math.ceil(pk * 1.15 * 10) / 10);
+      const hd = Math.round(h * 0.24);
+      PB.chart(ctx, { x: 58, y: 10, w: w - 72, h: hd - 14 }, {
+        x: [0, TMAX * 1000], y: [-2.6, 2.6], yLabel: "", xFmt: () => "", yTicks: [-2, 0, 2], yFmt: (v) => v + "×",
+        series: [{ data: S.drive, color: P.dim, width: 1.2 }],
+        vlines: [{ x: S.dur * 1000, color: P.faint }],
+      });
+      ctx.fillStyle = P.dim; ctx.font = "11px sans-serif"; ctx.textAlign = "left"; ctx.fillText("구동 전압", 62, 22);
+      PB.chart(ctx, { x: 58, y: hd + 8, w: w - 72, h: h - hd - 52 }, {
+        x: [0, TMAX * 1000], y: [-yA, yA], xLabel: "시간 (ms)", yLabel: "폰 가속도 (g)",
+        series: [{ data: S.acc, color: P.accent, width: 1.3 }, { data: S.env, color: P.warn, width: 1.6, dash: [4, 3] }],
+        vlines: [{ x: S.dur * 1000, color: P.faint }],
+      });
+      // 지표
+      let tr = null, tail = null;
+      for (const [t, e] of S.env) { if (tr === null && e >= 0.9 * pk) tr = t; }
+      for (let i = S.env.length - 1; i >= 0; i--) { const [t, e] = S.env[i]; if (t < S.dur * 1000) break; if (e > 0.1 * pk) { tail = t - S.dur * 1000; break; } }
+      if (tail === null) tail = 0;
+      PB.stat("hap-o-f0", S.f0 + "<small>Hz</small> / " + (S.tau * 1000).toFixed(0) + "<small>ms</small>");
+      PB.stat("hap-o-r", (tr === null ? "—" : tr.toFixed(1)) + "<small>ms</small>");
+      const endT = S.env[S.env.length - 1];
+      PB.stat("hap-o-tail", (endT[1] > 0.1 * pk ? ">" + (TMAX * 1000 - S.dur * 1000).toFixed(0) : tail.toFixed(1)) + "<small>ms</small>");
+      PB.stat("hap-o-g", pk.toFixed(2) + "<small>g</small>");
+    }, { aspect: 0.6, minHeight: 300, maxHeight: 440 });
+    // navigator.vibrate
+    const vnote = $("hap-vib-note");
+    const can = typeof navigator !== "undefined" && "vibrate" in navigator;
+    vnote.textContent = can ? "이 브라우저는 navigator.vibrate를 지원한다(대개 안드로이드). 버튼을 눌러 패턴을 느껴 보자. 세기와 주파수는 바꿀 수 없고 켜기/끄기 시간만 정한다." : "이 브라우저·기기는 navigator.vibrate를 지원하지 않는다(iOS Safari와 데스크톱은 대부분 미지원). 안드로이드 크롬에서 열면 패턴을 직접 느낄 수 있다.";
+    document.querySelectorAll("#hap-vib .btn").forEach((b) => b.addEventListener("click", () => {
+      const pat = b.dataset.p.split(",").map(Number);
+      if (can) { try { navigator.vibrate(0); navigator.vibrate(pat); } catch (e) {} }
+      else vnote.textContent = "지원하지 않는 환경이다. 패턴: [" + pat.join(", ") + "] ms (켜기, 끄기, 켜기 …)";
+    }));
+  })();
+
+  /* ---------------- 11. 포트 헬름홀츠 ---------------- */
+  (function () {
+    const gD = PB.range("pt-d", (v) => v.toFixed(2) + " mm", () => cv.redraw());
+    const gL = PB.range("pt-l", (v) => v.toFixed(2) + " mm", () => cv.redraw());
+    const gV = PB.range("pt-v", (v) => v + " mm³", () => cv.redraw());
+    const cM = $("pt-m"), cW = $("pt-w");
+    cM.addEventListener("change", () => cv.redraw()); cW.addEventListener("change", () => cv.redraw());
+    const RHO = 1.2, Cm = 8e-9 / RHOC2 / 0.15, Mm = 0.008 / (Math.PI * 1e-6), Rm = 0.4 * Math.sqrt(Mm / (8e-9 / RHOC2));
+    function model() {
+      const d = gD() / 1000, L = gL() / 1000, S = Math.PI * d * d / 4, Leff = L + 0.85 * d;
+      const C = gV() * 1e-9 / RHOC2;
+      let M = RHO * Leff / S, R = 0.3 * Math.sqrt(M / C), k = 0;
+      if (cM.checked) { M += Mm; R += Rm; k = C / Cm; }
+      if (cW.checked) { const Mw = 1000 * L / S; M += Mw; R += 1.2 * Math.sqrt(M / C); }
+      return { M, C, R, k, fH: Math.sqrt(1 + k) / (TAU * Math.sqrt(M * C)) };
+    }
+    const H = (f, m) => { const w = TAU * f; const re = 1 + m.k - w * w * m.M * m.C, im = w * m.R * m.C; return 1 / Math.sqrt(re * re + im * im); };
+    const cv = PB.canvas($("cv-port"), (ctx) => {
+      const P = PB.palette(), m = model();
+      const d = [];
+      for (let i = 0; i <= 240; i++) { const f = logF(i / 240, 100, 20000); d.push([f, dB(H(f, m))]); }
+      PB.chart(ctx, null, {
+        x: [100, 20000], y: [-40, 20], logX: true, xLabel: "주파수 (Hz)", yLabel: "포트 응답 (dB)",
+        xFmt: (v) => (v >= 1000 ? v / 1000 + "k" : v),
+        bands: [{ x0: 300, x1: 8000, color: PB.isDark() ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.035)" }],
+        series: [{ data: [[100, 0], [20000, 0]], color: P.faint, width: 1, dash: [4, 4] }, { data: d, color: cW.checked ? P.bad : P.accent, width: 2.4 }],
+        vlines: m.fH < 20000 ? [{ x: m.fH, color: P.warn, label: "f_H" }] : [],
+      });
+      PB.stat("pt-o-f", fmtHz(m.fH));
+      PB.stat("pt-o-1k", dB(H(1000, m)).toFixed(1) + "<small>dB</small>");
+      PB.stat("pt-o-8k", dB(H(8000, m)).toFixed(1) + "<small>dB</small>");
+    }, { aspect: 0.5, minHeight: 240, maxHeight: 380 });
+  })();
+
+  /* ---------------- 12. 부피 예산 ---------------- */
+  (function () {
+    const gV = PB.range("bd-v", (v) => v.toFixed(2) + " cc", () => cv.redraw());
+    const gL = PB.range("bd-l", (v) => v.toFixed(2) + " cc", () => cv.redraw());
+    const cA = $("bd-abs"), cS = $("bd-smart");
+    cA.addEventListener("change", () => cv.redraw()); cS.addEventListener("change", () => cv.redraw());
+    const F = 300;
+    function spl(vb, abs, smart) {
+      const m = boxModel(vb, 700, 0.8, abs, false);
+      const Vuse = smart ? 9 : 9 * 0.75, xl = smart ? XMAX : XMAX * 0.7;
+      const x = Math.min(excursion(F, Vuse, m), xl);
+      return { m, x };
+    }
+    const ref = spl(2.5, false, true).x;
+    const mah = (vb, l) => 5000 - 160 * ((vb - 1) + (l - 0.8));
+    const cv = PB.canvas($("cv-budget"), (ctx, w, h) => {
+      const P = PB.palette(), abs = cA.checked, sm = cS.checked, vb = gV(), L = gL();
+      const s1 = [], s2 = [], s3 = [];
+      for (let i = 0; i <= 88; i++) { const v = 0.3 + i * 0.025; s1.push([v, dB(spl(v, abs, sm).x / ref)]); s2.push([v, mah(v, L)]); s3.push([v, dB(spl(v, !abs, sm).x / ref)]); }
+      const cur = spl(vb, abs, sm);
+      const half = w >= 560;
+      const b1 = half ? { x: 58, y: 16, w: w / 2 - 76, h: h - 62 } : { x: 58, y: 16, w: w - 72, h: h / 2 - 56 };
+      const b2 = half ? { x: w / 2 + 52, y: 16, w: w / 2 - 66, h: h - 62 } : { x: 58, y: h / 2 + 10, w: w - 72, h: h / 2 - 56 };
+      PB.chart(ctx, b1, {
+        x: [0.3, 2.5], y: [-16, 2], xLabel: "공기실 부피 (cc)",
+        series: [{ data: s3, color: P.faint, width: 1.2, dash: [4, 3] }, { data: s1, color: P.accent, width: 2.4 }],
+        points: [{ x: vb, y: dB(cur.x / ref), color: P.accent, r: 5 }],
+      });
+      PB.chart(ctx, b2, {
+        x: [0.3, 2.5], y: [4500, 5300], xLabel: "공기실 부피 (cc)",
+        series: [{ data: s2, color: P.ok, width: 2.4 }],
+        points: [{ x: vb, y: mah(vb, L), color: P.ok, r: 5 }],
+      });
+      ctx.font = "12px sans-serif"; ctx.textAlign = "left"; ctx.fillStyle = P.accent; ctx.fillText("300 Hz 최대 음압 (dB)", b1.x + 6, b1.y + 12); ctx.fillStyle = P.ok; ctx.fillText("배터리 용량 (mAh)", b2.x + 6, b2.y + 12);
+      ctx.fillStyle = P.faint; ctx.font = "11px sans-serif"; ctx.textAlign = "right";
+      ctx.fillText(abs ? "점선: 파우더 없음" : "점선: 흡음 파우더 사용 시", b1.x + b1.w - 4, b1.y + b1.h - 8);
+      const mAh = mah(vb, L), dmin = (mAh - 5000) / 1000 * 3.87 * 60;
+      PB.stat("bd-o-fc", Math.round(cur.m.fc) + "<small>Hz</small>");
+      PB.stat("bd-o-spl", dB(cur.x / ref).toFixed(1) + "<small>dB</small>" + (cur.x >= (sm ? XMAX : XMAX * 0.7) - 1e-9 ? " <small>변위 한계</small>" : " <small>전압 한계</small>"));
+      PB.stat("bd-o-b", Math.round(mAh) + "<small>mAh</small>");
+      PB.stat("bd-o-t", (dmin >= 0 ? "+" : "") + dmin.toFixed(0) + "<small>분</small>");
+    }, { aspect: 0.45, minHeight: 300, maxHeight: 400 });
+  })();
+})();
+
 </script>
 </body>
 </html>

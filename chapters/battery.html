@@ -250,7 +250,7 @@
       <div class="sim-body side">
         <div class="sim-view"><canvas id="cv-si"></canvas></div>
         <div class="sim-controls">
-          <label class="ctrl"><span>음극 Si(-C) 함량 <output id="si-x-out"></output></span><input type="range" id="si-x" min="0" max="25" step="1" value="0"></label>
+          <label class="ctrl"><span>음극 Si(-C) 함량 <output id="si-x-out"></output></span><input type="range" id="si-x" min="0" max="25" step="1" value="10"></label>
           <label class="ctrl"><span>양극 면적 용량 <output id="si-qa-out"></output></span><input type="range" id="si-qa" min="3" max="5.5" step="0.1" value="4.2"></label>
           <label class="ctrl"><span>분리막 두께 <output id="si-sep-out"></output></span><input type="range" id="si-sep" min="5" max="14" step="1" value="7"></label>
           <label class="check"><input type="checkbox" id="si-chg"> 만충 상태(음극 팽창) 보기</label>
@@ -281,7 +281,7 @@
         <div class="sim-controls">
           <div class="ctrl"><span>CC 전류</span><div class="seg" id="cc-c"><button data-value="0.5">0.5C</button><button data-value="1" class="on">1C</button><button data-value="1.5">1.5C</button><button data-value="2">2C</button><button data-value="3">3C</button></div></div>
           <div class="ctrl"><span>충전 방식</span><div class="seg" id="cc-step"><button data-value="1" class="on">단일 CC</button><button data-value="ms">다단 CC</button></div></div>
-          <label class="ctrl"><span>등가 저항 R<sub>eff</sub> <output id="cc-r-out"></output></span><input type="range" id="cc-r" min="20" max="100" step="5" value="40"></label>
+          <label class="ctrl"><span>등가 저항 R(eff) <output id="cc-r-out"></output></span><input type="range" id="cc-r" min="20" max="100" step="5" value="40"></label>
           <div class="ctrl"><span>충전 상한</span><div class="seg" id="cc-lim"><button data-value="100" class="on">100%</button><button data-value="80">80% 제한</button></div></div>
         </div>
       </div>
@@ -375,7 +375,7 @@
         <div class="stat"><span class="k">꺼지는 SOC</span><span class="v" id="cd-off">—</span></div>
         <div class="stat"><span class="k">쓸 수 있는 에너지</span><span class="v" id="cd-use">—</span></div>
       </div>
-      <div class="sim-note">셀+보호회로+배선 저항 R<sub>25</sub> = 60 mΩ 가정. 해볼 것: 온도를 −10 °C로 내리고 피크 전류 4 A를 유지해 보라. 파란 곡선이 빨간 선에 훨씬 일찍 닿아 표시 SOC가 한참 남았는데 꺼진다. 노화 배수를 2로 올리면 상온에서도 같은 일이 생긴다. 저온에서는 이 외에도 확산이 느려 실제로 꺼낼 수 있는 용량 자체가 줄고, 충전은 리튬 석출 위험 때문에 더 엄격히 제한된다.</div>
+      <div class="sim-note">셀+보호회로+배선 저항 R<sub>25</sub> = 60 mΩ 가정. 해볼 것: 온도를 −10 °C로 내리고 피크 전류 4 A를 유지해 보라. 청록 곡선이 빨간 선에 훨씬 일찍 닿아 표시 SOC가 한참 남았는데 꺼진다. 노화 배수를 2로 올리면 상온에서도 같은 일이 생긴다. 저온에서는 이 외에도 확산이 느려 실제로 꺼낼 수 있는 용량 자체가 줄고, 충전은 리튬 석출 위험 때문에 더 엄격히 제한된다.</div>
     </div>
   </section>
 
@@ -585,7 +585,7 @@
           <label class="ctrl"><span>셀 부피 <output id="td-vol-out"></output></span><input type="range" id="td-vol" min="18" max="30" step="0.5" value="24"></label>
         </div>
       </div>
-      <div class="sim-note">경험적 상대 모델(교육용). 기준: 4.40 V, Si 0%, 1C → 100. 해볼 것: 상한 전압 0.05 V는 에너지 수 %를 주지만 수명과 스웰링 위험을 눈에 띄게 키운다. Si를 늘리면 에너지가 오르지만 팽창 때문에 스웰링 여유를 더 남겨야 한다. 고속 충전은 시간을 줄이지만 수명을 깎는다. 셋 다 최대로 하면 무슨 일이 생기는가?</div>
+      <div class="sim-note">경험적 상대 모델(교육용). 기준: 4.40 V, Si 0%, 1C → 100 (수명은 기준 1,400회로 가정). 해볼 것: 상한 전압 0.05 V는 에너지 수 %를 주지만 수명과 스웰링 위험을 눈에 띄게 키운다. Si를 늘리면 에너지가 오르지만 팽창 때문에 스웰링 여유를 더 남겨야 한다. 고속 충전은 시간을 줄이지만 수명을 깎는다. 셋 다 최대로 하면 무슨 일이 생기는가?</div>
     </div>
 
     <h3>폰의 다른 부품과의 상호작용</h3>
@@ -767,8 +767,8 @@
     const getAn = PB.seg("ion-an", (v) => { st.an = v; layout(); });
     PB.range("ion-c", (v) => v.toFixed(1) + " C", (v) => { st.c = v; });
     st.c = 1;
-    function layout() {
-      const w = cv.w, h = cv.h;
+    function layout(W, Hh) {
+      const w = W || cv.w, h = Hh || cv.h;
       const top = Math.max(56, h * 0.2), bot = h - 30;
       const cuW = 10, alW = 10;
       const midX = w / 2, sepW = Math.max(18, w * 0.05);
@@ -836,7 +836,7 @@
       });
     }
     function draw(ctx, w, h) {
-      if (!geo) return;
+      if (!geo || geo.w !== w || geo.h !== h) { if (!st.ions) return; layout(w, h); }
       const P = PB.palette();
       const g = geo;
       ctx.font = "12px " + font();
@@ -909,7 +909,7 @@
   /* ================================================== 3. 셀 3D */
   safe("cell3d", () => {
     const el = $("v-cell");
-    const T = PB.three(el, { camera: [70, 55, 85], target: [0, 0, 0], fov: 38, minDistance: 40, maxDistance: 260 });
+    const T = PB.three(el, { camera: [100, 80, 125], target: [0, 0, -6], fov: 38, minDistance: 40, maxDistance: 260 });
     if (!T) return;
     const THREE = T.THREE;
     const W = 56, L = 76;
@@ -917,11 +917,11 @@
     const tE = 0.55, tS = 0.18;
     const mC = T.material(0xc9773a, { roughness: 0.6 });
     const mA = T.material(0x30343c, { roughness: 0.8 });
-    const mS = T.material(0xe8ecf2, { roughness: 0.9, transparent: true, opacity: 0.85 });
+    const mS = T.material(0xe8ecf2, { roughness: 0.9, transparent: true, opacity: 0.35, depthWrite: false });
     const mAl = T.material(0xc9ced6, { metalness: 0.8, roughness: 0.3 });
     const mNi = T.material(0xb7b9bf, { metalness: 0.7, roughness: 0.35 });
     const mCu = T.material(0xc07a45, { metalness: 0.6, roughness: 0.35 });
-    const boxE = new THREE.BoxGeometry(W, tE, L), boxS = new THREE.BoxGeometry(W + 1.6, tS, L + 1.6);
+    const boxE = new THREE.BoxGeometry(W, tE, L), boxS = new THREE.BoxGeometry(W + 1.2, tS, L + 1.2);
     const tabG = new THREE.BoxGeometry(7, 0.12, 7);
     const stack = new THREE.Group(); T.scene.add(stack);
     const iC = new THREE.InstancedMesh(boxE, mC, nC), iA = new THREE.InstancedMesh(boxE, mA, nA), iS = new THREE.InstancedMesh(boxS, mS, nS);
@@ -993,14 +993,14 @@
       sep: T.label("분리막", [0, 0, L / 2 + 1]),
       tAl: T.label("양극 탭 (Al)", [-14, 0, -L / 2 - 16]),
       tNi: T.label("음극 탭 (Ni)", [14, 0, -L / 2 - 16]),
-      pcm: T.label("보호회로 PCM", [0, 2, -L / 2 - 18]),
+      pcm: T.label("보호회로 PCM", [0, 3, -L / 2 - 24]),
       pouch: T.label("알루미늄 파우치", [0, 0, 0]),
     };
     let mode = "stack", ex = 0.55;
     function apply() {
       const isStack = mode === "stack";
       stack.visible = isStack; wind.visible = !isStack;
-      const sp = 1 + ex * 5.5;
+      const sp = 1 + ex * 3.2;
       let ic = 0, ia = 0, is = 0;
       seq.forEach((k, i) => {
         const yy = baseY[i] * sp;
@@ -1010,7 +1010,7 @@
       });
       [iC, iA, iS, iTC, iTA].forEach((m) => (m.instanceMatrix.needsUpdate = true));
       const Hn = isStack ? H * sp : windH;
-      const lift = ex * 22;
+      const lift = ex * 30;
       pouchTop.scale.set(1, 1, 1);
       const ph = isStack ? H : windH;
       pouchTop.scale.y = pouchBot.scale.y = (ph / 2 + 0.6) / (H / 2 + 0.6);
@@ -1034,7 +1034,7 @@
       labels.cath.setVisible(lab); labels.an.setVisible(lab); labels.sep.setVisible(lab && isStack);
       labels.tAl.setVisible(lab); labels.tNi.setVisible(lab); labels.pcm.setVisible(lab && isStack); labels.pouch.setVisible(lab && pouch.visible);
     }
-    PB.seg("c3-mode", (v) => { mode = v; apply(); if (v === "wind") PB.flyTo(T, [30, 18, 105], [0, 0, 0], 1); else PB.flyTo(T, [70, 55, 85], [0, 0, 0], 1); });
+    PB.seg("c3-mode", (v) => { mode = v; apply(); if (v === "wind") PB.flyTo(T, [40, 26, 120], [0, 0, 0], 1); else PB.flyTo(T, [100, 80, 125], [0, 0, -6], 1); });
     PB.range("c3-ex", (v) => Math.round(v * 100) + "%", (v) => { ex = v; apply(); });
     $("c3-pouch").addEventListener("change", apply);
     $("c3-lab").addEventListener("change", apply);
@@ -1056,7 +1056,7 @@
       const fill = data.filter((d) => d[0] <= s * 100 + 1e-9);
       const y0 = (chem === "lfp" ? 2.4 : 2.9) * two, y1 = 4.6 * two;
       const fillCol = P.accent.startsWith("#") ? P.accent + "33" : "rgba(11,138,124,.2)";
-      const C = PB.chart(cv.ctx, null, { x: [0, 100], y: [y0, y1], xLabel: "SOC (%)", yLabel: "OCV (V)", series: [{ data: fill, color: P.accent, width: 0.01, fill: fillCol }, { data, color: P.accent, width: 2.4 }], points: [{ x: s * 100, y: ocv(s, chem) * two, color: P.accent2, r: 5, label: (ocv(s, chem) * two).toFixed(2) + " V" }], hlines: [{ y: energyFrac(chem, 0, 1) * two, label: "공칭 " + (energyFrac(chem, 0, 1) * two).toFixed(2) + " V", color: P.faint }] });
+      const C = PB.chart(ctx, null, { x: [0, 100], y: [y0, y1], xLabel: "SOC (%)", yLabel: "OCV (V)", series: [{ data: fill, color: P.accent, width: 0.01, fill: fillCol }, { data, color: P.accent, width: 2.4 }], points: [{ x: s * 100, y: ocv(s, chem) * two, color: P.accent2, r: 5, label: (ocv(s, chem) * two).toFixed(2) + " V" }], hlines: [{ y: energyFrac(chem, 0, 1) * two, label: "공칭 " + (energyFrac(chem, 0, 1) * two).toFixed(2) + " V", color: P.faint }] });
       const vn = energyFrac(chem, 0, 1);
       const E = Q * vn * two * (two === 2 ? 1 : 1);
       PB.stat("ocv-vn", (vn * two).toFixed(2) + "<small>V</small>");
@@ -1109,7 +1109,7 @@
           x += ww;
         });
         ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.font = "12px " + font();
-        ctx.fillText(title + " — 반복 단위 " + Math.round(x - pad) / sc .toFixed ? title : title, pad, y - 6);
+        ctx.fillText(title, pad, y - 6);
         return x;
       };
       const bh = Math.min(54, (h - 120) / 2);
@@ -1147,7 +1147,7 @@
       const bx = (i) => ({ x: left, y: 12 + i * (ph + gap), w: w - left - right, h: ph });
       const tf = (v) => String(Math.round(v));
       const blank = () => "";
-      PB.chart(ctx, bx(0), { x: [0, tEnd], y: [3.3, 4.6], yLabel: "", xFmt: blank, yFmt: (v) => v.toFixed(1), series: [{ data: d.map((p) => [p.t, p.V]), color: P.accent, width: 2.2 }], hlines: [{ y: 4.45, label: "상한 4.45 V", color: P.faint }] });
+      PB.chart(ctx, bx(0), { x: [0, tEnd], y: [3.0, 4.6], yLabel: "", xFmt: blank, yFmt: (v) => v.toFixed(1), series: [{ data: d.map((p) => [p.t, p.V]), color: P.accent, width: 2.2 }], hlines: [{ y: 4.45, label: "상한 4.45 V", color: P.faint }] });
       const Imax = Math.max(...d.map((p) => p.I)), qmax = Math.max(...d.map((p) => p.q));
       PB.chart(ctx, bx(1), { x: [0, tEnd], y: [0, Math.max(4, Math.ceil(Math.max(Imax, qmax) / 2) * 2 + 1)], xFmt: blank, series: [{ data: d.map((p) => [p.t, p.I]), color: P.accent2, width: 2.2 }, { data: d.map((p) => [p.t, p.q]), color: P.warn, width: 1.6, dash: [5, 4] }] });
       PB.chart(ctx, bx(2), { x: [0, tEnd], y: [0, 100], xLabel: "시간 (분)", xFmt: tf, series: [{ data: d.map((p) => [p.t, p.s * 100]), color: P.ok, width: 2.2 }], hlines: [{ y: 80, color: P.faint }, { y: 50, color: P.faint }], vlines: r.sCV != null ? [{ x: d.find((p) => p.s >= r.sCV).t, label: "CV 진입", color: P.dim }] : [] });
@@ -1194,7 +1194,7 @@
         [[r.cell, P.accent2, "셀"], [r.path, P.warn, "경로"], [r.conv, P.blue, "변환기"]].forEach(([q, col, lb]) => {
           const ww = q / maxQ * bw;
           ctx.globalAlpha = nm === (s === 1 ? "1S" : "2S") ? 0.85 : 0.4; ctx.fillStyle = col; ctx.fillRect(x, y, ww, bh); ctx.globalAlpha = 1;
-          if (ww > 44) { ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = "600 12px " + font(); ctx.fillText(lb + " " + q.toFixed(1), x + ww / 2, y + bh / 2); }
+          ctx.font = "600 12px " + font(); const lt = lb + " " + q.toFixed(1); if (ctx.measureText(lt).width + 8 < ww) { ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(lt, x + ww / 2, y + bh / 2); }
           x += ww;
         });
         ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = "12px " + mono();
@@ -1232,7 +1232,7 @@
       let sOff = 0;
       for (let i = 200; i >= 0; i--) { const s = i / 200; ocvD.push([s * 100, ocv(s)]); const v = ocv(s) - I * Rs(s); ld.push([s * 100, v]); }
       for (let i = 200; i >= 0; i--) { const s = i / 200; if (ocv(s) - I * Rs(s) < uv) { sOff = s; break; } }
-      PB.chart(ctx, null, { x: [100, 0], y: [2.0, 4.5], xLabel: "SOC (%)  ← 방전 진행", yLabel: "전압 (V)", series: [{ data: ocvD, color: P.dim, width: 1.8 }, { data: ld, color: P.accent, width: 2.4 }], hlines: [{ y: uv, color: P.bad, label: "차단 " + uv.toFixed(1) + " V", dash: [] }], bands: sOff > 0 ? [{ x0: sOff * 100, x1: 0, color: PB.isDark() ? "rgba(255,107,107,.10)" : "rgba(214,69,69,.08)" }] : [], vlines: sOff > 0 ? [{ x: sOff * 100, color: P.bad, label: "여기서 꺼짐" }] : [] });
+      PB.chart(ctx, null, { x: [0, 100], y: [2.0, 4.5], xLabel: "SOC (%)  ← 방전 진행 방향", yLabel: "전압 (V)", series: [{ data: ocvD, color: P.dim, width: 1.8 }, { data: ld, color: P.accent, width: 2.4 }], hlines: [{ y: uv, color: P.bad, label: "차단 " + uv.toFixed(1) + " V", dash: [] }], bands: sOff > 0 ? [{ x0: 0, x1: sOff * 100, color: PB.isDark() ? "rgba(255,107,107,.10)" : "rgba(214,69,69,.08)" }] : [], vlines: sOff > 0 ? [{ x: sOff * 100, color: P.bad, label: "여기서 꺼짐" }] : [] });
       PB.stat("cd-r", (R * 1000).toFixed(0) + "<small>mΩ</small>");
       PB.stat("cd-dv", (I * R).toFixed(2) + "<small>V</small>");
       PB.stat("cd-off", sOff > 0 ? Math.round(sOff * 100) + "<small>%</small>" : "0<small>%</small>");
@@ -1275,7 +1275,6 @@
       PB.stat("ag-n80", n80 == null ? "> 2,000<small>회</small>" : n80.toLocaleString() + "<small>회</small>");
       PB.stat("ag-500", (soh(500, T, up, lo, c) * 100).toFixed(0) + "<small>%</small>");
       PB.stat("ag-1000", (soh(1000, T, up, lo, c) * 100).toFixed(0) + "<small>%</small>");
-      PB.stat("ag-tot", (tot * 19.4 / 1000).toFixed(1) + "<small>MWh·… → </small>" );
       PB.stat("ag-tot", Math.round(tot * 19.4).toLocaleString() + "<small>Wh</small>");
     }, { aspect: 0.55, minHeight: 260, maxHeight: 400 });
   });
@@ -1300,7 +1299,7 @@
       const bands = [{ x0: -20, x1: 0, color: PB.isDark() ? "rgba(91,140,255,.12)" : "rgba(47,111,224,.08)" }, { x0: 55, x1: 80, color: PB.isDark() ? "rgba(255,107,107,.12)" : "rgba(214,69,69,.08)" }];
       const C = PB.chart(ctx, null, { x: [-20, 80], y: [0, 110], xLabel: "셀 온도 (°C)", yLabel: "허용 충전 전류 (%)", series: [{ data: zc, color: P.accent, width: 2.6 }], bands, vlines: [{ x: T, color: P.accent2, label: T + " °C", dash: [] }, { x: 60, color: P.bad, label: "방전도 경고 60", dash: [3, 3] }] });
       ctx.save(); ctx.font = "11px " + font(); ctx.fillStyle = P.dim; ctx.textAlign = "center";
-      ctx.fillText("충전 금지", C.X(-10), C.Y(50)); ctx.fillText("0.3C", C.X(5), C.Y(36)); ctx.fillText("1C · 4.45 V", C.X(27), C.Y(104)); ctx.fillText("4.2 V", C.X(50), C.Y(56)); ctx.fillText("충전 금지", C.X(67), C.Y(50));
+      ctx.fillText("충전 금지", C.X(-10), C.Y(50)); ctx.fillText("0.3C", C.X(5), C.Y(36)); ctx.fillText("1C · 4.45 V", C.X(33), C.Y(90)); ctx.fillText("4.2 V", C.X(50), C.Y(56)); ctx.fillText("충전 금지", C.X(67), C.Y(50));
       ctx.restore();
     }, { aspect: 0.48, minHeight: 230, maxHeight: 340 });
     function pill(cls, txt) { return `<span class="pill ${cls}">${txt}</span>`; }
@@ -1477,12 +1476,12 @@
       const t80 = timeTo(r.data, 0.8) || 0;
       const r0 = simCharge(1, 40, { multi: true, vmax: 4.40 });
       const t80b = timeTo(r0.data, 0.8) || 1;
-      const life = 1000 / (Math.exp((V - 4.40) * 11) * (1 + 0.06 * si) * (c > 1 ? 1 + 0.35 * Math.pow(c - 1, 1.3) : 1));
-      const swell = 100 * Math.exp((V - 4.40) * 9) * (1 + 0.08 * si);
+      const life = 1400 / (Math.exp((V - 4.40) * 8) * (1 + 0.06 * si) * (c > 1 ? 1 + 0.35 * Math.pow(c - 1, 1.3) : 1));
+      const swell = 100 * Math.exp((V - 4.40) * 6) * (1 + 0.05 * si);
       const rows = [
         ["에너지", E, E / (vol * 0.74) * 100, (x) => x.toFixed(1) + " Wh", P.accent, true],
         ["0→80% 시간", t80, t80 / t80b * 100, (x) => Math.round(x) + " 분", P.accent2, false],
-        ["80% 수명", life, life / 1000 * 100, (x) => Math.round(x).toLocaleString() + " 회", P.ok, true],
+        ["80% 수명", life, life / 1400 * 100, (x) => Math.round(x).toLocaleString() + " 회", P.ok, true],
         ["스웰링 위험", swell, swell, (x) => Math.round(x) + "", P.bad, false],
       ];
       const pad = 16, lw = Math.min(110, w * 0.26), x0 = pad + lw, bw = w - x0 - pad - 80;

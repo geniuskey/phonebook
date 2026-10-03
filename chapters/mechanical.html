@@ -444,9 +444,9 @@
       <div class="sim-body side">
         <div class="sim-view"><canvas id="cv-tol"></canvas></div>
         <div class="sim-controls">
-          <label class="ctrl"><span>프레임 개구부 공차 t<sub>O</sub> <output id="tl-o-out"></output></span><input type="range" id="tl-o" min="0.01" max="0.10" step="0.005" value="0.03"></label>
-          <label class="ctrl"><span>유리 폭 공차 t<sub>G</sub> <output id="tl-g-out"></output></span><input type="range" id="tl-g" min="0.02" max="0.15" step="0.005" value="0.06"></label>
-          <label class="ctrl"><span>조립 위치 공차 t<sub>x</sub> <output id="tl-x-out"></output></span><input type="range" id="tl-x" min="0.01" max="0.15" step="0.005" value="0.05"></label>
+          <label class="ctrl"><span><span>프레임 개구부 공차 t<sub>O</sub></span> <output id="tl-o-out"></output></span><input type="range" id="tl-o" min="0.01" max="0.10" step="0.005" value="0.03"></label>
+          <label class="ctrl"><span><span>유리 폭 공차 t<sub>G</sub></span> <output id="tl-g-out"></output></span><input type="range" id="tl-g" min="0.02" max="0.15" step="0.005" value="0.06"></label>
+          <label class="ctrl"><span><span>조립 위치 공차 t<sub>x</sub></span> <output id="tl-x-out"></output></span><input type="range" id="tl-x" min="0.01" max="0.15" step="0.005" value="0.05"></label>
           <label class="ctrl"><span>유리 폭 평균 이동 <output id="tl-s-out"></output></span><input type="range" id="tl-s" min="-0.08" max="0.08" step="0.005" value="0"></label>
           <div class="ctrl"><span>샘플 수</span><div class="seg" id="tl-n"><button data-value="2000">2천</button><button data-value="20000" class="on">2만</button><button data-value="200000">20만</button></div></div>
           <button class="btn primary" id="tl-run">다시 생산하기</button>
@@ -661,7 +661,12 @@
   }
 
   /* ============================================================ 1. 3D 위치 */
-  (function () {
+  function lazy(el, fn) { // 화면 근처에 올 때 한 번만 초기화(3D 초기화 비용을 페이지 로드에서 분리)
+    if (!window.IntersectionObserver) return fn();
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); fn(); } }, { rootMargin: "300px" });
+    io.observe(el);
+  }
+  lazy($("v3d-pos"), function () {
     const el = $("v3d-pos");
     const T = PB.three(el, { camera: [150, 115, 175], target: [0, 0, 0], fov: 35, minDistance: 80, maxDistance: 420 });
     if (!T) return;
@@ -706,19 +711,19 @@
       if (["frame", "cover", "backglass"].includes(part.id)) { chips.forEach((c) => c.classList.toggle("on", c.dataset.id === part.id)); }
       P.highlight(part.id);
     });
-  })();
+  });
 
   /* ============================================================ 2. 애시비 */
   (function () {
     const MATS = [
-      { id: "al6", n: "Al 6000계", rho: [2.68, 2.72], E: [68, 71], s: [240, 330], k: [150, 200], col: "accent", note: "6061/6013-T6. 가공성·아노다이징 품질이 좋고 저렴하다. 보급형~중급형 프레임." },
-      { id: "al7", n: "Al 7000계", rho: [2.78, 2.84], E: [70, 73], s: [430, 540], k: [120, 150], col: "accent", note: "Al-Zn-Mg-Cu. 강도가 높아 얇은 프레임에서도 영구 변형이 적다. 플래그십 알루미늄 프레임의 주류." },
+      { id: "al6", dy: 14, n: "Al 6000계", rho: [2.68, 2.72], E: [68, 71], s: [240, 330], k: [150, 200], col: "accent", note: "6061/6013-T6. 가공성·아노다이징 품질이 좋고 저렴하다. 보급형~중급형 프레임." },
+      { id: "al7", dy: -2, n: "Al 7000계", rho: [2.78, 2.84], E: [70, 73], s: [430, 540], k: [120, 150], col: "accent", note: "Al-Zn-Mg-Cu. 강도가 높아 얇은 프레임에서도 영구 변형이 적다. 플래그십 알루미늄 프레임의 주류." },
       { id: "ti", n: "티타늄 Gr.5", rho: [4.40, 4.47], E: [110, 118], s: [830, 950], k: [6, 7.5], col: "accent-2", note: "Ti-6Al-4V. 비강도 최고 수준, 내식·생체 친화. 열전도가 낮아 하이브리드(내부 Al) 구조가 쓰인다." },
-      { id: "sus", n: "스테인리스", rho: [7.8, 8.0], E: [190, 200], s: [200, 1000], k: [14, 18], col: "warn", note: "316L(낮은 강도, 높은 내식)~17-4PH(석출 경화, 고강도). 강성은 최고지만 무겁다." },
+      { id: "sus", dy: 16, left: true, n: "스테인리스", rho: [7.8, 8.0], E: [190, 200], s: [200, 1000], k: [14, 18], col: "warn", note: "316L(낮은 강도, 높은 내식)~17-4PH(석출 경화, 고강도). 강성은 최고지만 무겁다." },
       { id: "mg", n: "마그네슘", rho: [1.77, 1.83], E: [42, 46], s: [150, 230], k: [60, 100], col: "ok", note: "AZ31/AZ91. 판 강성 지수 최고. 부식 방지 코팅이 필수이고, 절삭 칩이 탈 수 있어 가공 관리가 까다롭다." },
       { id: "pc", n: "GF 강화 PC/PA", rho: [1.35, 1.50], E: [6, 10], s: [90, 150], k: [0.25, 0.4], col: "blue", note: "유리섬유 30 % 강화 플라스틱. 사출로 싸고 빠르게 만들며 전파에 투명하다. 강성이 낮아 두께로 보완한다." },
-      { id: "glass", n: "강화 유리", rho: [2.38, 2.50], E: [65, 80], s: [150, 800], k: [0.9, 1.3], col: "text-dim", glass: true, note: "알루미노실리케이트. '항복' 없이 취성 파괴하므로 강도는 결함 크기에 따라 크게 달라진다(여기 범위는 강화 후 실사용 강도의 대략치)." },
-      { id: "zr", n: "지르코니아", rho: [5.9, 6.1], E: [200, 210], s: [800, 1200], k: [2, 3], col: "bad", glass: true, note: "세라믹 후면·버튼에 일부 쓰인다. 단단하고 촉감이 좋지만 무겁고 가공이 어렵다." },
+      { id: "glass", dy: -16, left: true, n: "강화 유리", rho: [2.38, 2.50], E: [65, 80], s: [150, 800], k: [0.9, 1.3], col: "text-dim", glass: true, note: "알루미노실리케이트. '항복' 없이 취성 파괴하므로 강도는 결함 크기에 따라 크게 달라진다(여기 범위는 강화 후 실사용 강도의 대략치)." },
+      { id: "zr", dy: -12, left: true, n: "지르코니아", rho: [5.9, 6.1], E: [200, 210], s: [800, 1200], k: [2, 3], col: "bad", glass: true, note: "세라믹 후면·버튼에 일부 쓰인다. 단단하고 촉감이 좋지만 무겁고 가공이 어렵다." },
     ];
     const prop = PB.seg("ash-prop", () => cv.redraw());
     const idx = PB.seg("ash-idx", () => cv.redraw());
@@ -758,8 +763,8 @@
         ellipses.push({ m, cx, cy, rx, ry });
       });
       ellipses.forEach(({ m, cx, cy, rx, ry }) => {
-        const right = cx + rx + 4 + 80 < box.x + box.w;
-        txt(ctx, m.n, right ? cx + rx + 4 : cx - rx - 4, cy + 4, { color: pal.text, size: 12, align: right ? "left" : "right", bold: m.id === sel });
+        const right = !m.left && cx + rx + 4 + 80 < box.x + box.w;
+        txt(ctx, m.n, right ? cx + rx + 4 : cx - rx - 4, cy + 4 + (m.dy || 0), { color: pal.text, size: 12, align: right ? "left" : "right", bold: m.id === sel });
       });
       ctx.restore();
       txt(ctx, "점선: " + ax.names[ni] + " = 일정 (주황 = 선택 재료)", box.x + 8, box.y + 14, { size: 11.5, color: pal.dim });
@@ -955,7 +960,10 @@
       PB.chart(ctx, box, { x: [0, t], y: [ymin, ymax], xLabel: "앞면에서의 깊이 (µm)", yLabel: "잔류 응력 (MPa)",
         series: [{ data, color: pal.accent, width: 2.2, fill: alpha(pal.accent, 0.12) }],
         hlines: [{ y: 0, color: pal.axis, dash: [] }],
-        vlines: [{ x: st.a, color: pal.accent2, label: "균열 끝 a" }].concat(st.CS > 0 ? [{ x: pr.doc, color: pal.dim, label: "DOC" }] : []) });
+        vlines: [{ x: st.a, color: pal.accent2 }].concat(st.CS > 0 ? [{ x: pr.doc, color: pal.dim }] : []) });
+      const Xd = (v) => box.x + (v / t) * box.w;
+      txt(ctx, "균열 끝 a", Xd(st.a) + 4, box.y + box.h - 8, { size: 11.5, color: pal.accent2 });
+      if (st.CS > 0) txt(ctx, "DOC", Xd(pr.doc) + 4, box.y + 14, { size: 11.5, color: pal.dim });
     }, { aspect: 0.5, maxHeight: 320, minHeight: 230 });
     const c2 = PB.canvas($("cv-gl2"), (ctx, w, h) => {
       if (!st.pr) return;
@@ -1050,9 +1058,10 @@
       const tmax = Math.max(st.tau * 1000 * 1.25, 1.0);
       const gmax = Math.max(st.g, ...others.filter((q) => q.tau * 1000 < tmax * 1.5).map((q) => q.g)) * 1.15;
       const pulse = (q) => { const d = []; const T = q.tau * 1000; for (let i = 0; i <= 80; i++) { const t = (tmax * i) / 80; d.push([t, t <= T ? q.g * Math.sin((Math.PI * t) / T) : 0]); } return d; };
-      PB.chart(ctx, box, { x: [0, tmax], y: [0, gmax], xLabel: "시간 (ms)", yLabel: "가속도 (g)",
+      PB.chart(ctx, box, { x: [0, tmax], y: [0, gmax], xLabel: "시간 (ms)",
         series: others.map((q) => ({ data: pulse(q), color: pal.faint, width: 1.2 })).concat([{ data: pulse(st), color: pal.accent2, width: 2.6, fill: alpha(pal.accent2, 0.12) }]),
         yFmt: (v) => (v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : String(Math.round(v))) });
+      txt(ctx, "가속도 (g)", box.x + 6, box.y + 12, { size: 11.5 });
       txt(ctx, "최고 " + Math.round(st.g).toLocaleString() + " g", box.x + box.w - 6, box.y + 14, { align: "right", color: pal.accent2, bold: true, size: 13 });
     }, { aspect: 0.5, minHeight: 300, maxHeight: 420 });
     PB.loop($("cv-drop"), (dt) => { tAnim += dt; cv.redraw(); });
@@ -1131,7 +1140,7 @@
       const pal = PB.palette();
       const topH = Math.round(h * 0.42);
       // ---- 단면
-      const sc = Math.min(110, (topH - 40) / 1.0); // px per mm
+      const sc = Math.min(70, (topH - 40) / 1.0, w / 7); // px per mm
       const gx = w * 0.5, base = topH - 18;
       const gw = 1.0 * sc, grooveD = 0.35 * sc;
       // frame with groove
@@ -1139,7 +1148,7 @@
       ctx.fillRect(gx - gw * 2.2, base - grooveD, gw * 1.6, grooveD + 12);
       ctx.fillRect(gx + gw * 0.6, base - grooveD, gw * 1.6, grooveD + 12);
       ctx.fillRect(gx - gw * 0.6, base, gw * 1.2, 12);
-      txt(ctx, "프레임 홈", gx + gw * 2.3, base + 4, { size: 11.5 });
+      txt(ctx, "프레임 홈", w - 8, base + 10, { size: 11.5, align: "right" });
       // gasket
       const k = 0.5 - 0.5 * Math.cos(ph);
       const comp = st.cn * Math.min(1, k * 1.15);
@@ -1149,12 +1158,12 @@
       // cover plate
       const plateY = base - gh;
       ctx.fillStyle = alpha(PB.color("blue"), 0.45); ctx.fillRect(gx - gw * 2.2, plateY - 10, gw * 4.4, 10);
-      txt(ctx, "커버(유리/브래킷)", gx + gw * 2.3, plateY - 2, { size: 11.5 });
+      txt(ctx, "커버", w - 8, plateY - 2, { size: 11.5, align: "right" });
       // water arrows
       const n = Math.min(8, 1 + Math.round((st.p + st.dp) * 1000 / 10));
       ctx.strokeStyle = PB.color("blue"); ctx.fillStyle = PB.color("blue"); ctx.lineWidth = 2;
       for (let i = 0; i < n; i++) {
-        const y = plateY + 4 + (i % 2) * 4, x = gx - gw * 2.2 - 50 + ((i * 7 + ph * 8) % 30);
+        const y = plateY + 4 + (i % 2) * 4, x = Math.max(20, gx - gw * 2.2 - 30) + ((i * 7 + ph * 8) % 24);
         ctx.beginPath(); ctx.moveTo(x - 14, y); ctx.lineTo(x, y); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(x + 4, y); ctx.lineTo(x - 3, y - 4); ctx.lineTo(x - 3, y + 4); ctx.closePath(); ctx.fill();
       }
@@ -1286,7 +1295,7 @@
         acc += t;
       });
       txt(ctx, "합계 " + total + "분", x1, h - 8, { align: "right", size: 12.5, bold: true, color: pal.text });
-    }, { aspect: 0.55, minHeight: 280, maxHeight: 380 });
+    }, { aspect: 0.42, minHeight: 250, maxHeight: 330 });
     upd();
   })();
 
@@ -1396,7 +1405,7 @@
         const col = PB.color(p.c);
         ctx.fillStyle = alpha(col, p.a); ctx.strokeStyle = col; ctx.lineWidth = 1;
         ctx.fillRect(X(p.x - p.w / 2), Z(p.z - p.l / 2), p.w * sc, p.l * sc); ctx.strokeRect(X(p.x - p.w / 2), Z(p.z - p.l / 2), p.w * sc, p.l * sc);
-        if (p.w > 20) txt(ctx, p.n + " " + p.m + "g", X(p.x), Z(p.z) + 4, { align: "center", size: 11, color: pal.text });
+        if (p.w > 20 && p.a > 0.2) txt(ctx, p.n + " " + p.m + "g", X(p.x), Z(p.z) + 4, { align: "center", size: 11, color: pal.text });
       });
       // grip line
       ctx.strokeStyle = pal.accent2; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
