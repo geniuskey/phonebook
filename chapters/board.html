@@ -20,7 +20,7 @@
   .blk-svg .nd { cursor: pointer; }
   .blk-svg .nd rect { fill: var(--bg-elev); stroke: var(--border); stroke-width: 1.5; transition: fill .15s, stroke .15s; }
   .blk-svg .nd:hover rect { stroke: var(--accent); }
-  .blk-svg .nd.on rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2.5; }
+  .blk-svg .nd.on rect { fill: color-mix(in srgb, var(--accent) 14%, var(--bg-elev)); stroke: var(--accent); stroke-width: 2.5; }
   .blk-svg .nd text { pointer-events: none; font-family: var(--font); font-size: 15px; font-weight: 700; fill: var(--text); }
   .blk-svg .nd text.sub { font-size: 12px; font-weight: 400; fill: var(--text-dim); font-family: var(--mono); }
   .blk-svg .ln { fill: none; stroke-width: 2.4; transition: opacity .15s; }
@@ -383,7 +383,7 @@
       <div class="sim-body side">
         <div class="sim-view"><canvas id="cv-pdn"></canvas></div>
         <div class="sim-controls">
-          <label class="ctrl"><span>22 µF (0402) 개수 <output id="pd-a-out"></output></span><input type="range" id="pd-a" min="0" max="8" step="1" value="2"></label>
+          <label class="ctrl"><span>22 µF (0402) 개수 <output id="pd-a-out"></output></span><input type="range" id="pd-a" min="0" max="8" step="1" value="3"></label>
           <label class="ctrl"><span>2.2 µF (0201) 개수 <output id="pd-b-out"></output></span><input type="range" id="pd-b" min="0" max="20" step="1" value="6"></label>
           <label class="ctrl"><span>0.1 µF (01005) 개수 <output id="pd-c-out"></output></span><input type="range" id="pd-c" min="0" max="40" step="1" value="8"></label>
           <label class="ctrl"><span>전류 계단 ΔI <output id="pd-i-out"></output></span><input type="range" id="pd-i" min="1" max="10" step="0.5" value="5"></label>
@@ -396,7 +396,7 @@
         <div class="stat"><span class="k">최대 지점</span><span class="v" id="pd-fm">—</span></div>
         <div class="stat"><span class="k">커패시터 점유 면적</span><span class="v" id="pd-ar">—</span></div>
       </div>
-      <div class="sim-note">해볼 것: 커패시터를 모두 0으로 하면 수 kHz~수 MHz에서 PMIC 루프 인덕턴스가 그대로 드러난다. 작은 커패시터를 아무리 늘려도 수십~수백 MHz의 봉우리(보드 커패시터와 패키지 인덕턴스의 반공진)는 잘 안 내려간다. 이 구간은 패키지 안 커패시터와 다이 커패시턴스가 맡아야 한다. 칩 설계와 보드 설계가 함께 풀어야 하는 문제다. 다이 커패시턴스는 ~100 nF로 고정했다.</div>
+      <div class="sim-note">해볼 것: 커패시터를 모두 0으로 하면 수 kHz~수 MHz에서 PMIC 루프 인덕턴스가 그대로 드러난다. 작은 커패시터를 아무리 늘려도 수십~수백 MHz의 봉우리(다이 커패시턴스와 패키지·보드 인덕턴스의 반공진)는 잘 안 내려간다. 이 구간은 패키지 안 커패시터와 다이 커패시턴스가 맡아야 한다. 칩 설계와 보드 설계가 함께 풀어야 하는 문제다. 다이 커패시턴스는 ~100 nF로 고정했다.</div>
     </div>
     <p>PDN이 목표를 넘으면 전류 계단마다 전압이 출렁인다(droop). 칩은 이를 견디려고 전압 여유(가드밴드)를 더 두어야 하고, \(P \propto V^2\)이므로 전력이 늘어난다(<a href="soc.html#power">3장</a>). 반대로 커패시터를 무작정 늘리면 면적·원가가 늘고 배터리 자리를 빼앗는다. PDN 설계는 이 둘 사이의 줄타기다. 전원 IC와 벅 컨버터 자체는 <a href="power.html">6장</a>에서 다룬다.</p>
   </section>
@@ -526,3 +526,646 @@
     </div>
   </section>
 </main>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const cssv = (n) => getComputedStyle(document.body).getPropertyValue(n);
+  const font = (sz, mono, w) => (w ? w + " " : "") + sz + "px " + (mono ? cssv("--mono") : cssv("--font"));
+  const alpha = (hex, a) => { const m = /^#?([0-9a-f]{6})$/i.exec((hex || "").trim()); if (!m) return hex; const n = parseInt(m[1], 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+
+  /* =================================================== 1. 블록 다이어그램 */
+  (function () {
+    const svg = $("blk-svg"), NS = "http://www.w3.org/2000/svg";
+    const N = {
+      batt: [40, 30, 150, 60, "배터리 커넥터", "3.6–4.5 V", "배터리 셀과 보호 회로(BMS)가 BtB 커넥터로 들어오는 곳. 수 A의 전류가 지나가므로 여러 핀을 병렬로 쓰고 보드에서는 넓은 구리 평면으로 받는다.", "BtB 커넥터 · 전원 핀 다수", "배터리 장 참고"],
+      pmic: [40, 150, 150, 80, "PMIC", "전원 관리 IC", "배터리 전압을 수십 개의 레일(0.5–3.3 V)로 바꿔 각 칩에 공급한다. CPU·GPU 레일은 수 A급 벅 컨버터로, 아날로그 레일은 LDO로 만든다. AP와 SPMI 버스로 대화하며 DVFS 전압을 바꾼다.", "SPMI/I²C 제어, 벅 10–20개", "효율 85–95%"],
+      chg: [40, 270, 150, 60, "충전 IC", "USB PD · 무선", "USB-C나 무선 충전 코일에서 들어온 전력을 배터리 충전 전류로 바꾼다. 고속 충전은 스위치드 커패시터 방식으로 효율을 높인다.", "I²C 제어", "20–100 W급"],
+      usb: [40, 380, 150, 56, "USB-C (서브보드)", "메인 플렉스 경유", "하단 서브보드의 USB-C 포트. 전원(VBUS)과 USB 2.0/3.x 고속 신호가 메인 플렉스를 타고 올라온다.", "USB 3.x 10 Gbps / USB 2.0", "FPC 길이 ~100 mm"],
+      dram: [270, 30, 180, 56, "LPDDR5X (PoP)", "8–16 GB", "AP 바로 위에 겹쳐 올린 DRAM. 보드 배선이 아니라 패키지 수직 연결로 AP와 이어지므로 보드에서는 AP와 한 몸처럼 취급한다.", "64비트, 8.5–10.7 Gbps/핀", "AP 위 PoP"],
+      ap: [270, 130, 180, 120, "AP (SoC)", "CPU·GPU·NPU·모뎀", "모든 고속 신호의 중심. 보드 위 고속 배선의 대부분이 AP에서 시작하거나 끝난다. 0.35–0.4 mm 피치 BGA로 1,000개 이상의 볼이 보드와 연결된다.", "BGA 1,000+ 볼", "3장 참고"],
+      disp: [270, 300, 85, 56, "디스플레이", "커넥터", "디스플레이 패널로 가는 MIPI DSI 레인과 터치 컨트롤러 신호. FPC를 통해 화면 쪽으로 접혀 들어간다.", "MIPI D-PHY/C-PHY 수 Gbps × 레인", "2장 참고"],
+      cam: [365, 300, 85, 56, "카메라", "커넥터 ×3", "각 카메라 모듈의 MIPI CSI-2 레인. 50 MP 센서의 고속 연사·8K 영상은 레인당 수 Gbps를 쓴다.", "MIPI C-PHY/D-PHY", "8장 참고"],
+      ufs: [500, 30, 130, 56, "UFS 저장장치", "128 GB–1 TB", "NAND 플래시와 컨트롤러가 든 패키지. AP와 고속 직렬 레인 2쌍(송신·수신 각 2)으로 연결된다.", "M-PHY HS-G5 23.2 Gbps × 2", "7절 참고"],
+      rf: [500, 150, 130, 60, "RF 트랜시버", "상판", "모뎀의 디지털 기저대역 신호를 RF로 올리고(송신) 내린다(수신). 디지털 쪽은 고속 직렬 인터페이스로 AP(모뎀)와 연결된다.", "디지털 IQ 링크 + RF 포트 다수", "7장 참고"],
+      wifi: [500, 250, 130, 56, "Wi-Fi·BT", "모듈", "Wi-Fi 6E/7과 블루투스 칩. AP와 PCIe로 연결되고 자체 안테나 포트를 가진다.", "PCIe Gen3 ×1", "2.4/5/6 GHz"],
+      sens: [500, 360, 130, 56, "센서·오디오", "IMU·코덱", "가속도·자이로·기압 센서와 오디오 코덱·앰프. 저속 I²C/I3C, SPI, SoundWire 등으로 연결된다.", "I²C/I3C, SPI", "9·10장 참고"],
+      fem: [660, 150, 120, 60, "PA·FEM", "증폭·필터", "파워앰프, 저잡음 증폭기, 필터, 스위치를 한 모듈에 담은 RF 프런트엔드. 송신 시 수 W를 다루므로 열과 접지가 중요하다.", "MIPI RFFE 제어", "차폐 캔 필수"],
+      ant: [660, 280, 120, 60, "안테나", "프레임 급전점", "금속 프레임 분할 구간과 내부 안테나. 보드의 RF 포트에서 동축 케이블이나 LCP 플렉스로 연결된다.", "50 Ω 급전", "7장 참고"],
+    };
+    const E = [
+      ["batt", "pmic", "pwr"], ["chg", "batt", "pwr"], ["usb", "chg", "pwr"], ["pmic", "ap", "pwr"], ["pmic", "dram", "pwr"], ["pmic", "ufs", "pwr"], ["pmic", "rf", "pwr"], ["pmic", "cam", "pwr"], ["pmic", "disp", "pwr"], ["batt", "fem", "pwr"],
+      ["ap", "dram", "hs"], ["ap", "ufs", "hs"], ["ap", "disp", "hs"], ["ap", "cam", "hs"], ["ap", "rf", "hs"], ["ap", "wifi", "hs"], ["ap", "usb", "hs"],
+      ["rf", "fem", "rf"], ["fem", "ant", "rf"], ["wifi", "ant", "rf"],
+      ["ap", "pmic", "ctl"], ["ap", "chg", "ctl"], ["ap", "sens", "ctl"], ["ap", "fem", "ctl"],
+    ];
+    const ctr = (k) => [N[k][0] + N[k][2] / 2, N[k][1] + N[k][3] / 2];
+    const lines = E.map((e) => {
+      const [x1, y1] = ctr(e[0]), [x2, y2] = ctr(e[1]);
+      const p = document.createElementNS(NS, "path");
+      const mx = (x1 + x2) / 2;
+      p.setAttribute("d", Math.abs(y1 - y2) < 4 || Math.abs(x1 - x2) < 4 ? `M${x1} ${y1} L${x2} ${y2}` : `M${x1} ${y1} H${mx} V${y2} H${x2}`);
+      p.setAttribute("class", "ln " + e[2]);
+      svg.appendChild(p);
+      return p;
+    });
+    const nodes = {};
+    Object.keys(N).forEach((k) => {
+      const [x, y, w, h, t1, t2] = N[k];
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "nd");
+      g.innerHTML = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8"/><text x="${x + w / 2}" y="${y + h / 2 - 2}" text-anchor="middle">${t1}</text><text class="sub" x="${x + w / 2}" y="${y + h / 2 + 16}" text-anchor="middle">${t2}</text>`;
+      g.addEventListener("click", () => { cur = k; update(); });
+      svg.appendChild(g);
+      nodes[k] = g;
+    });
+    let cur = "ap";
+    const filt = PB.seg("blk-f", () => update());
+    function update() {
+      const f = filt();
+      const linked = new Set([cur]);
+      E.forEach((e, i) => {
+        const vis = f === "all" || e[2] === f;
+        const hot = e[0] === cur || e[1] === cur;
+        lines[i].classList.toggle("dim", !vis);
+        lines[i].classList.toggle("hot", vis && hot);
+        if (vis && hot) { linked.add(e[0]); linked.add(e[1]); }
+      });
+      Object.keys(nodes).forEach((k) => nodes[k].classList.toggle("on", k === cur));
+      const n = N[cur];
+      const cnt = E.filter((e) => (e[0] === cur || e[1] === cur) && (f === "all" || e[2] === f)).length;
+      $("blk-info").innerHTML = `<h4>${n[4]} <span class="en">${n[5]}</span></h4><p>${n[6]}</p><div class="kv"><span><b>인터페이스</b>${n[7]}</span><span><b>비고</b>${n[8]}</span><span><b>표시된 연결</b>${cnt}개</span></div>`;
+    }
+    update();
+  })();
+
+  /* =================================================== 2. 폰 안의 위치 (3D) */
+  (function () {
+    const T = PB.three($("v-loc"), { camera: [150, 120, 120], target: [0, -10, -25], fov: 35, minDistance: 50, maxDistance: 420 });
+    if (!T) return;
+    const P = PB.phone3d(T);
+    const card = $("loc-card");
+    const chips = [...$("loc-chips").querySelectorAll("button")];
+    function select(id) { P.highlight(id); chips.forEach((b) => b.classList.toggle("on", b.dataset.id === id)); }
+    function showCard(part) {
+      if (!part) { card.hidden = true; return; }
+      card.innerHTML = PB.partCardHTML(part, "");
+      card.hidden = false;
+      card.querySelector(".x").addEventListener("click", () => (card.hidden = true));
+    }
+    PB.range("loc-ex", (v) => Math.round(v * 100) + " %", (v) => P.setExplode(v));
+    const sw = PB.range("loc-sw", (v) => v.toFixed(1) + " mm", (v) => applySw(v));
+    function applySw(v) { P.setOffset("boardTop", { y: v }); P.setOffset("interposer", { y: v / 2 }); }
+    P.setExplode(0.7); applySw(sw());
+    P.setXray(true);
+    select("boardBottom");
+    chips.forEach((b) => b.addEventListener("click", () => { select(b.dataset.id); showCard(P.byId[b.dataset.id]); }));
+    $("loc-xray").addEventListener("change", (e) => P.setXray(e.target.checked));
+    T.pick([P.group], (hit) => { const part = hit ? P.partAt(hit.object) : null; if (part) { select(part.id); showCard(part); } else showCard(null); });
+  })();
+
+  /* =================================================== 3. PCB 적층 */
+  (function () {
+    const gN = PB.seg("st-n", () => cv.redraw());
+    const gT = PB.seg("st-type", () => cv.redraw());
+    const gL = PB.seg("st-ls", () => cv.redraw());
+    const cv = PB.canvas($("cv-stack"), (ctx, w, h) => {
+      const P = PB.palette();
+      const n = Number(gN()), type = gT(), msap = gL() === "msap";
+      const b = type === "h1" ? 1 : type === "h2" ? 2 : type === "any" ? n / 2 - 1 : 0;
+      // 유전체 두께(µm): i = 층 i와 i+1 사이
+      const diel = [];
+      for (let i = 0; i < n - 1; i++) {
+        if (type === "any") diel.push(i === (n / 2 - 1) ? 60 : 45);
+        else if (type === "pth") diel.push(i % 2 === 0 ? 70 : 100);
+        else diel.push(i < b || i >= n - 1 - b ? 50 : i === (n / 2 - 1) ? 100 : 70);
+      }
+      const cu = 15, mask = 20;
+      const total = diel.reduce((s, d) => s + d, 0) + n * cu + 2 * mask;
+      const top = 34, bottom = h - 30, sc = (bottom - top) / total;
+      const x0 = 20, x1 = w - 20;
+      // 층 y좌표
+      const ly = []; let y = top + mask * sc;
+      for (let i = 0; i < n; i++) { ly.push(y); y += cu * sc; if (i < n - 1) y += diel[i] * sc; }
+      // 솔더 마스크
+      ctx.fillStyle = alpha(P.ok, 0.35);
+      ctx.fillRect(x0, top, x1 - x0, mask * sc); ctx.fillRect(x0, bottom - mask * sc, x1 - x0, mask * sc);
+      // 유전체
+      for (let i = 0; i < n - 1; i++) {
+        const isCore = type === "any" ? i === n / 2 - 1 : type === "pth" ? i % 2 === 1 : i === n / 2 - 1;
+        const isBU = type !== "pth" && (type === "any" || i < b || i >= n - 1 - b);
+        ctx.fillStyle = isCore ? alpha(P.ok, 0.22) : isBU ? alpha(P.accent2, 0.13) : alpha(P.dim, 0.12);
+        ctx.fillRect(x0, ly[i] + cu * sc, x1 - x0, diel[i] * sc);
+      }
+      // 구리층 (패턴: 일부 끊김)
+      ctx.save(); ctx.beginPath(); ctx.rect(x0, 0, x1 - x0, h); ctx.clip();
+      ctx.fillStyle = P.warn;
+      for (let i = 0; i < n; i++) {
+        const plane = i === 1 || i === n - 2;
+        if (plane) ctx.fillRect(x0, ly[i], x1 - x0, Math.max(1.5, cu * sc));
+        else for (let x = x0; x < x1; x += 34) ctx.fillRect(x + ((i * 13) % 17), ly[i], 18, Math.max(1.5, cu * sc));
+      }
+      ctx.restore();
+      // 비아
+      const vx = (k) => x0 + (x1 - x0) * k;
+      const mv = (x, i) => { // 층 i → i+1 마이크로비아(테이퍼)
+        const yt = ly[i], yb = ly[i + 1] + cu * sc, r1 = 9, r2 = 5;
+        ctx.beginPath(); ctx.moveTo(x - r1, yt); ctx.lineTo(x + r1, yt); ctx.lineTo(x + r2, yb); ctx.lineTo(x - r2, yb); ctx.closePath(); ctx.fill();
+      };
+      const mvUp = (x, i) => { const yt = ly[i - 1], yb = ly[i] + cu * sc, r1 = 9, r2 = 5; ctx.beginPath(); ctx.moveTo(x - r2, yt); ctx.lineTo(x + r2, yt); ctx.lineTo(x + r1, yb); ctx.lineTo(x - r1, yb); ctx.closePath(); ctx.fill(); };
+      const pth = (x, i0, i1, r) => { ctx.fillStyle = P.warn; ctx.fillRect(x - r, ly[i0], 2 * r, ly[i1] + cu * sc - ly[i0]); ctx.fillStyle = P.bg; ctx.fillRect(x - r + 3, ly[i0], 2 * r - 6, ly[i1] + cu * sc - ly[i0]); ctx.fillStyle = P.warn; };
+      ctx.fillStyle = P.warn;
+      const labels = [];
+      if (type === "pth") {
+        pth(vx(0.18), 0, n - 1, 13); labels.push([vx(0.18), "관통 비아 Ø0.2 mm"]);
+        pth(vx(0.55), 0, n - 1, 13); labels.push([vx(0.55), "모든 층을 막음"]);
+      } else if (type === "any") {
+        for (let i = 0; i < n - 1; i++) { if (i < n / 2 - 1) mv(vx(0.2), i); else if (i > n / 2 - 1) mvUp(vx(0.2), i + 1); else ctx.fillRect(vx(0.2) - 6, ly[i] + cu * sc, 12, diel[i] * sc); }
+        labels.push([vx(0.2), "전층 스택 비아"]);
+        mv(vx(0.45), 0); mv(vx(0.45), 1); labels.push([vx(0.45), "L1→L3"]);
+        mv(vx(0.62), 2); mv(vx(0.62), 3); mv(vx(0.7), 4 < n - 1 ? 4 : 2); labels.push([vx(0.66), "내층끼리"]);
+        mvUp(vx(0.85), n - 1); mvUp(vx(0.85), n - 2); labels.push([vx(0.85), "L" + n + "→L" + (n - 2)]);
+      } else {
+        for (let i = 0; i < b; i++) mv(vx(0.2) + i * 18, i);
+        labels.push([vx(0.2), "엇갈린 마이크로비아"]);
+        for (let i = 0; i < b; i++) mvUp(vx(0.2) + i * 18, n - 1 - i);
+        pth(vx(0.2) + b * 18 - 9, b, n - 1 - b, 9); // 매립 비아
+        labels.push([vx(0.5), "매립 비아(코어)"]);
+        pth(vx(0.5), b, n - 1 - b, 9);
+        pth(vx(0.8), 0, n - 1, 12); labels.push([vx(0.8), "관통 비아"]);
+      }
+      // BGA 볼
+      const pitch = { pth: 0.8, h1: 0.5, h2: 0.4, any: 0.35 }[type];
+      ctx.fillStyle = P.dim;
+      ctx.font = font(11.5); ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+      labels.forEach(([x, t]) => { ctx.fillStyle = P.text; ctx.fillText(t, Math.min(w - 50, Math.max(50, x)), top - 4); });
+      // 층 번호
+      ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = font(10, true);
+      ctx.fillStyle = P.dim;
+      if (sc * 30 > 9) ly.forEach((yy, i) => ctx.fillText("L" + (i + 1), x0 + 2, yy + 1));
+      ctx.textAlign = "right"; ctx.font = font(11.5); ctx.textBaseline = "bottom";
+      ctx.fillStyle = P.dim; ctx.fillText("구리(주황) · 빌드업(분홍) · 코어(초록) · 두께 비율 그대로", x1, h - 6);
+      const den = { pth: 1, h1: 1.6, h2: 2.2, any: 3.0 }[type] * (msap ? 1.5 : 1);
+      const cost = { pth: 0.6, h1: 1.0, h2: 1.4, any: 2.0 }[type] * (n / 10) * (msap ? 1.3 : 1);
+      PB.stat("st-th", (total / 1000).toFixed(2) + " mm");
+      PB.stat("st-bga", type === "pth" ? "≥ 0.65 mm" : pitch.toFixed(2) + " mm");
+      PB.stat("st-den", den.toFixed(1) + "×");
+      PB.stat("st-cost", cost.toFixed(2));
+    }, { aspect: 0.5, minHeight: 280, maxHeight: 380 });
+  })();
+
+  /* =================================================== 4. 샌드위치 */
+  (function () {
+    const type = PB.seg("sw-type", () => cv.redraw());
+    const gA = PB.range("sw-a", (v) => v + " mm²", () => cv.redraw());
+    const gK = PB.range("sw-k", (v) => v + " %", () => cv.redraw());
+    const gW = PB.range("sw-w", (v) => v.toFixed(1) + " mm", () => cv.redraw());
+    const SHARED = 7700, BW = 62;
+    const mah = (a) => a * 4.6 * 0.9 * 0.72 / 1000 / 3.87 * 1000;
+    const fpOf = (t) => { const need = gA() * (1 + gK() / 100), wd = gW(); return t === "single" ? need / 1.7 : (need + 248 * wd) / (3.2 - 0.0645 * wd); };
+    const cv = PB.canvas($("cv-sw"), (ctx, w, h) => {
+      const P = PB.palette();
+      const t = type(), F = fpOf(t), Fs = fpOf("single");
+      const batA = SHARED - F - 2 * BW, batS = SHARED - Fs - 2 * BW;
+      // 폰 윤곽 (mm → px)
+      const PW = 71.5, PL = 147;
+      const sc = Math.min((h - 20) / PL, (w * 0.45) / PW);
+      const ox = 20, oy = (h - PL * sc) / 2;
+      const rr = (x, y, ww, hh, r) => { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, ww, hh, r) : ctx.rect(x, y, ww, hh); };
+      ctx.strokeStyle = P.dim; ctx.lineWidth = 2; rr(ox, oy, PW * sc, PL * sc, 10.5 * sc); ctx.stroke();
+      const ix = ox + 4.75 * sc, iy = oy + 6 * sc;
+      const bh = F / BW, regionH = SHARED / BW; // ≈124 mm
+      // 카메라 영역은 보드 안쪽 오른쪽 위 노치로 표현
+      ctx.fillStyle = alpha(P.ok, 0.55);
+      rr(ix, iy, BW * sc, bh * sc, 3); ctx.fill();
+      if (t === "sand") { ctx.strokeStyle = P.warn; ctx.lineWidth = Math.max(2, gW() * sc); ctx.strokeRect(ix + gW() * sc / 2, iy + gW() * sc / 2, BW * sc - gW() * sc, bh * sc - gW() * sc); }
+      ctx.fillStyle = "#fff"; ctx.font = font(12, false, 700); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(t === "sand" ? "샌드위치 보드" : "단일 보드", ix + BW * sc / 2, iy + bh * sc / 2);
+      const by = iy + (bh + 2) * sc, bH = (regionH - bh - 2) * sc;
+      ctx.fillStyle = alpha(P.blue, 0.35); rr(ix + 1 * sc, by, (BW - 2) * sc, bH, 4); ctx.fill();
+      ctx.strokeStyle = P.blue; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = P.text; ctx.fillText("배터리", ix + BW * sc / 2, by + bH / 2 - 8);
+      ctx.font = font(12, true); ctx.fillText(Math.round(mah(batA)) + " mAh", ix + BW * sc / 2, by + bH / 2 + 10);
+      ctx.fillStyle = alpha(P.accent2, 0.35); rr(ix, oy + (PL - 18) * sc, BW * sc, 12 * sc, 3); ctx.fill();
+      ctx.fillStyle = P.dim; ctx.font = font(11); ctx.fillText("하단 모듈", ix + BW * sc / 2, oy + (PL - 12) * sc);
+      // 오른쪽 막대 비교
+      const rx = ox + PW * sc + 40, rw = w - rx - 20;
+      ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.font = font(12.5, false, 600); ctx.fillStyle = P.text;
+      ctx.fillText("보드 점유 면적 (mm²)", rx, 20);
+      const bar = (y, v, max, col, lab) => { ctx.fillStyle = col; ctx.fillRect(rx, y, (rw - 60) * v / max, 20); ctx.fillStyle = P.text; ctx.font = font(12, true); ctx.textBaseline = "middle"; ctx.fillText(lab, rx + (rw - 60) * v / max + 6, y + 10); ctx.textBaseline = "top"; };
+      bar(44, Fs, 3200, alpha(P.dim, 0.5), Math.round(Fs) + " 단일");
+      if (t === "sand") bar(70, F, 3200, P.ok, Math.round(F) + " 샌드");
+      ctx.font = font(12.5, false, 600); ctx.fillStyle = P.text; ctx.fillText("배터리 용량 (mAh)", rx, 120);
+      bar(144, mah(batS), 5500, alpha(P.dim, 0.5), Math.round(mah(batS)) + "");
+      if (t === "sand") bar(170, mah(batA), 5500, P.blue, Math.round(mah(batA)) + "");
+      PB.stat("sw-fp", Math.round(F) + " mm²");
+      PB.stat("sw-ba", Math.round(batA) + " mm²");
+      PB.stat("sw-mah", Math.round(mah(batA)) + " mAh");
+      PB.stat("sw-gain", t === "sand" ? "+" + Math.round(mah(batA) - mah(batS)) + " mAh" : "기준");
+    }, { aspect: 0.62, minHeight: 330, maxHeight: 440 });
+  })();
+
+  /* =================================================== 5. 수동소자 */
+  (function () {
+    const SZ = { "0402": [1.0, 0.5, "0402 (1005M)"], "0201": [0.6, 0.3, "0201 (0603M)"], "01005": [0.4, 0.2, "01005 (0402M)"], "008004": [0.25, 0.125, "008004 (0201M)"] };
+    const gZ = PB.range("ps-z", (v) => v + " px/mm", () => cv.redraw());
+    const sel = PB.seg("ps-sz", () => cv.redraw());
+    $("ps-ref").addEventListener("change", () => cv.redraw());
+    const cv = PB.canvas($("cv-pass"), (ctx, w, h) => {
+      const P = PB.palette(), z = gZ(), s = sel();
+      // 항목: [폭mm, 높이mm, 그리기, 라벨1, 라벨2]
+      const items = Object.keys(SZ).map((k) => {
+        const [L, W, lab] = SZ[k];
+        return [L, W, (x, base) => {
+          const pw = L * z, ph = W * z, t = Math.max(1, pw * 0.22);
+          ctx.fillStyle = "#b08a5e"; ctx.fillRect(x, base - ph, pw, ph);
+          ctx.fillStyle = "#c9ccd2"; ctx.fillRect(x, base - ph, t, ph); ctx.fillRect(x + pw - t, base - ph, t, ph);
+          if (k === s) { ctx.strokeStyle = P.accent; ctx.lineWidth = 2.5; ctx.strokeRect(x - 4, base - ph - 4, pw + 8, ph + 8); }
+        }, lab, L + "×" + W + " mm", k === s];
+      });
+      if ($("ps-ref").checked) {
+        items.push([0.07, 0.8, (x, base) => { ctx.fillStyle = alpha(P.text, 0.75); ctx.fillRect(x, base - 0.8 * z, 0.07 * z, 0.8 * z); }, "머리카락", "Ø ~70 µm", false]);
+        items.push([0.3, 0.3, (x, base) => { ctx.fillStyle = alpha(P.dim, 0.35); ctx.strokeStyle = P.dim; ctx.lineWidth = 1; ctx.fillRect(x, base - 0.3 * z, 0.3 * z, 0.3 * z); ctx.strokeRect(x, base - 0.3 * z, 0.3 * z, 0.3 * z); }, "소금 알갱이", "~0.3 mm", false]);
+        items.push([0.55, 0.2, (x, base) => { ctx.fillStyle = "#b8bcc4"; const r = 0.1 * z; [0, 0.35].forEach((o) => { ctx.beginPath(); ctx.arc(x + r + o * z, base - r, r, 0, 2 * Math.PI); ctx.fill(); }); }, "BGA 볼", "0.35 mm 피치", false]);
+      }
+      // 줄바꿈 배치
+      const rows = [[]]; let x = 20;
+      items.forEach((it) => { const iw = Math.max(it[0] * z, 84); if (x + iw > w - 16 && rows[rows.length - 1].length) { rows.push([]); x = 20; } rows[rows.length - 1].push([x, it]); x += iw + 16; });
+      let y = 14;
+      rows.forEach((row) => {
+        const rh = Math.max(...row.map(([, it]) => it[1] * z));
+        const base = y + rh;
+        row.forEach(([xx, it]) => {
+          const iw = Math.max(it[0] * z, 84), cx = xx + iw / 2, px = cx - it[0] * z / 2;
+          it[2](px, base);
+          ctx.textAlign = "center"; ctx.textBaseline = "top";
+          ctx.fillStyle = it[5] ? P.accent : P.text; ctx.font = font(12, false, 700); ctx.fillText(it[3], cx, base + 8);
+          ctx.fillStyle = P.dim; ctx.font = font(11, true); ctx.fillText(it[4], cx, base + 25);
+        });
+        ctx.strokeStyle = P.axis; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(10, base + 0.5); ctx.lineTo(w - 10, base + 0.5); ctx.stroke();
+        y = base + 52;
+      });
+      ctx.fillStyle = P.text; ctx.fillRect(w - 20 - z, h - 10, z, 3);
+      ctx.font = font(11, true); ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText("1 mm", w - 20, h - 12);
+      const [L, W] = SZ[s];
+      const fp = (L + 0.2) * (W + 0.2);
+      PB.stat("ps-dim", L + " × " + W + " mm");
+      PB.stat("ps-fp", fp.toFixed(3) + " mm²");
+      PB.stat("ps-cnt", Math.floor(100 / fp) + "개");
+      PB.stat("ps-tot", Math.round(1200 * fp) + " mm²");
+    }, { height: 330 });
+  })();
+
+  /* =================================================== 6. PoP 3D */
+  (function () {
+    const el = $("v-pop");
+    const T = PB.three(el, { camera: [22, 18, 28], target: [0, 1.2, 0], fov: 35, clipping: true, minDistance: 6, maxDistance: 80 });
+    if (!T) return;
+    const THREE = T.THREE;
+    const plane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1000);
+    const M = (color, o = {}) => T.material(color, Object.assign({ side: THREE.DoubleSide, clippingPlanes: [plane] }, o));
+    const groups = [];
+    const mk = (base) => { const g = new THREE.Group(); g.userData.base = base; T.scene.add(g); groups.push(g); return g; };
+    const box = (g, w, hh, d, y, m, x = 0, z = 0) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, hh, d), m); o.position.set(x, y + hh / 2, z); g.add(o); return o; };
+    // 1 PCB
+    const gPcb = mk(0);
+    box(gPcb, 24, 0.6, 24, -0.6, M(0x23704a, { roughness: 0.7 }));
+    box(gPcb, 24.02, 0.03, 24.02, -0.33, M(0xc8733a, { metalness: 0.6, roughness: 0.4 }));
+    // 2 보드쪽 솔더볼
+    const gBall = mk(1);
+    const pts = []; const pitch = 0.4;
+    for (let i = -16; i <= 16; i++) for (let j = -16; j <= 16; j++) pts.push([i * pitch, j * pitch]);
+    const bGeo = new THREE.SphereGeometry(0.13, 10, 8);
+    const bIm = new THREE.InstancedMesh(bGeo, M(0xc9ccd4, { metalness: 0.8, roughness: 0.3 }), pts.length);
+    const m4 = new THREE.Matrix4(), sc3 = new THREE.Vector3(1, 0.85, 1), q = new THREE.Quaternion();
+    pts.forEach(([x, z], i) => { m4.compose(new THREE.Vector3(x, 0.11, z), q, sc3); bIm.setMatrixAt(i, m4); });
+    gBall.add(bIm);
+    $("pp-nb").textContent = pts.length.toLocaleString() + "개 (0.4 mm)";
+    // 언더필
+    const uf = box(gBall, 14.6, 0.22, 14.6, 0, M(0xe8c27a, { transparent: true, opacity: 0.45, depthWrite: false }));
+    // 3 AP 기판 + 다이
+    const gAp = mk(2);
+    box(gAp, 14, 0.25, 14, 0.22, M(0x2b3a2f, { roughness: 0.6 }));
+    const die = box(gAp, 9.5, 0.15, 9.5, 0.47, M(0xe2630f, { roughness: 0.35, metalness: 0.2 }));
+    // 4 PoP 층간 볼
+    const gMid = mk(3);
+    const ring = [];
+    for (const r of [6.55, 6.1]) for (let t = -r; t <= r + 1e-6; t += 0.5) { ring.push([t, -r], [t, r]); if (Math.abs(t) < r - 0.01) ring.push([-r, t], [r, t]); }
+    const rIm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 10, 8), M(0xc9ccd4, { metalness: 0.8, roughness: 0.3 }), ring.length);
+    ring.forEach(([x, z], i) => { m4.compose(new THREE.Vector3(x, 0.62, z), q, new THREE.Vector3(1, 0.95, 1)); rIm.setMatrixAt(i, m4); });
+    gMid.add(rIm);
+    $("pp-nt").textContent = ring.length + "개 (2열)";
+    // 5 DRAM 기판 + 다이 + 몰드
+    const gDram = mk(4);
+    box(gDram, 14, 0.15, 14, 0.77, M(0x3a4a3e, { roughness: 0.6 }));
+    const dm = M(0x8a93a3, { roughness: 0.35, metalness: 0.3 });
+    for (let k = 0; k < 4; k++) box(gDram, 9, 0.07, 10.5, 0.94 + k * 0.1, dm, -1.2 + k * 0.5, 0);
+    // 와이어 본딩
+    const wpos = [];
+    for (let k = 0; k < 4; k++) for (let s = -4.5; s <= 4.5; s += 0.75) {
+      const x0 = -1.2 + k * 0.5 + 4.5, y0 = 0.94 + k * 0.1 + 0.07;
+      wpos.push(x0 - 0.2, y0, s, x0 + 0.8, y0 + 0.15, s, x0 + 0.8, y0 + 0.15, s, 5.9 + k * 0.15, 0.92, s);
+    }
+    const wg = new THREE.BufferGeometry(); wg.setAttribute("position", new THREE.Float32BufferAttribute(wpos, 3));
+    gDram.add(new THREE.LineSegments(wg, new THREE.LineBasicMaterial({ color: 0xd4af37, clippingPlanes: [plane] })));
+    box(gDram, 14, 0.45, 14, 0.92, M(0x1c1f24, { transparent: true, opacity: 0.28, depthWrite: false, roughness: 0.4 }));
+    // 라벨
+    const labs = [
+      [gPcb, "메인보드 (HDI)", [11, -0.3, 11]], [gBall, "솔더볼 + 언더필", [8, 0.1, 8]], [gAp, "AP 다이 (플립칩)", [0, 0.6, 7]],
+      [gMid, "PoP 층간 볼", [7.5, 0.62, -6]], [gDram, "LPDDR 다이 4단 + 와이어 본딩", [0, 1.4, -7]],
+    ].map(([g, t, p]) => { const L = T.label(t, p); L.obj = g; return L; });
+    const gEx = PB.range("pp-ex", (v) => Math.round(v * 100) + " %", () => layout());
+    function layout() { const e = gEx(); groups.forEach((g) => (g.position.y = g.userData.base * e * 2.4)); }
+    layout();
+    $("pp-cut").addEventListener("change", (e) => { plane.constant = e.target.checked ? 0 : 1000; });
+    $("pp-uf").addEventListener("change", (e) => { uf.visible = e.target.checked; });
+    $("pp-lbl").addEventListener("change", (e) => labs.forEach((L) => L.setVisible(e.target.checked)));
+    $("pp-rot").addEventListener("change", (e) => { if (T.controls) T.controls.autoRotate = e.target.checked; });
+  })();
+
+  /* =================================================== 7. 저장장치 */
+  (function () {
+    const D = [["eMMC 5.1", 300, 150, 8e3, 60], ["UFS 2.2", 1000, 500, 4e4, 250], ["UFS 3.1", 2000, 1200, 7e4, 450], ["UFS 4.x", 4000, 2800, 1.5e5, 900]];
+    const job = PB.seg("uf-job", () => cv.redraw());
+    const cv = PB.canvas($("cv-ufs"), (ctx, w, h) => {
+      const P = PB.palette(), j = job();
+      const vals = D.map((d) => {
+        if (j === "app") return 4000 / d[2];
+        if (j === "photo") return 8000 / d[1];
+        if (j === "boot") return 30000 / d[3] + 300 / d[1];
+        return d[4];
+      });
+      const unit = j === "video" ? "MB/s (지속 쓰기)" : "초";
+      const title = { app: "게임 설치 4 GB (순차 쓰기)", photo: "사진 2,000장 = 8 GB 읽기", boot: "앱 실행: 4 KB 무작위 읽기 3만 회 + 300 MB", video: "SLC 캐시 소진 후 지속 쓰기 vs 8K 녹화 요구(~80 MB/s)" }[j];
+      const max = Math.max(...vals) * 1.15;
+      const x0 = 96, x1 = w - 80, bh = 30;
+      ctx.font = font(13, false, 600); ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText(title, 16, 14);
+      const cols = [P.dim, P.accent2, P.accent, P.blue];
+      vals.forEach((v, i) => {
+        const y = 52 + i * (bh + 16);
+        ctx.fillStyle = P.text; ctx.font = font(12.5); ctx.textAlign = "right"; ctx.textBaseline = "middle";
+        ctx.fillText(D[i][0], x0 - 10, y + bh / 2);
+        ctx.fillStyle = cols[i]; ctx.globalAlpha = 0.8;
+        ctx.fillRect(x0, y, (x1 - x0) * v / max, bh); ctx.globalAlpha = 1;
+        ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = font(12, true);
+        ctx.fillText(v < 10 ? v.toFixed(2) + " " + (j === "video" ? "" : "s") : Math.round(v) + (j === "video" ? " MB/s" : " s"), x0 + (x1 - x0) * v / max + 6, y + bh / 2);
+      });
+      if (j === "video") {
+        const xr = x0 + (x1 - x0) * 80 / max;
+        ctx.strokeStyle = P.bad; ctx.setLineDash([5, 4]); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(xr, 44); ctx.lineTo(xr, 52 + 4 * (bh + 16) - 8); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = P.bad; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.font = font(11.5); ctx.fillText("8K 요구", xr + 4, 52 + 4 * (bh + 16) - 6);
+      }
+      ctx.fillStyle = P.dim; ctx.font = font(11.5); ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+      ctx.fillText(j === "video" ? "길수록 여유" : "짧을수록 빠름 (" + unit + ")", w - 16, h - 6);
+    }, { height: 260 });
+  })();
+
+  /* =================================================== 8. 아이 다이어그램 */
+  (function () {
+    const MAT = { fr4: [0.006, 0.004], low: [0.006, 0.0012], lcp: [0.005, 0.0007] };
+    const gR = PB.range("ey-r", (v) => v.toFixed(1) + " Gbps", () => sim());
+    const gL = PB.range("ey-l", (v) => v + " mm", () => sim());
+    const mat = PB.seg("ey-mat", () => sim());
+    const gEq = PB.range("ey-eq", (v) => v.toFixed(2), () => sim());
+    const S = 16, NB = 360;
+    const bits = []; let lfsr = 0x5a;
+    for (let i = 0; i < NB; i++) { const b = ((lfsr >> 6) ^ (lfsr >> 5)) & 1; lfsr = ((lfsr << 1) | b) & 0x7f; bits.push(b ? 1 : -1); }
+    const noise = []; for (let i = 0; i < NB * S; i++) noise.push(PB.randn() * 0.025);
+    let res = null;
+    function sim() {
+      const R = gR(), len = gL(), [ac, ad] = MAT[mat()], c = gEq();
+      const fn = R / 2;
+      const il = len * (ac * Math.sqrt(fn) + ad * fn) + 1.5;
+      const g = Math.pow(10, -il / 20), om = Math.PI / S;
+      let lo = 0, hi = 0.99999;
+      for (let i = 0; i < 50; i++) { const a = (lo + hi) / 2; const H = (1 - a) / Math.sqrt(1 - 2 * a * Math.cos(om) + a * a); if (H > g) lo = a; else hi = a; }
+      const a = (lo + hi) / 2;
+      const y = new Float32Array(NB * S); let st = 0;
+      for (let k = 0; k < NB; k++) {
+        const x = (bits[k] - c * (k > 0 ? bits[k - 1] : 0)) / (1 + c);
+        for (let s = 0; s < S; s++) { st = a * st + (1 - a) * x; y[k * S + s] = st; }
+      }
+      for (let i = 0; i < y.length; i++) y[i] += noise[i];
+      // 최적 샘플 위상
+      let best = -9, bp = 0;
+      for (let p = 0; p < S; p++) {
+        let mn1 = 9, mx0 = -9;
+        for (let k = 20; k < NB - 1; k++) { const v = y[k * S + p]; const b = bits[k]; if (b > 0) mn1 = Math.min(mn1, v); else mx0 = Math.max(mx0, v); }
+        if (mn1 - mx0 > best) { best = mn1 - mx0; bp = p; }
+      }
+      res = { y, il, fn, eye: best / 2, bp };
+      cv.redraw();
+    }
+    const cv = PB.canvas($("cv-eye"), (ctx, w, h) => {
+      if (!res) return;
+      const P = PB.palette();
+      const x0 = 40, x1 = w - 16, y0 = 16, y1 = h - 34;
+      const X = (t) => x0 + (t / (2 * S)) * (x1 - x0), Y = (v) => y0 + (1 - (v + 1.3) / 2.6) * (y1 - y0);
+      ctx.strokeStyle = P.grid; ctx.lineWidth = 1;
+      [0, S, 2 * S].forEach((t) => { ctx.beginPath(); ctx.moveTo(X(t), y0); ctx.lineTo(X(t), y1); ctx.stroke(); });
+      [-1, 0, 1].forEach((v) => { ctx.beginPath(); ctx.moveTo(x0, Y(v)); ctx.lineTo(x1, Y(v)); ctx.stroke(); });
+      ctx.strokeStyle = alpha(P.accent, 0.22); ctx.lineWidth = 1.2;
+      const off = res.bp - S / 2;
+      for (let k = 20; k < NB - 3; k++) {
+        ctx.beginPath();
+        for (let t = 0; t <= 2 * S; t++) { const idx = k * S + off + t; if (idx < 0 || idx >= res.y.length) continue; const px = X(t), py = Y(res.y[idx]); t ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+        ctx.stroke();
+      }
+      // 눈 높이 표시
+      if (res.eye > 0) {
+        ctx.strokeStyle = P.accent2; ctx.lineWidth = 2;
+        const cx = X(S);
+        ctx.beginPath(); ctx.moveTo(cx, Y(res.eye)); ctx.lineTo(cx, Y(-res.eye)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx - 6, Y(res.eye)); ctx.lineTo(cx + 6, Y(res.eye)); ctx.moveTo(cx - 6, Y(-res.eye)); ctx.lineTo(cx + 6, Y(-res.eye)); ctx.stroke();
+      }
+      ctx.fillStyle = P.dim; ctx.font = font(11.5); ctx.textAlign = "center"; ctx.textBaseline = "top";
+      ctx.fillText("0", X(0), y1 + 6); ctx.fillText("1 UI", X(S), y1 + 6); ctx.fillText("2 UI", X(2 * S), y1 + 6);
+      ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText("+1", x0 - 6, Y(1)); ctx.fillText("−1", x0 - 6, Y(-1));
+      const ui = 1000 / gR();
+      ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("1 UI = " + ui.toFixed(1) + " ps", x0 + 6, y0 + 2);
+      const eh = Math.max(0, res.eye);
+      PB.stat("ey-fn", res.fn.toFixed(1) + " GHz");
+      PB.stat("ey-il", res.il.toFixed(1) + " dB");
+      PB.stat("ey-h", (eh * 100).toFixed(0) + " %");
+      PB.stat("ey-ok", eh > 0.3 ? `<span style="color:${P.ok}">여유 있음</span>` : eh > 0.12 ? `<span style="color:${P.warn}">빠듯함</span>` : `<span style="color:${P.bad}">눈 감김</span>`);
+    }, { aspect: 0.6, minHeight: 280, maxHeight: 400 });
+    sim();
+  })();
+
+  /* =================================================== 9. 임피던스 */
+  (function () {
+    const type = PB.seg("z0-type", () => cv.redraw());
+    const gW = PB.range("z0-w", (v) => v + " µm", () => cv.redraw());
+    const gH = PB.range("z0-h", (v) => v + " µm", () => cv.redraw());
+    const gE = PB.range("z0-e", (v) => v.toFixed(2), () => cv.redraw());
+    const T = 15;
+    function z0(w, h, er, t) {
+      if (t === "ms") return 87 / Math.sqrt(er + 1.41) * Math.log(5.98 * h / (0.8 * w + T));
+      const b = 2 * h + T;
+      return 60 / Math.sqrt(er) * Math.log(4 * b / (0.67 * Math.PI * (0.8 * w + T)));
+    }
+    const cv = PB.canvas($("cv-z0"), (ctx, w, h) => {
+      const P = PB.palette();
+      const t = type(), W = gW(), H = gH(), er = gE();
+      const Z = z0(W, H, er, t);
+      // 단면 그림 (위쪽)
+      const sh = 110, sc = Math.min(0.9, (sh - 30) / (t === "ms" ? H + 40 : 2 * H + 30));
+      const cx = w / 2, base = 16 + sh - 14;
+      ctx.fillStyle = P.warn;
+      ctx.fillRect(cx - 160, base, 320, 4);
+      ctx.fillStyle = alpha(P.accent2, 0.13);
+      const dh = (t === "ms" ? H : 2 * H + T) * sc;
+      ctx.fillRect(cx - 160, base - dh, 320, dh);
+      if (t === "sl") { ctx.fillStyle = P.warn; ctx.fillRect(cx - 160, base - dh - 4, 320, 4); }
+      ctx.fillStyle = P.warn;
+      const ty = t === "ms" ? base - dh - T * sc : base - (H + T) * sc;
+      ctx.fillRect(cx - W * sc / 2, ty, W * sc, Math.max(2, T * sc));
+      ctx.fillStyle = P.dim; ctx.font = font(11.5); ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      ctx.fillText("접지면", cx + 168, base + 2);
+      ctx.fillText(t === "ms" ? "w = " + W + " µm (표층)" : "w = " + W + " µm (내층)", cx + W * sc / 2 + 8, ty);
+      ctx.fillText("h = " + H + " µm, εr = " + er.toFixed(2), cx - 160, 18);
+      if (t === "sl") ctx.fillText("접지면", cx + 168, base - dh - 2);
+      // 그래프
+      const ws = []; for (let x = 20; x <= 200; x += 2) ws.push([x, z0(x, H, er, t)]);
+      PB.chart(ctx, { x: 58, y: sh + 22, w: w - 76, h: h - sh - 70 }, {
+        x: [20, 200], y: [15, 110], xLabel: "배선 폭 w (µm)", yLabel: "Z₀ (Ω)",
+        series: [{ data: ws, color: P.accent, width: 2.5 }],
+        bands: [],
+        hlines: [{ y: 55, color: P.ok, dash: [3, 3] }, { y: 50, color: P.ok, label: "50 Ω ±10%" }, { y: 45, color: P.ok, dash: [3, 3] }],
+        points: [{ x: W, y: Z, color: P.accent2, r: 6, label: Z.toFixed(1) + " Ω" }],
+      });
+      const G = (Z - 50) / (Z + 50);
+      const eeff = t === "ms" ? (er + 1) / 2 + (er - 1) / 2 / Math.sqrt(1 + 12 * H / W) : er;
+      PB.stat("z0-z", `<span style="color:${Math.abs(Z - 50) <= 5 ? P.ok : P.bad}">${Z.toFixed(1)} Ω</span>`);
+      PB.stat("z0-g", (G * 100).toFixed(1) + " %");
+      PB.stat("z0-d", (3.336 * Math.sqrt(eeff)).toFixed(2) + " ps/mm");
+    }, { aspect: 0.7, minHeight: 360, maxHeight: 460 });
+  })();
+
+  /* =================================================== 10. PDN */
+  (function () {
+    const gA = PB.range("pd-a", (v) => v + "개", () => cv.redraw());
+    const gB = PB.range("pd-b", (v) => v + "개", () => cv.redraw());
+    const gC = PB.range("pd-c", (v) => v + "개", () => cv.redraw());
+    const gI = PB.range("pd-i", (v) => v.toFixed(1) + " A", () => cv.redraw());
+    const gP = PB.range("pd-p", (v) => v.toFixed(1) + " µF", () => cv.redraw());
+    // 복소수
+    const c = (re, im) => ({ re, im });
+    const add = (a, b) => c(a.re + b.re, a.im + b.im);
+    const inv = (a) => { const d = a.re * a.re + a.im * a.im; return c(a.re / d, -a.im / d); };
+    const par = (...zs) => inv(zs.reduce((s, z) => add(s, inv(z)), c(0, 0)));
+    const cap = (w, C, R, L, n) => c(R / n, (w * L - 1 / (w * C)) / n);
+    const mag = (a) => Math.hypot(a.re, a.im);
+    const cv = PB.canvas($("cv-pdn"), (ctx, w, h) => {
+      const P = PB.palette();
+      const nA = gA(), nB = gB(), nC = gC(), dI = gI(), pc = gP();
+      const zt = 0.75 * 0.03 / dI;
+      const data = [], dataNo = [];
+      let zmax = 0, fmax = 0;
+      for (let e = 3; e <= 9.0001; e += 0.02) {
+        const f = Math.pow(10, e), om = 2 * Math.PI * f;
+        const zl = c(0, om * 10e-9), vrm = add(c(0.5e-3, 0), par(zl, c(15e-3, 0)));
+        const list = [vrm];
+        if (nA) list.push(cap(om, 10e-6, 3e-3, 300e-12, nA));
+        if (nB) list.push(cap(om, 1.2e-6, 8e-3, 200e-12, nB));
+        if (nC) list.push(cap(om, 0.1e-6, 30e-3, 150e-12, nC));
+        const zb = par(...list);
+        let z1 = add(zb, c(0.2e-3, om * 30e-12));
+        if (pc > 0) z1 = par(z1, cap(om, pc * 1e-6, 5e-3, 20e-12, 1));
+        const z2 = add(z1, c(0.3e-3, om * 15e-12));
+        const zd = par(z2, cap(om, 100e-9, 4e-3, 0, 1));
+        const m = mag(zd) * 1000;
+        data.push([f, m]);
+        if (m > zmax) { zmax = m; fmax = f; }
+      }
+      PB.chart(ctx, null, {
+        x: [1e3, 1e9], y: [0.1, 1000], logX: true, logY: true, xLabel: "주파수 (Hz)", yLabel: "|Z| 다이에서 본 PDN (mΩ)",
+        xFmt: (v) => PB.si(v, "Hz", 2).replace(" ", ""), yFmt: (v) => (v < 1 ? String(v) : v.toFixed(0)),
+        series: [{ data, color: P.accent, width: 2.5 }],
+        hlines: [{ y: zt * 1000, color: P.bad, label: "목표 " + (zt * 1000).toFixed(1) + " mΩ" }],
+        bands: [],
+        points: [{ x: fmax, y: zmax, color: zmax > zt * 1000 ? P.bad : P.ok, r: 5 }],
+      });
+      PB.stat("pd-zt", (zt * 1000).toFixed(1) + " mΩ");
+      PB.stat("pd-zm", `<span style="color:${zmax > zt * 1000 ? P.bad : P.ok}">${zmax.toFixed(1)} mΩ</span>`);
+      PB.stat("pd-fm", PB.si(fmax, "Hz", 2));
+      PB.stat("pd-ar", (nA * 0.84 + nB * 0.32 + nC * 0.24).toFixed(1) + " mm²");
+    }, { aspect: 0.55, minHeight: 300, maxHeight: 420 });
+  })();
+
+  /* =================================================== 11. 신뢰성 */
+  (function () {
+    const gS = PB.range("rl-s", (v) => v.toFixed(1) + " mm", () => cv.redraw());
+    const gH = PB.range("rl-h", (v) => v + " µm", () => cv.redraw());
+    const gA = PB.range("rl-a", (v) => v.toFixed(1) + " ppm/K", () => cv.redraw());
+    const gT = PB.range("rl-t", (v) => v + " °C", () => cv.redraw());
+    const gU = PB.range("rl-u", (v) => "÷" + v.toFixed(1), () => cv.redraw());
+    const Nf = (dg) => 0.5 * Math.pow(dg / (2 * 0.325), 1 / -0.442);
+    const cv = PB.canvas($("cv-rel"), (ctx, w, h) => {
+      const P = PB.palette();
+      const dnp = gS() / Math.SQRT2, hh = gH() / 1000, da = gA() * 1e-6, u = gU();
+      const dg = (dT) => da * dT * dnp / hh;
+      const d0 = [], d1 = [];
+      for (let t = 20; t <= 165; t += 1) { d0.push([t, Nf(dg(t))]); d1.push([t, Nf(dg(t) / u)]); }
+      const dT = gT();
+      const n0 = Nf(dg(dT)), n1 = Nf(dg(dT) / u);
+      PB.chart(ctx, null, {
+        x: [20, 165], y: [10, 1e7], logY: true, xLabel: "열 사이클 온도 변화 ΔT (°C)", yLabel: "고장까지 사이클 수",
+        series: [{ data: d0, color: P.bad, width: 2.5 }, { data: d1, color: P.accent, width: 2.5 }],
+        hlines: [{ y: 1000, color: P.dim, label: "목표 예: 1,000 사이클" }],
+        vlines: [{ x: dT, color: P.faint }],
+        points: [{ x: dT, y: n0, color: P.bad, r: 5 }, { x: dT, y: n1, color: P.accent, r: 5 }],
+        yFmt: (v) => (v >= 1e4 ? "1e" + Math.round(Math.log10(v)) : String(v)),
+      });
+      ctx.font = font(12); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillStyle = P.bad; ctx.fillText("● 언더필 없음", 70, 20);
+      ctx.fillStyle = P.accent; ctx.fillText("● 언더필", 170, 20);
+      const fmt = (n) => (n >= 1e5 ? (n / 1000).toFixed(0) + "k" : Math.round(n).toLocaleString());
+      PB.stat("rl-g", (dg(dT) * 100).toFixed(2) + " %");
+      PB.stat("rl-n0", `<span style="color:${n0 < 1000 ? P.bad : P.text}">${fmt(n0)}</span>`);
+      PB.stat("rl-n1", fmt(n1));
+    }, { aspect: 0.55, minHeight: 300, maxHeight: 400 });
+  })();
+
+  /* =================================================== 12. 설계 비교 */
+  (function () {
+    const arch = PB.seg("ds-arch", () => cv.redraw());
+    const sh = PB.seg("ds-sh", () => cv.redraw());
+    const uf = PB.seg("ds-uf", () => cv.redraw());
+    // [보드 면적(작을수록 좋음), 배터리 mAh, 원가, 조립 수율, 수리성, 열 확산]
+    const A = { hdi: [100, 4150, 60, 97, 70, 70], any: [82, 4320, 80, 95, 65, 75], sand: [58, 4750, 100, 91, 35, 58] };
+    const M = [["보드 점유 면적", "", 100, true], ["배터리 용량", " mAh", 5000, false], ["보드·조립 원가", "", 120, true], ["조립 수율", " %", 100, false], ["수리성", "", 100, false], ["낙하 신뢰성", "", 100, false], ["열 확산", "", 100, false]];
+    function vals(a, s, u) {
+      const v = A[a].slice();
+      if (s === "conf") { v[0] *= 0.93; v[1] += 50; v[2] += 5; v[3] -= 1; v[4] -= 10; v[5] -= 6; }
+      const drop = (u === "1" ? 90 : 52) - (a === "sand" ? 4 : 0);
+      if (u === "0") { v[4] += 15; v[2] -= 3; }
+      return [v[0], v[1], v[2], v[3], v[4], drop, v[5]];
+    }
+    const cv = PB.canvas($("cv-design"), (ctx, w, h) => {
+      const P = PB.palette();
+      const cur = vals(arch(), sh(), uf());
+      const others = ["hdi", "any", "sand"].filter((x) => x !== arch()).map((x) => vals(x, sh(), uf()));
+      const x0 = Math.min(130, w * 0.32), x1 = w - 86, rh = (h - 30) / M.length;
+      M.forEach((m, i) => {
+        const y = 14 + i * rh, bh = Math.min(22, rh - 10);
+        ctx.fillStyle = P.text; ctx.font = font(12.5); ctx.textAlign = "right"; ctx.textBaseline = "middle";
+        ctx.fillText(m[0], x0 - 10, y + bh / 2);
+        ctx.fillStyle = P.grid; ctx.fillRect(x0, y, x1 - x0, bh);
+        const fr = Math.min(1, cur[i] / m[2]);
+        const good = m[3] ? 1 - fr : fr;
+        ctx.fillStyle = good > 0.66 ? P.ok : good > 0.4 ? P.warn : P.bad; ctx.globalAlpha = 0.8;
+        ctx.fillRect(x0, y, (x1 - x0) * fr, bh); ctx.globalAlpha = 1;
+        others.forEach((o) => { const xx = x0 + (x1 - x0) * Math.min(1, o[i] / m[2]); ctx.fillStyle = P.text; ctx.fillRect(xx - 1, y - 2, 2, bh + 4); });
+        ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = font(12, true);
+        ctx.fillText(Math.round(cur[i]) + m[1], x1 + 6, y + bh / 2);
+      });
+      ctx.fillStyle = P.dim; ctx.font = font(11); ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+      ctx.fillText("막대 색: 좋음(초록)–나쁨(빨강) · 세로 눈금: 다른 구조", w - 10, h - 2);
+    }, { height: 300 });
+  })();
+})();
+</script>
+</body>
+</html>

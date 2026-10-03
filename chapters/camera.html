@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>카메라 모듈 · PhoneBook</title>
+<meta name="description" content="렌즈·IR 필터·이미지 센서·VCM·OIS로 된 스마트폰 카메라 모듈을 3D로 분해하고, 카메라 범프가 생기는 이유, 광량과 피사계 심도, 잠망경 망원, AF·OIS, 멀티프레임 촬영을 시뮬레이터로 익힌다.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  .layer-info { padding: 14px 18px; border-top: 1px solid var(--border); background: var(--bg-elev); font-size: 14.5px; line-height: 1.6; min-height: 92px; }
+  .layer-info h4 { margin: 0 0 4px; font-size: 15.5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .layer-info h4 i { width: 12px; height: 12px; border-radius: 3px; flex: none; display: inline-block; }
+  .layer-info .th { font-family: var(--mono); font-size: 12.5px; color: var(--accent); font-weight: 600; }
+  .layer-info p { margin: 0; color: var(--text-dim); }
+  .layer-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .layer-chips button { font: inherit; font-size: 12.5px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer; }
+  .layer-chips button.on { border-color: var(--accent); color: var(--accent); font-weight: 700; background: var(--accent-soft); }
+  .sb-link { display: inline-flex; gap: 6px; align-items: center; font-weight: 600; }
+  .sb-list { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin: 18px 0; padding: 0 !important; list-style: none; }
+  .sb-list li { margin: 0 !important; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 14.5px; line-height: 1.5; }
+  .sb-list li a { font-weight: 700; }
+  .sb-list li span { display: block; color: var(--text-dim); font-size: 13.5px; }
+</style>
+</head>
+<body data-chapter="camera">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 08</div>
+    <h1>카메라 모듈</h1>
+    <p class="lead">폰 뒷면의 볼록한 카메라 섬은 디자이너의 취향이 아니라 광학의 결론이다. 큰 센서는 긴 초점거리를, 긴 초점거리는 높은 모듈을 요구하고, 8 mm 남짓한 폰 두께는 그것을 다 담지 못한다. 이 장에서는 손톱만 한 모듈 안의 렌즈·필터·센서·액추에이터를 분해하고, 범프·광량·심도·줌·초점·손떨림 보정을 계산으로 따라가 본다. 센서 내부와 신호 처리는 자매편 <a href="https://sensorbook.euiyun.com/">SensorBook</a>에서 깊게 다룬다.</p>
+    <ul class="objectives">
+      <li>카메라 모듈의 구성(렌즈군, IR 컷 필터, 이미지 센서, VCM, OIS, FPC)과 각 부품의 역할을 설명할 수 있다.</li>
+      <li>센서 크기·등가 초점거리에서 실제 초점거리와 모듈 높이를 계산하고, 카메라 범프가 생기는 이유를 말할 수 있다.</li>
+      <li>f-넘버, 픽셀 크기, 센서 크기가 광량과 신호 대 잡음비, 피사계 심도에 주는 영향을 정량적으로 비교한다.</li>
+      <li>잠망경 망원의 광로, 멀티 카메라 줌 전환, AF(VCM·PDAF)와 OIS(렌즈 시프트·센서 시프트)의 원리를 이해한다.</li>
+      <li>멀티프레임 합성 같은 컴퓨테이셔널 포토그래피가 작은 센서의 한계를 어떻게 메우는지 안다.</li>
+      <li>모듈 높이·무게·플레어·열·원가·안테나 배치 사이의 설계 트레이드오프를 정리한다.</li>
+    </ul>
+  </header>
+
+  <!-- =============================================================== 1 -->
+  <section id="where">
+    <h2>폰 안의 위치: 가장 두꺼운 부품</h2>
+    <p>후면 카메라 모듈은 메인보드 위쪽 끝, 폰 뒷면 모서리에 모여 있다. 메인(광각), 초광각, 망원 2~3개 모듈과 플래시, 경우에 따라 LiDAR나 ToF 센서가 한 섬<span class="en">(camera island)</span>에 놓인다. 모듈은 보드에 플렉스 케이블(FPC)과 B2B 커넥터로 연결되고, MIPI 고속 직렬 링크로 AP의 ISP(<a href="soc.html">3장</a>)에 영상을 보낸다. 앞면에는 화면 펀치홀 아래 작은 전면 카메라가 있다(<a href="display.html#udc">2장</a>).</p>
+    <div class="sim" id="sim-where">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>폰 속의 카메라 모듈</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-where" style="height:400px"><div class="part-card" id="where-card" hidden></div><span class="hint">드래그: 회전 · 클릭: 부품 정보</span></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>분해 정도 <output id="wh-ex-out"></output></span><input type="range" id="wh-ex" min="0" max="1" step="0.01" value="0.65"></label>
+          <div class="ctrl"><span>강조 부품</span><div class="seg" id="wh-hl"><button data-value="cameras" class="on">후면 카메라</button><button data-value="frontcam">전면 카메라</button><button data-value="backglass">후면 글라스·범프</button></div></div>
+          <label class="check"><input type="checkbox" id="wh-lab"> 모든 부품 이름 보기</label>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: 분해 정도를 0으로 두고 폰을 옆에서 보라. 카메라 모듈만 뒷면 유리 밖으로 튀어나와 범프를 만든다. 다른 부품(배터리, 보드)은 모두 몸체 두께 안에 들어간다.</div>
+    </div>
+    <p>카메라는 원가로도 폰에서 손꼽히는 부품이다. 플래그십에서는 후면 카메라 전체가 BOM의 10~15 % 안팎을 차지하기도 하고, 메인 센서 하나가 수십 달러 수준이다. 무게도 무시할 수 없어 대형 센서와 잠망경을 합친 카메라 섬은 10~20 g대가 되어, 폰의 무게중심을 위쪽으로 끌어올린다.</p>
+  </section>
+
+  <!-- =============================================================== 2 -->
+  <section id="structure">
+    <h2>모듈 구조: 렌즈부터 FPC까지</h2>
+    <p>스마트폰 카메라 모듈은 위에서부터 다음처럼 쌓인다. 세부 구조와 제어 루프는 SensorBook <a href="https://sensorbook.euiyun.com/chapters/module.html">카메라 모듈 장</a>과 <a href="https://sensorbook.euiyun.com/chapters/optics.html">광학 장</a>에 자세하다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 380" role="img" aria-label="카메라 모듈 단면">
+        <defs><marker id="cm-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--text-dim)"/></marker></defs>
+        <rect x="90" y="30" width="300" height="300" rx="6" fill="none" stroke="var(--text-faint)" stroke-dasharray="5 4"/>
+        <text x="100" y="24" class="t-mono">차폐 케이스(커버 캔)</text>
+        <rect x="110" y="70" width="40" height="160" rx="3" fill="#3a4150" fill-opacity=".8"/><rect x="330" y="70" width="40" height="160" rx="3" fill="#3a4150" fill-opacity=".8"/>
+        <rect x="155" y="90" width="14" height="120" fill="#c9823b"/><rect x="311" y="90" width="14" height="120" fill="#c9823b"/>
+        <rect x="170" y="44" width="140" height="190" rx="4" fill="var(--surface-2)" stroke="var(--border)"/>
+        <g fill="#9fd3ff" fill-opacity=".55" stroke="var(--accent)" stroke-width="1.2">
+          <path d="M200 64 Q240 44 280 64 Q240 76 200 64Z"/>
+          <path d="M192 96 Q240 82 288 96 Q240 108 192 96Z"/>
+          <path d="M188 126 Q214 116 240 128 Q266 140 292 126 Q240 144 188 126Z"/>
+          <path d="M184 158 Q210 168 240 156 Q270 146 296 160 Q240 176 184 158Z"/>
+          <path d="M180 192 Q200 176 240 194 Q280 210 300 190 Q240 214 180 192Z"/>
+          <path d="M178 222 Q210 206 240 222 Q270 236 302 220 Q240 238 178 222Z"/>
+        </g>
+        <rect x="150" y="262" width="180" height="8" fill="#5e7fb5" fill-opacity=".6"/>
+        <rect x="120" y="244" width="240" height="14" fill="var(--surface)" stroke="var(--border)"/>
+        <rect x="175" y="284" width="130" height="10" fill="#2a3550"/>
+        <rect x="110" y="296" width="260" height="22" fill="#2f8f5b" fill-opacity=".6"/>
+        <path d="M370 307 H 470" stroke="#e0a030" stroke-width="8"/>
+        <path d="M240 10 V 280" stroke="var(--warn)" stroke-dasharray="3 4"/>
+        <g class="t-mono">
+          <path d="M400 60 H 300" class="s-line" marker-end="url(#cm-a)"/><text x="406" y="64">렌즈군: 플라스틱 비구면 5–8매 (+유리 1매)</text>
+          <path d="M400 110 H 372" class="s-line" marker-end="url(#cm-a)"/><text x="406" y="114">VCM 자석 (영구 자석)</text>
+          <path d="M400 140 H 327" class="s-line" marker-end="url(#cm-a)"/><text x="406" y="144">코일 (렌즈 캐리어에 감김)</text>
+          <path d="M400 180 H 312" class="s-line" marker-end="url(#cm-a)"/><text x="406" y="184">렌즈 배럴 · 캐리어</text>
+          <path d="M400 252 H 362" class="s-line" marker-end="url(#cm-a)"/><text x="406" y="256">베이스 · 홀더 (OIS 홀 센서)</text>
+          <path d="M400 266 H 332" class="s-line" marker-end="url(#cm-a)"/><text x="406" y="276">IR 컷 필터 (~0.1–0.2 mm)</text>
+          <path d="M400 289 H 307" class="s-line" marker-end="url(#cm-a)"/><text x="406" y="296">이미지 센서 다이</text>
+          <text x="476" y="320">기판 + FPC → 메인보드</text>
+        </g>
+        <path d="M60 44 V 318" class="s-axis"/><path d="M54 44 H66 M54 318 H66" class="s-axis"/>
+        <text x="48" y="186" class="t-mono" text-anchor="end">모듈</text><text x="48" y="202" class="t-mono" text-anchor="end">높이</text>
+        <text x="90" y="356" class="t-dim">광축(점선)을 따라 TTL(첫 렌즈면 → 센서) + 필터·센서 패키지·기판이 모듈 높이를 정한다.</text>
+      </svg>
+      <figcaption><b>그림 8-1.</b> 전형적인 AF+OIS 카메라 모듈 단면(개념도). 뒤쪽 렌즈들이 갈매기 날개처럼 굽은 것은 고차 비구면으로 수차와 주변부 입사각을 동시에 다루기 위해서다. 센서 시프트 OIS 모듈은 렌즈 대신 센서와 기판을 움직이는 액추에이터가 아래쪽에 들어간다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-mod">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>카메라 모듈 분해</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-mod" style="height:440px"><span class="hint">드래그: 회전 · 클릭: 부품 설명</span></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>분해 <output id="md-ex-out"></output></span><input type="range" id="md-ex" min="0" max="1" step="0.01" value="0.6"></label>
+          <label class="check"><input type="checkbox" id="md-lab" checked> 부품 라벨</label>
+          <label class="check"><input type="checkbox" id="md-af" checked> AF·OIS 동작 애니메이션</label>
+          <label class="check"><input type="checkbox" id="md-ray"> 광선 보기</label>
+          <div class="ctrl"><span>부품 바로 선택</span><div class="layer-chips" id="md-chips"></div></div>
+        </div>
+      </div>
+      <div class="layer-info" id="md-info"><h4>부품을 클릭해 보자</h4><p>각 부품의 역할과 대표 치수가 여기에 표시된다.</p></div>
+    </div>
+    <p>렌즈가 대부분 플라스틱인 이유는 사출 성형으로 복잡한 비구면을 마이크로미터 정밀도로 대량 생산할 수 있기 때문이다. 유리는 굴절률·온도 안정성이 좋지만 비구면 몰딩이 비싸고 형상 자유도가 작다. 플라스틱 렌즈는 서로 다른 굴절률·분산(아베수)의 재료를 번갈아 써서 색수차를 잡는다. 대신 온도에 따라 굴절률과 형상이 변해 초점이 밀리므로(열 디포커스), AF가 그것까지 따라가야 한다. 렌즈 매수가 늘수록 해상력과 주변부 화질은 좋아지지만 TTL과 반사(플레어), 원가가 늘어난다.</p>
+  </section>
+
+  <!-- =============================================================== 3 -->
+  <section id="bump">
+    <h2>카메라 범프는 왜 생기나</h2>
+    <p>같은 화각을 얻으려면 초점거리는 센서 크기에 비례해야 한다. 화각 \(\theta\)(대각)와 센서 대각 \(d\), 초점거리 \(f\)는</p>
+    <div class="formula">$$\tan\frac{\theta}{2} = \frac{d}{2f}, \qquad f = f_\text{eq}\cdot\frac{d}{43.27\,\text{mm}}$$
+      <div class="where">\(f_\text{eq}\): 35 mm 필름(풀프레임, 대각 43.27 mm) 기준 등가 초점거리. 43.27/\(d\)를 크롭 팩터라 한다. 예: 1/1.3″급 센서(대각 ≈ 12.3 mm)로 24 mm 등가를 얻으려면 \(f\) ≈ 6.8 mm.</div>
+    </div>
+    <p>그리고 스마트폰 렌즈의 전장 \(\text{TTL}\)<span class="en">(Total Track Length, 첫 렌즈면에서 센서까지)</span>은 초점거리보다 약간 길다. 광각 렌즈는 TTL/\(f\) ≈ 1.1~1.3 정도이고, 망원은 망원형 설계로 1 이하까지 줄일 수 있지만 한계가 있다. 결국 <b>센서가 커지면 TTL이 비례해서 커지고</b>, 여기에 IR 필터·센서 패키지·기판·AF 여유가 1~1.5 mm 더해진다. 폰 몸체에서 카메라에 쓸 수 있는 높이는 화면 모듈·미드플레이트·뒷유리를 빼고 6 mm 남짓이다. 차이가 범프다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 260" role="img" aria-label="초점거리, 화각, 센서 크기의 관계">
+        <path d="M60 130 H 700" class="s-axis" stroke-dasharray="4 4"/>
+        <ellipse cx="200" cy="130" rx="8" ry="70" fill="#9fd3ff" fill-opacity=".5" stroke="var(--accent)"/>
+        <path d="M60 40 L200 130 L340 190 M60 220 L200 130 L340 70" class="s-line"/>
+        <rect x="336" y="70" width="8" height="120" fill="#2a3550"/>
+        <path d="M200 236 H340" class="s-acc"/><path d="M200 230 V242 M340 230 V242" class="s-acc"/><text x="270" y="254" class="t-acc" text-anchor="middle">f (작은 센서)</text>
+        <text x="350" y="134" class="t-mono">d</text>
+        <ellipse cx="460" cy="130" rx="8" ry="80" fill="#9fd3ff" fill-opacity=".5" stroke="var(--accent)"/>
+        <path d="M400 92 L460 130 L700 230 M400 168 L460 130 L700 30" class="s-line" stroke-dasharray="5 3"/>
+        <rect x="696" y="30" width="8" height="200" fill="#2a3550"/>
+        <path d="M460 246 H700" stroke="var(--accent-2)" stroke-width="2"/><path d="M460 240 V252 M700 240 V252" stroke="var(--accent-2)" stroke-width="2"/><text x="580" y="240" class="t" text-anchor="middle" style="fill:var(--accent-2)">f′ = f × (d′/d)</text>
+        <text x="710" y="134" class="t-mono">d′</text>
+        <text x="70" y="24" class="t-dim">같은 화각 θ를 유지하면 센서가 클수록 초점거리(≈ 모듈 높이)가 비례해 늘어난다</text>
+      </svg>
+      <figcaption><b>그림 8-2.</b> 센서 대각 \(d\)가 2배가 되면 같은 화각을 위해 초점거리도 2배가 되어야 한다. 렌즈 지름(조리개)도 같은 f-넘버를 유지하려면 2배가 되므로 모듈은 높이와 폭이 모두 커진다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-bump">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>센서 크기·화각 → 모듈 높이 → 범프</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-bump"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>센서 크기(광학 포맷)</span><div class="seg" id="bp-s"><button data-value="2.55">1/2.55″</button><button data-value="1.56">1/1.56″</button><button data-value="1.3" class="on">1/1.3″</button><button data-value="1.12">1/1.12″</button><button data-value="1">1″</button></div></div>
+          <label class="ctrl"><span>등가 초점거리 <output id="bp-f-out"></output></span><input type="range" id="bp-f" min="13" max="120" step="1" value="24"></label>
+          <label class="ctrl"><span>TTL / f <output id="bp-k-out"></output></span><input type="range" id="bp-k" min="0.85" max="1.4" step="0.01" value="1.18"></label>
+          <label class="ctrl"><span>폰 몸체 두께 <output id="bp-t-out"></output></span><input type="range" id="bp-t" min="6.5" max="9.5" step="0.1" value="8.2"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">실제 초점거리</span><span class="v" id="bp-o-f">—</span></div>
+        <div class="stat"><span class="k">대각 화각</span><span class="v" id="bp-o-a">—</span></div>
+        <div class="stat"><span class="k">모듈 높이</span><span class="v" id="bp-o-h">—</span></div>
+        <div class="stat"><span class="k">범프 높이</span><span class="v" id="bp-o-b">—</span></div>
+      </div>
+      <div class="sim-note">근사 모델: 모듈 높이 = TTL + 1.3 mm(필터·센서 패키지·기판·AF 여유), 카메라에 쓸 수 있는 몸체 내부 높이 = 몸체 두께 − 1.8 mm(화면 모듈·미드플레이트·뒷유리). 광학 포맷 "1/x″"의 대각은 약 16/x mm로 근사했다. 해볼 것: 1″ 센서로 24 mm를 만들면 범프가 얼마인지, 5배 망원(120 mm)을 세로로 세우면 어떻게 되는지 보라.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 4 -->
+  <section id="light">
+    <h2>광량: 센서 크기, 픽셀 크기, 조리개</h2>
+    <p>어두운 곳 화질은 결국 <b>광자 수</b>로 결정된다. 광자 도착은 포아송 과정이라 \(N\)개의 광자를 받으면 잡음이 \(\sqrt{N}\), 신호 대 잡음비가 \(\sqrt{N}\)이다(SensorBook <a href="https://sensorbook.euiyun.com/chapters/noise.html">잡음 장</a>). 한 픽셀이 받는 광자 수는</p>
+    <div class="formula">$$N_e \approx \frac{E_\text{scene}\,\rho\,T}{4N^2}\cdot k\cdot \text{QE}\cdot p^2\cdot t$$
+      <div class="where">\(E_\text{scene}\): 장면 조도(lx), \(\rho\): 반사율, \(T\): 렌즈 투과율, \(N\): f-넘버, \(k\) ≈ 4,000 광자/(lx·s·µm²)(555 nm 기준), QE: 양자 효율(컬러 필터 포함), \(p\): 픽셀 피치, \(t\): 노출 시간. 같은 f-넘버면 센서 면의 조도(단위 면적당 빛)는 센서 크기와 무관하다. 픽셀이 크면 픽셀당 광자가 많고, 센서가 크면 <b>장면 전체</b>에서 모으는 광자가 많다.</div>
+    </div>
+    <p>그래서 "f/1.8"이라는 숫자만으로 폰과 카메라를 비교할 수 없다. 같은 화각·같은 셔터에서 전체 이미지의 잡음과 배경 흐림을 비교하려면 f-넘버에 크롭 팩터를 곱한 <span class="term">등가 조리개</span>를 써야 한다. 1/1.3″ 센서의 f/1.8은 풀프레임 기준 약 f/6.3에 해당한다. 픽셀 비닝(4개 또는 16개 픽셀을 묶어 하나처럼 읽기)은 해상도를 낮추는 대신 픽셀당 신호를 키우는 방법이다(SensorBook <a href="https://sensorbook.euiyun.com/chapters/pixel.html">픽셀 장</a>).</p>
+    <div class="sim" id="sim-light">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>픽셀이 받는 광자와 잡음</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-light"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>센서</span><div class="seg" id="li-s"><button data-value="2.55">1/2.55″</button><button data-value="1.56">1/1.56″</button><button data-value="1.3" class="on">1/1.3″</button><button data-value="1">1″</button><button data-value="ff">풀프레임</button></div></div>
+          <label class="ctrl"><span>화소 수 <output id="li-mp-out"></output></span><input type="range" id="li-mp" min="12" max="200" step="1" value="50"></label>
+          <div class="ctrl"><span>비닝</span><div class="seg" id="li-bin"><button data-value="1">없음</button><button data-value="4" class="on">2×2</button><button data-value="16">4×4</button></div></div>
+          <label class="ctrl"><span>조리개 <output id="li-N-out"></output></span><input type="range" id="li-N" min="1.4" max="4" step="0.1" value="1.8"></label>
+          <label class="ctrl"><span>장면 조도 <output id="li-E-out"></output></span><input type="range" id="li-E" min="0" max="4" step="0.05" value="1.5"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">픽셀 피치(출력)</span><span class="v" id="li-o-p">—</span></div>
+        <div class="stat"><span class="k">픽셀당 전자 (1/30 s)</span><span class="v" id="li-o-e">—</span></div>
+        <div class="stat"><span class="k">픽셀 SNR</span><span class="v" id="li-o-s">—</span></div>
+        <div class="stat"><span class="k">등가 조리개(FF)</span><span class="v" id="li-o-n">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽: 18 % 회색 계단 차트를 이 조건에서 찍은 모습(광자 잡음 + 읽기 잡음 2 e⁻, 노출 1/30 s). 오른쪽: 센서 전체가 모으는 빛(센서 면적/N²)의 상대 비교. 해볼 것: 200 MP 비닝 없음과 50 MP 2×2 비닝을 같은 센서에서 비교하라. 픽셀당 신호는 달라도 같은 출력 해상도로 줄이면 전체 광량은 같다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 5 -->
+  <section id="dof">
+    <h2>피사계 심도: 왜 폰 사진은 배경이 덜 흐린가</h2>
+    <p>초점이 맞은 면 앞뒤로 "충분히 선명해 보이는" 범위가 <span class="term">피사계 심도</span><span class="en">(DoF)</span>다. 허용 착란원 \(c\)를 센서 대각의 1/1500 정도로 잡으면 과초점 거리와 심도 경계는</p>
+    <div class="formula">$$H \approx \frac{f^2}{N c}, \qquad s_\text{near} = \frac{sH}{H+s}, \qquad s_\text{far} = \frac{sH}{H-s}\;(s<H)$$
+      <div class="where">\(s\): 초점 거리(피사체 거리). 같은 화각·같은 f-넘버에서 센서가 작으면 \(f\)가 작아 \(H\)가 짧고 심도가 깊다. 등가 조리개 \(N\times\)크롭이 같으면 심도도 거의 같다.</div>
+    </div>
+    <div class="sim" id="sim-dof">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>심도와 배경 흐림 비교</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-dof"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>카메라</span><div class="seg" id="df-c"><button data-value="main" class="on">폰 메인 1/1.3″ f/1.8</button><button data-value="one">폰 1″ f/1.6</button><button data-value="tele">폰 잠망경 5× f/3</button><button data-value="ff">풀프레임 50 mm f/1.8</button></div></div>
+          <label class="ctrl"><span>피사체 거리 <output id="df-s-out"></output></span><input type="range" id="df-s" min="0.2" max="5" step="0.05" value="1.2"></label>
+          <label class="ctrl"><span>배경 거리 <output id="df-b-out"></output></span><input type="range" id="df-b" min="2" max="50" step="0.5" value="10"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">실제 f / 등가</span><span class="v" id="df-o-f">—</span></div>
+        <div class="stat"><span class="k">심도 범위</span><span class="v" id="df-o-d">—</span></div>
+        <div class="stat"><span class="k">배경 흐림 원(대각 대비)</span><span class="v" id="df-o-b">—</span></div>
+      </div>
+      <div class="sim-note">위: 거리 축(로그)에서 초점면과 심도 범위. 아래: 배경의 점광원이 그 크기의 원으로 번진 모습(화면 대각 대비 크기로 정규화). 폰의 "인물 모드"는 이 물리적 흐림이 부족해 깊이 추정 후 소프트웨어로 흐림을 더한다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 6 -->
+  <section id="periscope">
+    <h2>잠망경 망원: 광로를 90° 눕히다</h2>
+    <p>5배(약 120 mm 등가) 망원을 1/2.5″급 센서로 만들면 실제 초점거리가 17~18 mm다. 세워 놓으면 폰 두께의 두 배가 넘는다. 해법은 광로를 꺾는 것이다. 뒷면으로 들어온 빛을 <b>프리즘</b>(또는 거울)으로 90° 꺾어 폰의 폭 방향으로 눕히고, 그 방향으로 렌즈군과 센서를 일렬로 배치한다. 그러면 TTL은 폰 두께가 아니라 폭(약 70 mm)의 제약을 받는다. 대신 렌즈 지름(=조리개)과 센서 크기는 여전히 폰 두께에 묶인다. 잠망경 망원이 f/2.5~3.5로 어둡고 센서가 작은 이유다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 240" role="img" aria-label="잠망경 망원 광로">
+        <rect x="30" y="40" width="700" height="130" rx="10" fill="none" stroke="var(--border)"/>
+        <text x="40" y="34" class="t-mono">폰 단면 (두께 ≈ 8 mm)</text>
+        <path d="M120 230 V 120" stroke="var(--accent-2)" stroke-width="3" stroke-dasharray="6 4"/><text x="132" y="226" class="t-mono">빛 (뒷면에서 입사)</text>
+        <path d="M90 150 L150 150 L150 90 Z" fill="#9fd3ff" fill-opacity=".5" stroke="var(--accent)"/><text x="80" y="82" class="t-mono">프리즘 (반사)</text>
+        <path d="M150 120 H 600" stroke="var(--accent-2)" stroke-width="3" stroke-dasharray="6 4"/>
+        <g fill="#9fd3ff" fill-opacity=".5" stroke="var(--accent)"><ellipse cx="260" cy="120" rx="8" ry="34"/><ellipse cx="290" cy="120" rx="7" ry="30"/><ellipse cx="400" cy="120" rx="7" ry="26"/><ellipse cx="425" cy="120" rx="6" ry="24"/></g>
+        <text x="250" y="70" class="t-mono">고정 렌즈군</text><text x="380" y="80" class="t-mono">AF(·줌) 이동군 ↔</text>
+        <rect x="600" y="80" width="10" height="80" fill="#2a3550"/><text x="560" y="74" class="t-mono">센서 (세워서 배치)</text>
+        <path d="M150 196 H 600" class="s-acc"/><path d="M150 190 V202 M600 190 V202" class="s-acc"/><text x="375" y="216" class="t-acc" text-anchor="middle">긴 광로는 폭 방향으로</text>
+        <path d="M700 40 V170" class="s-acc"/><text x="712" y="110" class="t-mono">렌즈 지름·센서 높이는 두께가 제한</text>
+      </svg>
+      <figcaption><b>그림 8-3.</b> 잠망경(폴디드) 망원. 프리즘 하나로 꺾는 형태가 일반적이고, 광로를 여러 번 접는 다중 반사 프리즘으로 길이를 더 줄이기도 한다. OIS는 프리즘을 기울이거나 렌즈군·센서를 움직여서 한다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-peri">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>잠망경 광로 애니메이션</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-peri"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>망원 배율(24 mm 기준) <output id="pr-z-out"></output></span><input type="range" id="pr-z" min="2.5" max="10" step="0.1" value="5"></label>
+          <div class="ctrl"><span>센서</span><div class="seg" id="pr-s"><button data-value="3.6">1/3.6″</button><button data-value="2.5" class="on">1/2.5″</button><button data-value="1.95">1/1.95″</button></div></div>
+          <div class="ctrl"><span>배치</span><div class="seg" id="pr-m"><button data-value="fold" class="on">잠망경(폴디드)</button><button data-value="up">세로로 세우면?</button></div></div>
+          <label class="check"><input type="checkbox" id="pr-zoom"> 연속 광학 줌(이동 렌즈군)</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">실제 초점거리</span><span class="v" id="pr-o-f">—</span></div>
+        <div class="stat"><span class="k">필요 광로 길이</span><span class="v" id="pr-o-l">—</span></div>
+        <div class="stat"><span class="k">세로 배치 시 범프</span><span class="v" id="pr-o-b">—</span></div>
+      </div>
+      <div class="sim-note">폰을 옆에서 본 단면이다. 노란 점은 빛의 진행을 나타낸다. 연속 광학 줌을 켜면 이동 렌즈군이 오가며 초점거리를 일정 범위(예: 3.5~6배급)에서 연속으로 바꾼다. 줌 범위가 넓을수록 이동 행정이 길어지고 모듈이 커진다.</div>
+    </div>
+    <h3>멀티 카메라 줌 전환</h3>
+    <p>대부분의 폰은 줌 렌즈 하나 대신 고정 초점거리 카메라 여러 개를 두고, 사이 배율은 <b>디지털 크롭</b>으로 메운다. 0.6× 초광각 → 1× 메인 → 3×/5× 망원으로 넘어갈 때 ISP가 두 카메라의 색·노출·기하를 맞춰 끊김 없이 전환한다. 메인 카메라의 고화소 센서는 가운데만 잘라 읽어(인센서 크롭) 2×를 "광학 품질"로 내기도 한다. 크롭 배율이 \(m\)이면 남는 화소 수는 \(1/m^2\)로 줄어든다.</p>
+    <div class="sim" id="sim-zoom">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>줌 배율에 따른 카메라 선택과 유효 해상도</h3></div>
+      <div class="sim-body">
+        <div class="sim-view"><canvas id="cv-zoom"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>줌 배율 <output id="zm-z-out"></output></span><input type="range" id="zm-z" min="0" max="1" step="0.002" value="0.32"></label>
+          <div class="ctrl"><span>망원 구성</span><div class="seg" id="zm-t"><button data-value="5">5× 50 MP 잠망경</button><button data-value="35">3× 12 MP + 5× 50 MP</button><button data-value="3" class="on">3× 12 MP</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">사용 카메라</span><span class="v" id="zm-o-c">—</span></div>
+        <div class="stat"><span class="k">디지털 크롭</span><span class="v" id="zm-o-k">—</span></div>
+        <div class="stat"><span class="k">유효 화소</span><span class="v" id="zm-o-m">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽: 장면 위에 각 카메라의 화각(점선)과 현재 출력 프레임(실선). 오른쪽: 줌 배율별 유효 화소 수(12 MP 출력 기준선). 망원 카메라 바로 아래 배율에서 유효 화소가 가장 낮은 "골짜기"가 생긴다. 실제 폰은 저조도에서 망원 대신 메인 크롭을 쓰기도 한다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 7 -->
+  <section id="af">
+    <h2>AF: 0.5 mm를 움직여 3 µm에 멈추기</h2>
+    <p>무한대에 맞춘 렌즈로 거리 \(s\)의 물체를 찍으려면 렌즈를 센서에서 \(\Delta = f^2/(s-f)\)만큼 더 멀리 내밀어야 한다. \(f\) = 6.8 mm, \(s\) = 10 cm면 약 0.5 mm다. 이 행정을 만드는 장치가 <span class="term">VCM</span><span class="en">(Voice Coil Motor)</span>이다. 렌즈 캐리어에 감은 코일에 전류를 흘리면 자석과의 로렌츠 힘이 판 스프링을 밀어 렌즈가 움직이고, 홀 센서로 위치를 읽어 폐루프로 제어한다. 큰 센서의 메인 카메라는 렌즈가 무거워 볼 베어링 가이드나 피에조·형상기억합금(SMA) 액추에이터를 쓰기도 한다.</p>
+    <p>어디로 움직일지는 <span class="term">위상차 AF</span><span class="en">(PDAF)</span>가 알려 준다. 렌즈의 왼쪽 절반과 오른쪽 절반을 지난 빛을 따로 받는 픽셀(듀얼 픽셀, 2×1 OCL, 쿼드 PD)이 두 개의 상을 만들고, 초점이 어긋나면 두 상이 서로 반대 방향으로 밀린다. 그 어긋남(디스패리티)의 부호와 크기가 곧 렌즈를 움직일 방향과 거리다. 반면 <b>콘트라스트 AF</b>는 렌즈를 조금씩 움직이며 선명도가 최대인 곳을 찾아야 해 느리다.</p>
+    <div class="sim" id="sim-af">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>PDAF vs 콘트라스트 AF</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-af"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>피사체 거리 <output id="af-s-out"></output></span><input type="range" id="af-s" min="0.08" max="3" step="0.01" value="0.3"></label>
+          <label class="ctrl"><span>렌즈 위치(무한대 기준) <output id="af-x-out"></output></span><input type="range" id="af-x" min="0" max="650" step="1" value="40"></label>
+          <div class="ctrl-row"><button class="btn primary" id="af-pd">PDAF로 맞추기</button><button class="btn" id="af-cd">콘트라스트 AF</button></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">필요 행정</span><span class="v" id="af-o-n">—</span></div>
+        <div class="stat"><span class="k">디포커스</span><span class="v" id="af-o-d">—</span></div>
+        <div class="stat"><span class="k">위상차(디스패리티)</span><span class="v" id="af-o-p">—</span></div>
+        <div class="stat"><span class="k">AF 소요</span><span class="v" id="af-o-t">—</span></div>
+      </div>
+      <div class="sim-note">\(f\) = 6.8 mm, f/1.8, 픽셀 1 µm 가정. 위: 왼쪽/오른쪽 위상 픽셀이 본 가장자리 신호(빨강·파랑)와 둘의 어긋남. 아래: 렌즈 위치에 따른 선명도 곡선과 AF 궤적. PDAF는 한 번 측정으로 거의 바로 목표에 가고, 콘트라스트 AF는 지나쳤다가 되돌아오며 정점을 찾는다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 8 -->
+  <section id="ois">
+    <h2>OIS: 손떨림을 빛의 경로에서 지운다</h2>
+    <p>손은 가만히 들고 있어도 떨린다. 생리적 떨림은 8~12 Hz 근처의 작은 진동이고, 팔과 몸의 느린 흔들림은 수 Hz 이하에서 더 크다. 각도로는 대략 0.1~0.5° 범위다. 상은 센서 위에서 \(\Delta x = f\tan\theta\)만큼 움직이므로, 초점거리가 긴 망원일수록 같은 떨림이 더 큰 흔들림이 된다. \(f\) = 6.8 mm에서 0.1°면 12 µm로 1 µm 픽셀 12개다.</p>
+    <p><span class="term">OIS</span><span class="en">(Optical Image Stabilization)</span>는 자이로(<a href="sensors.html">9장</a>)로 각속도를 재고, 렌즈군을 광축에 수직으로 옮기거나(<b>렌즈 시프트</b>) 센서를 옮겨서(<b>센서 시프트</b>) 상의 움직임을 상쇄한다. 렌즈 시프트는 가벼운 렌즈를 움직여 응답이 빠르지만 큰 렌즈에서는 무겁고 주변부 화질이 변할 수 있다. 센서 시프트는 렌즈 무게와 무관하고 롤(광축 회전)까지 보정하는 구조도 있지만 센서·기판·FPC를 움직이는 정교한 기구가 필요하다. 보정 범위는 대략 ±1~3°다.</p>
+    <div class="sim" id="sim-ois">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>노출 중 손떨림 궤적과 보정</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-ois"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>셔터 속도 <output id="oi-t-out"></output></span><input type="range" id="oi-t" min="0" max="10" step="1" value="5"></label>
+          <div class="ctrl"><span>카메라</span><div class="seg" id="oi-c"><button data-value="uw">초광각</button><button data-value="main" class="on">메인</button><button data-value="tele">5× 망원</button></div></div>
+          <div class="ctrl"><span>손떨림 보정</span><div class="seg" id="oi-m"><button data-value="off">없음</button><button data-value="lens" class="on">렌즈 시프트</button><button data-value="sensor">센서 시프트</button></div></div>
+          <label class="ctrl"><span>떨림 크기 <output id="oi-a-out"></output></span><input type="range" id="oi-a" min="0.05" max="0.6" step="0.01" value="0.2"></label>
+          <button class="btn" id="oi-re">다시 찍기</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">보정 전 상 이동</span><span class="v" id="oi-o-r">—</span></div>
+        <div class="stat"><span class="k">보정 후 흔들림</span><span class="v" id="oi-o-c">—</span></div>
+        <div class="stat"><span class="k">판정</span><span class="v" id="oi-o-v">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽: 노출 동안 점광원의 상이 센서 위에서 그린 궤적(픽셀 단위, 회색 = 보정 전, 강조색 = 보정 후). 오른쪽: 그 궤적으로 흐려진 점광원과 글자. 렌즈 시프트는 저주파 큰 흔들림에 보정 범위 한계와 위상 지연이, 센서 시프트는 롤까지 보정한다고 가정한 개념 모델이다.</div>
+    </div>
+    <div class="callout tip">
+      <strong>EIS와 함께 쓴다</strong>
+      <p>영상 촬영에서는 프레임 사이 흔들림을 화면을 조금 잘라서 옮기는 전자식 보정(EIS)이 맡고, OIS는 한 프레임 노출 중의 흐림을 맡는다. 둘을 함께 쓸 때 OIS가 이미 옮긴 양을 EIS가 알아야 하므로 렌즈 위치 정보를 ISP에 넘긴다. 롤링 셔터 왜곡(젤로 효과)도 EIS가 행 단위로 보정한다(SensorBook <a href="https://sensorbook.euiyun.com/chapters/shutter.html">셔터 장</a>).</p>
+    </div>
+  </section>
+
+  <!-- =============================================================== 9 -->
+  <section id="computational">
+    <h2>컴퓨테이셔널 포토그래피: 한 장 대신 여러 장</h2>
+    <p>센서가 작다는 물리적 한계를 폰은 <b>시간</b>으로 메운다. 셔터를 누르기 전부터 프레임을 원형 버퍼에 계속 찍어 두고(제로 셔터 랙), 누르는 순간 앞뒤 여러 장을 정렬·병합한다. 짧은 노출 \(n\)장을 합치면 광자 수가 \(n\)배라 SNR이 \(\sqrt{n}\)배가 되고, 짧은 노출 덕분에 손떨림과 피사체 흔들림은 각 장에서 작다. 노출을 다르게 찍어 합치면 HDR, 손떨림으로 생긴 서브픽셀 이동을 이용하면 초해상도도 된다. 핵심 난제는 움직이는 물체다. 그대로 평균하면 유령<span class="en">(ghost)</span>이 생기므로, 기준 프레임과 다른 영역은 합치지 않는 강건 병합이 필요하다.</p>
+    <div class="sim" id="sim-mf">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>멀티프레임 병합: 잡음과 유령</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-mf"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>병합 프레임 수 <output id="mf-n-out"></output></span><input type="range" id="mf-n" min="1" max="16" step="1" value="8"></label>
+          <label class="ctrl"><span>프레임당 광자(밝은 곳) <output id="mf-p-out"></output></span><input type="range" id="mf-p" min="2" max="200" step="1" value="12"></label>
+          <label class="check"><input type="checkbox" id="mf-mv" checked> 움직이는 피사체</label>
+          <label class="check"><input type="checkbox" id="mf-rb" checked> 정렬·강건 병합</label>
+          <button class="btn" id="mf-re">다시 촬영</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">SNR 향상</span><span class="v" id="mf-o-g">—</span></div>
+        <div class="stat"><span class="k">합친 총 노출</span><span class="v" id="mf-o-t">—</span></div>
+        <div class="stat"><span class="k">측정 SNR(배경)</span><span class="v" id="mf-o-s">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽: 한 장(기준 프레임). 오른쪽: 병합 결과. 공은 프레임마다 오른쪽으로 움직인다. 강건 병합을 끄면 공이 여러 개로 번진 유령이 생기고, 켜면 공 영역은 기준 프레임 하나만 써서 선명하지만 그 부분만 잡음이 남는다.</div>
+    </div>
+    <p>이 장에서는 개요만 다룬다. 더 깊은 내용은 자매편 SensorBook에서 이어진다.</p>
+    <ul class="sb-list">
+      <li><a href="https://sensorbook.euiyun.com/chapters/computational.html">컴퓨테이셔널 이미징 →</a><span>멀티프레임 병합, HDR, 야간 모드, 초해상도, 깊이 추정</span></li>
+      <li><a href="https://sensorbook.euiyun.com/chapters/isp.html">ISP 파이프라인 →</a><span>디모자이크, 화이트 밸런스, 노이즈 제거, 톤 매핑</span></li>
+      <li><a href="https://sensorbook.euiyun.com/chapters/pixel.html">픽셀 구조 →</a><span>BSI, 딥 트렌치 분리, 쿼드 베이어와 비닝, 위상차 픽셀</span></li>
+      <li><a href="https://sensorbook.euiyun.com/chapters/readout.html">읽기 회로 →</a><span>컬럼 ADC, 듀얼 변환 이득, 고속 읽기와 전력</span></li>
+    </ul>
+  </section>
+
+  <!-- =============================================================== 10 -->
+  <section id="depth">
+    <h2>플래시, LiDAR, ToF</h2>
+    <p>카메라 섬에는 렌즈가 아닌 것도 산다. <b>LED 플래시</b>는 1 A 안팎의 전류를 짧게 흘리는 백색 LED로, 색온도가 다른 두 LED를 섞어 주변 조명에 맞추기도 한다. 큰 전류 펄스는 배터리 전압을 순간 떨어뜨리므로 전원 설계(<a href="power.html">6장</a>)와 맞물린다. 어두운 곳에서 AF를 돕는 보조광 역할도 한다.</p>
+    <p><b>ToF</b><span class="en">(Time of Flight)</span> 센서는 적외선 빛을 쏘고 돌아오는 시간으로 거리를 잰다. 빛은 1 m 왕복에 6.7 ns가 걸린다. 펄스 도착 시각을 SPAD(단일 광자 애벌런치 다이오드) 배열로 직접 재는 <b>dToF</b>(LiDAR라고 부르는 경우가 많다)와, 변조된 빛의 위상 지연으로 재는 <b>iToF</b>가 있다. 수 m 범위의 깊이 지도로 저조도 AF, 인물 모드 분리, AR을 돕는다. 레이저 AF는 같은 원리의 단일 점 버전이다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 220" role="img" aria-label="ToF 거리 측정 원리">
+        <rect x="30" y="60" width="90" height="100" rx="8" class="f-elev"/><text x="75" y="100" class="t" text-anchor="middle">VCSEL</text><text x="75" y="120" class="t" text-anchor="middle">+ SPAD</text>
+        <path d="M120 90 H 560" stroke="var(--bad)" stroke-width="2" stroke-dasharray="6 4"/><path d="M560 130 H 120" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>
+        <rect x="560" y="50" width="20" height="120" fill="var(--surface-2)" stroke="var(--border)"/><text x="590" y="114" class="t">물체</text>
+        <text x="300" y="80" class="t-mono" text-anchor="middle">IR 펄스 (≈940 nm)</text><text x="300" y="150" class="t-mono" text-anchor="middle">반사광</text>
+        <path d="M150 190 H 250 M150 184 V196 M250 184 V196" class="s-acc"/><text x="200" y="212" class="t-mono" text-anchor="middle">Δt</text>
+        <text x="300" y="196" class="t">거리 d = c·Δt / 2  →  1 cm ≈ 67 ps</text>
+      </svg>
+      <figcaption><b>그림 8-4.</b> 직접 ToF. 1 cm 거리 분해능을 위해 수십 ps 수준의 시간 분해능이 필요하다. 그래서 SPAD 신호를 수천 번 반복 측정해 히스토그램으로 도착 시각을 추정한다. 940 nm는 햇빛 스펙트럼에서 대기 흡수로 배경광이 약한 대역이다.</figcaption>
+    </figure>
+  </section>
+
+  <!-- =============================================================== 11 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <p>카메라 모듈 설계는 "더 큰 센서, 더 밝은 렌즈, 더 긴 망원"이라는 화질 욕심과 폰의 두께·무게·원가·안테나·열 사이의 줄다리기다.</p>
+    <ul>
+      <li><b>모듈 높이 vs 폰 두께.</b> 센서 크기에 비례하는 TTL이 범프를 만든다. 범프는 책상 위에서 폰이 흔들리게 하고, 케이스 두께와 낙하 시 첫 충돌 지점을 정한다. 범프 커버 유리(사파이어나 강화 유리)와 금속 링이 렌즈를 보호한다.</li>
+      <li><b>무게와 낙하.</b> 렌즈·자석이 무거울수록 낙하 충격에서 AF/OIS 스프링과 서스펜션 와이어가 손상되기 쉽다. 이동부에 스토퍼를 두고, 전원이 꺼지면 렌즈를 고정하는 구조도 쓴다(<a href="mechanical.html">12장</a>).</li>
+      <li><b>플레어와 고스트.</b> 렌즈 매수, 커버 유리, 범프 안쪽 벽 반사가 역광에서 빛 번짐을 만든다. 반사 방지 코팅, 렌즈 사이 차광 스페이서, 배럴 내부 무광 처리, IR 필터 위치가 중요하다. 커버 유리의 지문·흠집도 플레어 원인이다.</li>
+      <li><b>열.</b> 센서는 온도가 오르면 암전류가 대략 6~8 °C마다 2배가 되어 잡음이 늘고, 플라스틱 렌즈의 초점이 밀린다. 4K/8K 영상 촬영은 센서·ISP·인코더가 수 W를 써서 폰 전체의 열 한계(<a href="thermal.html">11장</a>)에 걸린다.</li>
+      <li><b>배치와 안테나.</b> 카메라 섬은 폰 위쪽 모서리를 차지하는데, 그곳은 안테나(<a href="rf.html">7장</a>)에도 좋은 자리다. 금속 모듈과 장식 링은 안테나 근처의 금속 덩어리라 효율을 떨어뜨리고, VCM 자석은 지자기 센서(나침반)와 무선 충전 자석 배열에도 간섭한다. 카메라 사이 간격은 멀티 카메라 시차(근거리에서 전환 시 화면 점프)와 깊이 추정에 영향을 준다.</li>
+      <li><b>원가와 공급.</b> 대형 센서·잠망경·센서 시프트 OIS는 각각 원가와 수율 위험을 높인다. 모듈 조립은 능동 정렬(촬영하면서 렌즈를 맞추고 접착)로 µm급 정밀도를 맞추므로 공정 시간도 원가다.</li>
+    </ul>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 300" role="img" aria-label="후면 카메라 섬과 주변 간섭 요소 배치">
+        <rect x="40" y="20" width="300" height="270" rx="36" fill="var(--surface)" stroke="var(--border)"/>
+        <text x="50" y="14" class="t-mono">폰 뒷면 위쪽</text>
+        <rect x="60" y="40" width="180" height="180" rx="30" class="f-elev"/>
+        <circle cx="110" cy="90" r="34" fill="#2a3550" stroke="var(--text-faint)" stroke-width="5"/><text x="110" y="94" class="t-mono" text-anchor="middle" style="fill:#fff">메인</text>
+        <circle cx="110" cy="172" r="26" fill="#2a3550" stroke="var(--text-faint)" stroke-width="4"/><text x="110" y="176" class="t-mono" text-anchor="middle" style="fill:#fff">초광각</text>
+        <rect x="168" y="66" width="52" height="52" rx="6" fill="#2a3550" stroke="var(--text-faint)" stroke-width="4"/><text x="194" y="96" class="t-mono" text-anchor="middle" style="fill:#fff">잠망경</text>
+        <circle cx="194" cy="160" r="10" fill="var(--warn)"/><text x="194" y="190" class="t-mono" text-anchor="middle">플래시</text>
+        <circle cx="194" cy="208" r="7" fill="var(--text-faint)"/>
+        <path d="M40 60 V 20 H 120" stroke="var(--bad)" stroke-width="6" stroke-opacity=".5" fill="none"/>
+        <path d="M340 60 V 20 H 260" stroke="var(--bad)" stroke-width="6" stroke-opacity=".5" fill="none"/>
+        <circle cx="190" cy="270" r="40" fill="none" stroke="var(--accent-2)" stroke-width="4" stroke-dasharray="6 5"/>
+        <g class="t-dim">
+          <text x="380" y="50">■ 빨강: 위쪽 모서리 프레임 안테나 영역</text>
+          <text x="380" y="80">   금속 모듈·장식 링은 안테나 효율을 깎는다</text>
+          <text x="380" y="120">■ 주황 점선: 무선 충전 코일·자석 링</text>
+          <text x="380" y="150">   VCM 자석과 자기적 간섭, 거리 확보 필요</text>
+          <text x="380" y="190">■ 카메라 간 간격</text>
+          <text x="380" y="220">   근거리 시차 ↔ 깊이 추정 기선 길이</text>
+          <text x="380" y="260">■ 잠망경은 폭 방향으로 길게 눕는다</text>
+        </g>
+      </svg>
+      <figcaption><b>그림 8-5.</b> 카메라 섬 배치에서 고려하는 주변 요소(개념도). 실제 배치는 내부의 잠망경 광로 방향, 배터리 위치, 보드 형상과 함께 정해진다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-design">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>후면 카메라 구성 트레이드오프</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-design"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>메인 센서</span><div class="seg" id="dg-s"><button data-value="1.56">1/1.56″</button><button data-value="1.3" class="on">1/1.3″</button><button data-value="1">1″</button></div></div>
+          <div class="ctrl"><span>망원</span><div class="seg" id="dg-t"><button data-value="none">없음</button><button data-value="t3">3× 세로형</button><button data-value="p5" class="on">5× 잠망경</button><button data-value="both">3× + 5×</button></div></div>
+          <div class="ctrl"><span>메인 OIS</span><div class="seg" id="dg-o"><button data-value="lens" class="on">렌즈 시프트</button><button data-value="sensor">센서 시프트</button></div></div>
+          <label class="ctrl"><span>폰 몸체 두께 <output id="dg-th-out"></output></span><input type="range" id="dg-th" min="7" max="9.5" step="0.1" value="8.2"></label>
+        </div>
+      </div>
+      <div class="sim-note">대표적인 범위를 조합한 교육용 모델(특정 제품이 아님). 막대의 점선은 기준 구성(1/1.56″ 메인, 망원 없음, 렌즈 시프트)이다. 해볼 것: 1″ 메인 + 3×+5× 구성에서 몸체를 7 mm로 줄여 범프와 무게가 어떻게 되는지 보라.</div>
+    </div>
+  </section>
+
+  <section class="keypoints" id="summary"><h2>핵심 정리</h2><ol>
+    <li>카메라 모듈은 플라스틱 비구면 렌즈 5~8매, IR 컷 필터, 이미지 센서, AF용 VCM, OIS 액추에이터, 기판·FPC로 이루어지며 폰에서 가장 두꺼운 부품이다.</li>
+    <li>같은 화각이면 초점거리는 센서 대각에 비례하고(\(f = f_\text{eq}\,d/43.27\)), TTL ≈ (1.1~1.3)\(f\)에 1 mm 남짓이 더해져 모듈 높이가 된다. 몸체 내부 높이를 넘는 만큼이 범프다.</li>
+    <li>픽셀당 광자는 픽셀 면적/\(N^2\)에, 장면 전체의 광량은 센서 면적/\(N^2\)에 비례한다. 비교에는 등가 조리개 \(N\times\)크롭을 쓴다.</li>
+    <li>작은 센서는 실제 초점거리가 짧아 심도가 깊고 배경 흐림이 약하다. 인물 모드는 깊이 추정으로 흐림을 합성한다.</li>
+    <li>잠망경 망원은 프리즘으로 광로를 90° 꺾어 긴 초점거리를 폭 방향에 눕히지만, 렌즈 지름과 센서 크기는 여전히 두께가 제한한다.</li>
+    <li>AF 행정은 \(f^2/(s-f)\)로 수백 µm이고, PDAF는 좌우 위상 상의 어긋남으로 방향과 거리를 한 번에 안다.</li>
+    <li>OIS는 자이로로 잰 떨림을 렌즈 또는 센서 이동으로 상쇄한다. 상 이동은 \(f\tan\theta\)라 망원일수록 중요하다.</li>
+    <li>멀티프레임 병합은 \(\sqrt{n}\) SNR 향상을 주고, 움직이는 물체는 강건 병합으로 유령을 막는다.</li>
+    <li>설계 축은 모듈 높이·두께, 무게·낙하, 플레어, 열, 원가, 그리고 안테나·자기 간섭을 고려한 배치다.</li>
+  </ol></section>
+
+  <section class="quiz-sec" id="quiz"><h2>확인 퀴즈</h2><div class="quiz">
+    <div class="quiz-q"><p>1/1.3″급 센서(대각 약 12.3 mm)로 24 mm 등가 화각을 얻을 때 실제 초점거리에 가장 가까운 것은?</p><div class="opts">
+      <button class="opt">24 mm</button><button class="opt">3.5 mm</button><button class="opt" data-correct>6.8 mm</button><button class="opt">12.3 mm</button>
+    </div><div class="quiz-exp">\(f = 24 \times 12.3/43.27 \approx 6.8\) mm. 크롭 팩터는 약 3.5다.</div></div>
+    <div class="quiz-q"><p>메인 카메라 센서를 1/1.56″에서 1″로 키우면서 화각을 유지할 때 가장 직접적인 결과는?</p><div class="opts">
+      <button class="opt">렌즈 매수를 줄일 수 있어 모듈이 얇아진다</button>
+      <button class="opt" data-correct>초점거리와 TTL이 센서 대각에 비례해 늘어 모듈이 높아지고 범프가 커진다</button>
+      <button class="opt">f-넘버가 자동으로 작아진다</button>
+      <button class="opt">피사계 심도가 깊어진다</button>
+    </div><div class="quiz-exp">같은 화각에서 \(f \propto d\), TTL ≈ (1.1~1.3)\(f\)이므로 모듈 높이가 커진다. 심도는 오히려 얕아진다.</div></div>
+    <div class="quiz-q"><p>1/1.3″ 센서(크롭 ≈ 3.5)의 f/1.8 렌즈의 풀프레임 등가 조리개는?</p><div class="opts">
+      <button class="opt">f/1.8</button><button class="opt">f/0.5</button><button class="opt" data-correct>약 f/6.3</button><button class="opt">약 f/12</button>
+    </div><div class="quiz-exp">등가 조리개 = \(N\times\)크롭 = 1.8 × 3.5 ≈ 6.3. 전체 광량과 배경 흐림 비교에 쓰는 값이다.</div></div>
+    <div class="quiz-q"><p>잠망경 망원에서 프리즘이 해결하는 문제는?</p><div class="opts">
+      <button class="opt">렌즈의 색수차</button><button class="opt" data-correct>긴 초점거리(광로)를 폰 두께 대신 폭 방향으로 배치하는 것</button><button class="opt">센서 크기를 키우는 것</button><button class="opt">조리개를 밝게 하는 것</button>
+    </div><div class="quiz-exp">프리즘이 광로를 90° 꺾어 TTL을 폭 방향에 눕힌다. 렌즈 지름과 센서 높이는 여전히 두께에 묶여 밝기·센서 크기에는 한계가 있다.</div></div>
+    <div class="quiz-q"><p>\(f\) = 6.8 mm 렌즈로 10 cm 거리 물체에 초점을 맞추려면 렌즈를 무한대 위치에서 대략 얼마나 움직여야 하나?</p><div class="opts">
+      <button class="opt">약 5 µm</button><button class="opt">약 50 µm</button><button class="opt" data-correct>약 0.5 mm</button><button class="opt">약 5 mm</button>
+    </div><div class="quiz-exp">\(\Delta = f^2/(s-f) = 46.24/93.2 \approx 0.50\) mm.</div></div>
+    <div class="quiz-q"><p>PDAF가 콘트라스트 AF보다 빠른 근본 이유는?</p><div class="opts">
+      <button class="opt">더 강한 VCM을 쓰기 때문</button>
+      <button class="opt" data-correct>좌우 위상 상의 어긋남 부호와 크기로 렌즈를 움직일 방향과 거리를 한 번에 알기 때문</button>
+      <button class="opt">렌즈를 움직이지 않고 초점을 맞추기 때문</button>
+      <button class="opt">ToF 센서로 거리를 재기 때문</button>
+    </div><div class="quiz-exp">콘트라스트 AF는 선명도 정점을 지나쳐 봐야 알 수 있지만, PDAF는 디포커스의 방향과 크기를 직접 측정한다.</div></div>
+    <div class="quiz-q"><p>같은 0.2° 손떨림에서 상 이동이 가장 큰 카메라는?</p><div class="opts">
+      <button class="opt">초광각(실제 f ≈ 2 mm)</button><button class="opt">메인(실제 f ≈ 7 mm)</button><button class="opt" data-correct>5× 잠망경(실제 f ≈ 18 mm)</button><button class="opt">모두 같다</button>
+    </div><div class="quiz-exp">상 이동 = \(f\tan\theta\). 초점거리가 긴 망원일수록 같은 각도 떨림이 크게 보인다(픽셀 크기도 함께 고려).</div></div>
+    <div class="quiz-q"><p>멀티프레임 병합에서 16장을 합쳤을 때 광자 잡음 기준 SNR 향상은?</p><div class="opts">
+      <button class="opt">16배</button><button class="opt" data-correct>4배</button><button class="opt">2배</button><button class="opt">변화 없음</button>
+    </div><div class="quiz-exp">광자 수가 16배가 되고 잡음은 \(\sqrt{16}\) = 4배로 늘어 SNR은 \(\sqrt{16}\) = 4배(약 12 dB)가 된다.</div></div>
+  </div></section>
+</main>
+<script>
+"use strict";
+const FONT = () => getComputedStyle(document.body).getPropertyValue("--font");
+const MONO = () => getComputedStyle(document.body).getPropertyValue("--mono");
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
+
+/* ============================================================ 1. 폰 속 위치 */
+(function () {
+  const el = document.getElementById("v-where");
+  const T = PB.three(el, { camera: [-120, -150, -170], target: [0, 0, -20], fov: 35, minDistance: 80, maxDistance: 480 });
+  if (!T) return;
+  const P = PB.phone3d(T);
+  const card = document.getElementById("where-card");
+  function show(part) {
+    if (!part) { card.hidden = true; return; }
+    card.innerHTML = PB.partCardHTML(part, "");
+    card.hidden = false;
+    card.querySelector(".x").onclick = () => (card.hidden = true);
+  }
+  const ex = PB.range("wh-ex", (v) => Math.round(v * 100) + "%", (v) => P.setExplode(v));
+  P.setExplode(ex());
+  P.highlight("cameras");
+  PB.seg("wh-hl", (v) => { P.highlight(v); show(P.byId[v]); });
+  document.getElementById("wh-lab").addEventListener("change", (e) => P.setLabels(e.target.checked));
+  T.pick([P.group], (hit) => { const part = hit && P.partAt(hit.object); if (part) { P.highlight(part.id); show(part); } });
+})();
+
+/* ============================================================ 2. 모듈 3D */
+(function () {
+  const el = document.getElementById("v-mod");
+  const T = PB.three(el, { camera: [42, 30, 58], target: [0, 12, 0], fov: 40, minDistance: 20, maxDistance: 200 });
+  if (!T) return;
+  const THREE = T.THREE;
+  const root = new THREE.Group(); T.scene.add(root);
+  const PARTS = [];
+  const GAP = 3.4;
+  function part(name, th, desc, k, color) { const g = new THREE.Group(); g.userData.part = PARTS.length; root.add(g); const P = { name, th, desc, k, g, color, mats: [], baseY: 0, radial: 0 }; PARTS.push(P); return P; }
+  function mesh(P, geo, mat, x, y, z) { const m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); P.g.add(m); if (P.mats.indexOf(mat) < 0) P.mats.push(mat); return m; }
+  const box = new THREE.BoxGeometry(1, 1, 1);
+  // PCB + FPC
+  const pcb = part("기판 + FPC", "두께 ~0.3–0.6 mm", "센서를 얹는 경성 기판과, 메인보드로 이어지는 연성 회로(FPC)·B2B 커넥터. MIPI 고속 차동 신호(수 Gbps/레인)와 전원·I²C 제어선이 지나간다. 임피던스 정합과 차폐가 화질 노이즈와 EMI를 좌우한다.", 0, 0x2f8f5b);
+  const mPcb = T.material(0x2f8f5b, { roughness: 0.5 });
+  mesh(pcb, box, mPcb, 0, 0.3, 0).scale.set(12, 0.6, 12);
+  const mFpc = T.material(0xe0a030, { roughness: 0.45, metalness: 0.2 });
+  mesh(pcb, box, mFpc, 12, 0.15, 0).scale.set(14, 0.2, 5);
+  mesh(pcb, box, T.material(0x30343c, { metalness: 0.4 }), 19.5, 0.6, 0).scale.set(3, 0.8, 5.6);
+  // sensor
+  const sen = part("이미지 센서", "광학 포맷 1/2.5–1″", "BSI CMOS 이미지 센서 다이(적층형: 픽셀 웨이퍼 + 로직 웨이퍼). 수천만 개 픽셀 위에 컬러 필터(쿼드 베이어 등)와 마이크로렌즈가 있다. 센서 크기가 광량·잡음·심도·모듈 높이를 모두 정하는 1차 변수다.", 1, 0x2a3550);
+  const cvT = document.createElement("canvas"); cvT.width = cvT.height = 64; const tc = cvT.getContext("2d");
+  for (let j = 0; j < 32; j++) for (let i = 0; i < 32; i++) { const q = ((i >> 1) & 1) + 2 * ((j >> 1) & 1); tc.fillStyle = ["#3a7a3a", "#a03030", "#2a3f9a", "#3a7a3a"][q]; tc.fillRect(i * 2, j * 2, 2, 2); }
+  const tex = new THREE.CanvasTexture(cvT); tex.magFilter = THREE.NearestFilter; if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+  mesh(sen, box, T.material(0xb8bcc6, { roughness: 0.6 }), 0, 0.9, 0).scale.set(9, 0.6, 9);
+  const die = mesh(sen, box, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.25, metalness: 0.3 }), 0, 1.3, 0); die.scale.set(7.4, 0.2, 5.6);
+  sen.mats.push(die.material);
+  // holder/base
+  const hol = part("베이스·홀더 (OIS)", "높이 ~1–1.5 mm", "모듈의 기준면. 렌즈 액추에이터를 받치고 IR 필터를 품는다. 렌즈 시프트 OIS에서는 여기에 OIS 코일과 홀 센서가 있고, 렌즈 블록 전체가 서스펜션 와이어(또는 볼)로 매달려 수평으로 움직인다.", 2, 0x8a93a8);
+  const shp = new THREE.Shape(); shp.moveTo(-5.6, -5.6); shp.lineTo(5.6, -5.6); shp.lineTo(5.6, 5.6); shp.lineTo(-5.6, 5.6); shp.lineTo(-5.6, -5.6);
+  const hole = new THREE.Path(); hole.absarc(0, 0, 4.2, 0, Math.PI * 2, true); shp.holes.push(hole);
+  const hg = new THREE.ExtrudeGeometry(shp, { depth: 1.4, bevelEnabled: false, curveSegments: 32 }); hg.rotateX(-Math.PI / 2);
+  const mHol = T.material(0x6b7280, { roughness: 0.7 });
+  mesh(hol, hg, mHol, 0, 1.6, 0);
+  const mHall = T.material(0x20232b);
+  [[4.6, 0], [0, 4.6]].forEach(([x, z]) => mesh(hol, box, mHall, x, 3.1, z).scale.set(0.8, 0.3, 0.8));
+  // IR filter
+  const irf = part("IR 컷 필터", "0.1–0.21 mm", "약 650 nm 이상 근적외선을 막는 유리(흡수형 블루 글라스 또는 다층 코팅). 실리콘은 1,000 nm 근처까지 감도가 있어 필터가 없으면 색이 틀어진다. 얇게 만들수록 TTL에 유리하지만 깨지기 쉽고, 표면 반사는 플레어의 원인이 된다.", 3, 0x5e7fb5);
+  const mIr = T.material(0x5e7fb5, { transparent: true, opacity: 0.5, roughness: 0.05, metalness: 0.1, depthWrite: false });
+  mesh(irf, box, mIr, 0, 2.6, 0).scale.set(7.6, 0.2, 7.6);
+  // magnets
+  const mag = part("VCM 자석", "NdFeB 영구 자석 ×4", "렌즈 캐리어 둘레의 영구 자석. 코일 전류와 자기장의 로렌츠 힘으로 렌즈를 광축 방향(AF)으로, 별도 코일로 수평 방향(OIS)으로 민다. 자석은 무게와 자기 간섭(나침반, 무선 충전 자석, 이웃 카메라 모듈)의 원인이다.", 4, 0x3a4150);
+  const mMag = T.material(0x3a4150, { metalness: 0.6, roughness: 0.35 });
+  [[4.9, 0, 1.2, 5], [-4.9, 0, 1.2, 5], [0, 4.9, 5, 1.2], [0, -4.9, 5, 1.2]].forEach(([x, z, sx, sz]) => mesh(mag, box, mMag, x, 6.6, z).scale.set(sx, 5.2, sz));
+  mag.radial = 1;
+  // coil
+  const coil = part("AF 코일", "구리 권선", "렌즈 캐리어에 감긴 코일. 수십 mA 전류로 수백 µm를 움직인다. 홀 센서로 렌즈 위치를 읽어 폐루프 제어하며, 판 스프링이 복원력을 준다(공진 수십~100 Hz).", 5, 0xc9823b);
+  const mCoil = T.material(0xc9823b, { metalness: 0.7, roughness: 0.3 });
+  const tg = new THREE.TorusGeometry(3.95, 0.35, 10, 48); tg.rotateX(Math.PI / 2);
+  mesh(coil, tg, mCoil, 0, 5.2, 0); mesh(coil, tg, mCoil, 0, 6.1, 0); mesh(coil, tg, mCoil, 0, 7.0, 0);
+  // barrel
+  const bar = part("렌즈 배럴·캐리어", "외경 ~7–9 mm", "렌즈를 정해진 간격으로 쌓아 고정하는 통. 렌즈 사이에는 차광 스페이서가 들어가 미광과 플레어를 막는다. 조립 시 센서 영상을 보며 기울기·초점을 맞추는 능동 정렬 후 접착한다.", 6, 0x20232b);
+  const mBar = T.material(0x20232b, { transparent: true, opacity: 0.45, roughness: 0.8, side: THREE.DoubleSide, depthWrite: false });
+  mesh(bar, new THREE.CylinderGeometry(3.5, 3.5, 7.4, 40, 1, true), mBar, 0, 7.2, 0);
+  // lenses
+  const LENS = [
+    [1.55, 0.9, 0.14, 0.02, 10.1], [1.9, 0.5, -0.06, 0.06, 9.1], [2.2, 0.45, 0.04, -0.04, 8.2],
+    [2.55, 0.5, -0.05, 0.05, 7.2], [2.9, 0.5, 0.03, -0.09, 6.1], [3.25, 0.45, -0.04, 0.06, 4.8]];
+  const mLens = T.material(0xbfe6ff, { transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.15, depthWrite: false, side: THREE.DoubleSide });
+  const lensDesc = [
+    "1번 렌즈: 양(+)의 굴절력으로 빛을 모은다. 가장 작고, 조리개(스톱)가 이 근처에 놓인다. 일부 모듈은 이 자리에 유리 렌즈를 써서 온도 안정성과 해상력을 높인다(1G+nP).",
+    "2번 렌즈: 고굴절·고분산 플라스틱으로 1번 렌즈의 색수차를 상쇄하는 음(−)의 렌즈.",
+    "3번 렌즈: 구면 수차·코마를 다듬는 보정 렌즈. 렌즈마다 다른 재료(아베수)를 써서 색수차를 나눠 잡는다.",
+    "4번 렌즈: 비점수차·상면 만곡 보정. 비구면 계수(r⁴, r⁶, … r¹⁶)가 십여 개씩 쓰인다.",
+    "5번 렌즈: 주변부 광선을 펴 주는 렌즈. 갈매기 날개 형상이 시작된다.",
+    "6번(마지막) 렌즈: 가장 크고 강하게 굽은 고차 비구면. 주변부 주광선 입사각(CRA)을 센서 마이크로렌즈가 받아들일 수 있게 맞추고 왜곡을 줄인다. 상면에 가까워 TTL을 줄이는 핵심이다.",
+  ];
+  const lenses = LENS.map(([R, t, c1, c2, y], i) => {
+    const P = part(`렌즈 L${i + 1}`, `지름 ~${(R * 2).toFixed(1)} mm (모형)`, lensDesc[i], 7 + i, 0x9fd3ff);
+    const pts = [], n = 16;
+    for (let k = 0; k <= n; k++) { const r = (k / n) * R; const z = t / 2 + c1 * r * r - 0.02 * Math.sin((r / R) * Math.PI * 1.5) * (i > 3 ? 8 : 0); pts.push(new THREE.Vector2(r, z)); }
+    pts.push(new THREE.Vector2(R + 0.35, pts[n].y)); pts.push(new THREE.Vector2(R + 0.35, pts[n].y - t * 0.6));
+    for (let k = n; k >= 0; k--) { const r = (k / n) * R; const z = -t / 2 + c2 * r * r + 0.03 * Math.sin((r / R) * Math.PI * 2) * (i > 3 ? 6 : 0); pts.push(new THREE.Vector2(r, z)); }
+    const geo = new THREE.LatheGeometry(pts, 40);
+    mesh(P, geo, mLens, 0, y, 0);
+    return P;
+  });
+  // spring
+  const spr = part("판 스프링", "두께 수십 µm", "렌즈 캐리어를 매다는 얇은 금속 스프링. AF 방향 복원력을 주고 다른 방향의 움직임을 억제한다. 낙하 충격에 변형되면 초점이 틀어지므로 스토퍼 설계가 중요하다.", 13, 0xd9b45a);
+  const rg = new THREE.RingGeometry(3.6, 5.4, 40, 1); rg.rotateX(-Math.PI / 2);
+  mesh(spr, rg, T.material(0xd9b45a, { metalness: 0.8, roughness: 0.3, side: THREE.DoubleSide }), 0, 10.8, 0);
+  // can
+  const can = part("차폐 케이스", "외형 ~11–13 mm □", "얇은 비자성 금속 커버. 내부를 먼지와 전자기 잡음으로부터 보호하고 액추에이터 부품을 가둔다. 윗면 구멍이 렌즈 입사창이다.", 14, 0xc7ccd6);
+  const mCan = T.material(0xc7ccd6, { metalness: 0.85, roughness: 0.3, transparent: true, opacity: 1 });
+  const cs = new THREE.Shape(); cs.moveTo(-6.2, -6.2); cs.lineTo(6.2, -6.2); cs.lineTo(6.2, 6.2); cs.lineTo(-6.2, 6.2); cs.lineTo(-6.2, -6.2);
+  const ch = new THREE.Path(); ch.absarc(0, 0, 2.2, 0, Math.PI * 2, true); cs.holes.push(ch);
+  const cg = new THREE.ExtrudeGeometry(cs, { depth: 0.25, bevelEnabled: false, curveSegments: 32 }); cg.rotateX(-Math.PI / 2);
+  mesh(can, cg, mCan, 0, 11.2, 0);
+  [[6.1, 0, 0.2, 12.4], [-6.1, 0, 0.2, 12.4], [0, 6.1, 12.4, 0.2], [0, -6.1, 12.4, 0.2]].forEach(([x, z, sx, sz]) => mesh(can, box, mCan, x, 5.9, z).scale.set(sx, 10.6, sz));
+  PARTS.forEach((P) => { P.mats.forEach((m) => { m.userData.em = m.emissive ? m.emissive.getHex() : 0; }); });
+  // rays
+  const rayGeo = new THREE.BufferGeometry();
+  const rp = [];
+  [[0, 0], [0.32, 0]].forEach(([ang]) => {
+    for (let k = -2; k <= 2; k++) {
+      const x0 = k * 0.9, top = 22, fx = Math.tan(ang) * 9.5;
+      rp.push(x0 - Math.tan(ang) * (top - 10.5), top, 0, x0, 10.5, 0, x0, 10.5, 0, fx, 1.45, 0);
+    }
+  });
+  rayGeo.setAttribute("position", new THREE.Float32BufferAttribute(rp, 3));
+  const rays = new THREE.LineSegments(rayGeo, new THREE.LineBasicMaterial({ color: 0xffb020 }));
+  rays.visible = false; root.add(rays);
+  // labels
+  const labels = PARTS.map((P, i) => { const ang = i * 0.9; const L = T.label(P.name, [Math.cos(ang) * 8, 0, Math.sin(ang) * 8]); L.obj = P.g; return L; });
+  const info = document.getElementById("md-info"), chips = document.getElementById("md-chips");
+  chips.innerHTML = PARTS.map((P, i) => `<button data-i="${i}">${P.name}</button>`).join("");
+  function select(i) {
+    PARTS.forEach((P, j) => P.mats.forEach((m) => { if (m.emissive) { m.emissive.setHex(j === i ? 0x2dd4bf : m.userData.em); m.emissiveIntensity = j === i ? 0.4 : 1; } }));
+    [...chips.children].forEach((b, j) => b.classList.toggle("on", j === i));
+    const P = PARTS[i]; const hex = "#" + P.color.toString(16).padStart(6, "0");
+    info.innerHTML = `<h4><i style="background:${hex}"></i>${P.name} <span class="th">${P.th}</span></h4><p>${P.desc}</p>`;
+  }
+  chips.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) select(+b.dataset.i); });
+  T.pick(PARTS.map((P) => P.g), (hit) => { if (!hit) return; let o = hit.object; while (o && o.userData.part == null) o = o.parent; if (o) select(o.userData.part); });
+  let ex = 0.6, af = 0, ois = [0, 0];
+  const labCb = document.getElementById("md-lab"), afCb = document.getElementById("md-af"), rayCb = document.getElementById("md-ray");
+  function layout() {
+    PARTS.forEach((P) => {
+      const moving = P === coil || P === bar || lenses.indexOf(P) >= 0;
+      P.g.position.set(moving ? ois[0] : 0, P.k * GAP * ex + (moving ? af : 0), moving ? ois[1] : 0);
+      if (P.radial) P.g.scale.set(1 + ex * 0.5, 1, 1 + ex * 0.5);
+    });
+    root.position.y = -(14 * GAP * ex) / 2 + 2;
+    labels.forEach((L) => L.setVisible(labCb.checked && ex > 0.3));
+    rays.visible = rayCb.checked;
+    rays.position.y = 0;
+    mCan.opacity = rayCb.checked ? 0.18 : 1;
+    mCan.depthWrite = !rayCb.checked;
+  }
+  PB.range("md-ex", (v) => Math.round(v * 100) + "%", (v) => { ex = v; layout(); });
+  labCb.addEventListener("change", layout);
+  rayCb.addEventListener("change", () => { if (rayCb.checked) { document.getElementById("md-ex").value = 0; document.getElementById("md-ex").dispatchEvent(new Event("input")); } layout(); });
+  layout(); select(1);
+  T.onFrame((dt, t) => {
+    if (afCb.checked) { af = 0.35 * Math.sin(t * 1.3); ois = [0.18 * Math.sin(t * 5.1), 0.18 * Math.sin(t * 3.7 + 1)]; layout(); }
+    else if (af !== 0) { af = 0; ois = [0, 0]; layout(); }
+  });
+})();
+
+/* ============================================================ 3. 범프 */
+(function () {
+  const ss = PB.seg("bp-s", () => cv.redraw());
+  const fe = PB.range("bp-f", (v) => v + " mm", () => cv.redraw());
+  const kk = PB.range("bp-k", (v) => v.toFixed(2), () => cv.redraw());
+  const th = PB.range("bp-t", (v) => v.toFixed(1) + " mm", () => cv.redraw());
+  const cv = PB.canvas("#cv-bump", (ctx, w, h) => {
+    const P = PB.palette();
+    const d = diagOf(ss()), f = (fe() * d) / 43.27, fov = (2 * Math.atan(43.27 / (2 * fe())) * 180) / Math.PI;
+    const TTL = kk() * f, H = TTL + 1.3, t = th(), inner = t - 1.8, bump = Math.max(0, H - inner);
+    PB.stat("bp-o-f", PB.fmt(f, 3) + " <small>mm</small>");
+    PB.stat("bp-o-a", PB.fmt(fov, 3) + "<small>°</small>");
+    PB.stat("bp-o-h", PB.fmt(H, 3) + " <small>mm</small>");
+    PB.stat("bp-o-b", bump > 0 ? PB.fmt(bump, 3) + " <small>mm</small>" : "0 <small>mm</small>");
+    const tot = Math.max(t + bump, 10) + 6;
+    const s = Math.min((h - 30) / tot, (w - 40) / 40);
+    const y0 = 18, bodyW = Math.min(w - 40, 40 * s), x0 = (w - bodyW) / 2;
+    // body (화면 위쪽, 뒷면 아래쪽)
+    ctx.fillStyle = P.surface; ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+    roundRect(ctx, x0, y0, bodyW, t * s, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#6c5ce7"; ctx.globalAlpha = 0.5; ctx.fillRect(x0 + 4, y0, bodyW - 8, 1.2 * s); ctx.globalAlpha = 1;
+    ctx.fillStyle = P.dim; ctx.font = `11px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText("화면 쪽", x0 + 8, y0 + 0.6 * s);
+    ctx.fillStyle = P.faint; ctx.globalAlpha = 0.6; ctx.fillRect(x0 + 4, y0 + (t - 0.6) * s, bodyW - 8, 0.6 * s); ctx.globalAlpha = 1;
+    ctx.fillStyle = P.dim; ctx.fillText("뒷유리", x0 + 8, y0 + (t - 0.3) * s);
+    // module: 위(센서)는 화면 쪽 아래 1.2 mm, 아래로 H
+    const mw = Math.max(8, d * 0.9 + 3) * s, mx = x0 + bodyW * 0.62 - mw / 2, my = y0 + 1.2 * s;
+    ctx.fillStyle = P.accent2; ctx.globalAlpha = 0.18; ctx.fillRect(mx, my, mw, H * s); ctx.globalAlpha = 1;
+    ctx.strokeStyle = P.accent2; ctx.strokeRect(mx, my, mw, H * s);
+    ctx.fillStyle = "#2a3550"; ctx.fillRect(mx + mw * 0.12, my + 0.5 * s, mw * 0.76, 0.35 * s);
+    ctx.fillStyle = PB.isDark() ? "#9fd3ff" : "#5b9bd5"; ctx.globalAlpha = 0.6;
+    for (let i = 0; i < 6; i++) { const yy = my + (1.3 + (TTL * (0.12 + i * 0.15))) * s; const ww = mw * (0.5 + i * 0.06); ctx.beginPath(); ctx.ellipse(mx + mw / 2, Math.min(yy, my + H * s - 4), ww / 2, Math.max(2, 0.18 * s), 0, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    if (bump > 0) {
+      ctx.fillStyle = P.bad; ctx.globalAlpha = 0.15; ctx.fillRect(mx - 4, y0 + t * s, mw + 8, bump * s); ctx.globalAlpha = 1;
+      ctx.strokeStyle = P.bad; ctx.strokeRect(mx - 4, y0 + t * s, mw + 8, bump * s);
+      ctx.fillStyle = P.bad; ctx.font = `600 12px ${MONO()}`; ctx.textAlign = "left"; ctx.fillText(`범프 ${bump.toFixed(2)} mm`, mx + mw + 10, y0 + (t + bump / 2) * s);
+    }
+    // FOV
+    const ay = y0 + (t + bump) * s + 2, half = (fov / 2) * Math.PI / 180, L = Math.min(h - ay - 4, 60);
+    ctx.strokeStyle = P.accent; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(mx + mw / 2 - L * Math.tan(Math.min(half, 1.2)), ay + L); ctx.lineTo(mx + mw / 2, ay); ctx.lineTo(mx + mw / 2 + L * Math.tan(Math.min(half, 1.2)), ay + L); ctx.stroke(); ctx.setLineDash([]);
+    // dims
+    ctx.strokeStyle = P.axis; ctx.beginPath(); ctx.moveTo(x0 - 10, y0); ctx.lineTo(x0 - 10, y0 + t * s); ctx.stroke();
+    ctx.save(); ctx.translate(x0 - 16, y0 + (t * s) / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = P.dim; ctx.textAlign = "center"; ctx.font = `11px ${MONO()}`; ctx.fillText(t.toFixed(1) + " mm", 0, 0); ctx.restore();
+    ctx.fillStyle = P.text; ctx.font = `11px ${MONO()}`; ctx.textAlign = "right";
+    ctx.fillText(`모듈 ${H.toFixed(2)} mm`, mx - 8, my + (H * s) / 2);
+    ctx.fillText(`내부 여유 ${inner.toFixed(1)} mm`, mx - 8, my + (H * s) / 2 + 16);
+  }, { aspect: 0.55, minHeight: 260, maxHeight: 420 });
+})();
+
+/* ============================================================ 4. 광량 */
+(function () {
+  const ss = PB.seg("li-s", () => draw());
+  const mp = PB.range("li-mp", (v) => v + " MP", () => draw());
+  const bin = PB.seg("li-bin", () => draw());
+  const N = PB.range("li-N", (v) => "f/" + v.toFixed(1), () => draw());
+  const E = PB.range("li-E", (v) => PB.fmt(Math.pow(10, v), 2) + " lx", () => draw());
+  const REFL = [0.03, 0.06, 0.12, 0.18, 0.36, 0.72];
+  let cells = null;
+  function compute() {
+    const d = diagOf(ss()), area = 0.8 * d * 0.6 * d, p = Math.sqrt(area / mp()), b = Number(bin()), po = p * Math.sqrt(b);
+    const k = (Math.pow(10, E()) * 0.9) / (4 * N() * N()) * 4090 * 0.5 * po * po / 30; // 반사율 1 기준 전자 수
+    return { d, area, p, po, k, rn2: 4 * b };
+  }
+  function draw() {
+    const c = compute();
+    const GX = 60, GY = 36; cells = new Float32Array(GX * GY);
+    for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) {
+      const r = REFL[Math.floor((i / GX) * 6)], lam = c.k * r;
+      cells[j * GX + i] = (PB.poisson(lam) + Math.sqrt(c.rn2) * PB.randn()) / (c.k * 0.72);
+    }
+    cv.redraw();
+  }
+  const cv = PB.canvas("#cv-light", (ctx, w, h) => {
+    const P = PB.palette(), c = compute();
+    if (!cells) return;
+    const GX = 60, GY = 36, pw = Math.min(w * 0.58, (h - 30) * GX / GY), cs = pw / GX, ox = 10, oy = 22;
+    for (let j = 0; j < GY; j++) for (let i = 0; i < GX; i++) {
+      const v = Math.round(255 * Math.pow(PB.clamp(cells[j * GX + i], 0, 1), 1 / 2.2));
+      ctx.fillStyle = `rgb(${v},${v},${v})`; ctx.fillRect(ox + i * cs, oy + j * cs, cs + 0.5, cs + 0.5);
+    }
+    ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("반사율 3 %→72 % 계단 (자동 노출 없음)", ox, 4);
+    // bars: 전체 광량 (면적/N²)
+    const bx = ox + pw + 20, bw = w - bx - 10;
+    const opts = [["1/2.55″", 16 / 2.55], ["1/1.56″", 16 / 1.56], ["1/1.3″", 16 / 1.3], ["1″", 16], ["FF", 43.27]];
+    const ref = (0.48 * 43.27 * 43.27) / (1.8 * 1.8);
+    ctx.fillText("센서 전체 광량 (FF f/1.8 = 1)", bx, 4);
+    const rh = Math.min(30, (h - 40) / opts.length);
+    opts.forEach(([nm, d], i) => {
+      const v = (0.48 * d * d) / (N() * N()) / ref, y = 26 + i * rh, ww = Math.max(2, Math.sqrt(v) * (bw - 70));
+      const cur = Math.abs(d - c.d) < 0.01;
+      ctx.fillStyle = cur ? P.accent : P.faint; ctx.fillRect(bx + 44, y, ww, rh * 0.6);
+      ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = `${cur ? 700 : 400} 11.5px ${FONT()}`;
+      ctx.fillText(nm, bx, y + rh * 0.3); ctx.font = `11px ${MONO()}`; ctx.fillText(PB.fmt(v, 2), bx + 48 + ww, y + rh * 0.3);
+    });
+    ctx.fillStyle = P.faint; ctx.font = `10.5px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("막대 길이 ∝ √(광량)", bx, 26 + opts.length * rh);
+    const e18 = c.k * 0.18, snr = e18 / Math.sqrt(e18 + c.rn2);
+    PB.stat("li-o-p", PB.fmt(c.po, 3) + " <small>µm</small>");
+    PB.stat("li-o-e", PB.fmt(e18, 3) + " <small>e⁻ @18%</small>");
+    PB.stat("li-o-s", PB.fmt(20 * Math.log10(Math.max(snr, 1e-3)), 3) + " <small>dB</small>");
+    PB.stat("li-o-n", "f/" + PB.fmt((N() * 43.27) / c.d, 2));
+  }, { aspect: 0.5, minHeight: 220, maxHeight: 380 });
+  draw();
+})();
+
+/* ============================================================ 5. 심도 */
+(function () {
+  const CAMS = { main: { d: 12.3, feq: 24, N: 1.8 }, one: { d: 16, feq: 23, N: 1.6 }, tele: { d: 6.4, feq: 120, N: 3.0 }, ff: { d: 43.27, feq: 50, N: 1.8 } };
+  const cam = PB.seg("df-c", () => cv.redraw());
+  const sD = PB.range("df-s", (v) => v.toFixed(2) + " m", () => cv.redraw());
+  const bD = PB.range("df-b", (v) => v + " m", () => cv.redraw());
+  const cv = PB.canvas("#cv-dof", (ctx, w, h) => {
+    const P = PB.palette(), C = CAMS[cam()];
+    const f = (C.feq * C.d) / 43.27, c = C.d / 1500, H = (f * f) / (C.N * c) + f;
+    const s = sD() * 1000, sb = bD() * 1000;
+    const near = (s * (H - f)) / (H + s - 2 * f), far = s < H ? (s * (H - f)) / (H - s) : Infinity;
+    const b = ((f * f) / (C.N * (s - f))) * Math.max(0, (sb - s) / sb), rel = b / C.d;
+    PB.stat("df-o-f", PB.fmt(f, 3) + " / " + C.feq + " <small>mm</small>");
+    PB.stat("df-o-d", PB.fmt(near / 1000, 3) + " – " + (isFinite(far) ? PB.fmt(far / 1000, 3) : "∞") + " <small>m</small>");
+    PB.stat("df-o-b", PB.fmt(rel * 100, 3) + " <small>%</small>");
+    // 거리 축
+    const box = { x: 20, y: 22, w: w - 40, h: 34 };
+    const X = (m) => box.x + ((Math.log10(m) + 1) / 3) * box.w; // 0.1–100 m
+    ctx.fillStyle = P.surface; ctx.fillRect(box.x, box.y, box.w, box.h);
+    ctx.fillStyle = P.accent; ctx.globalAlpha = 0.35; ctx.fillRect(X(Math.max(0.1, near / 1000)), box.y, Math.min(box.x + box.w, isFinite(far) ? X(Math.min(100, far / 1000)) : box.x + box.w) - X(Math.max(0.1, near / 1000)), box.h); ctx.globalAlpha = 1;
+    ctx.strokeStyle = P.text; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(X(s / 1000), box.y - 4); ctx.lineTo(X(s / 1000), box.y + box.h + 4); ctx.stroke();
+    ctx.strokeStyle = P.accent2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(X(sb / 1000), box.y); ctx.lineTo(X(sb / 1000), box.y + box.h); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = P.dim; ctx.font = `11px ${MONO()}`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    [0.1, 0.3, 1, 3, 10, 30, 100].forEach((m) => ctx.fillText(m + " m", X(m), box.y + box.h + 4));
+    ctx.textBaseline = "bottom"; ctx.font = `11px ${FONT()}`; ctx.fillStyle = P.text; ctx.fillText("초점", X(s / 1000), box.y - 4); ctx.fillStyle = P.accent2; ctx.fillText("배경", X(sb / 1000), box.y - 4);
+    // 장면
+    const sy = box.y + box.h + 26, sh = h - sy - 8, sx = 20, sw = w - 40;
+    ctx.save(); roundRect(ctx, sx, sy, sw, sh, 8); ctx.clip();
+    ctx.fillStyle = "#14182a"; ctx.fillRect(sx, sy, sw, sh);
+    const diag = Math.hypot(sw, sh), rad = Math.max(0.6, (rel * diag) / 2);
+    const lights = [[0.1, 0.3, "#ffd27a"], [0.22, 0.18, "#ff9a7a"], [0.35, 0.4, "#ffe9a8"], [0.58, 0.22, "#9fd3ff"], [0.7, 0.36, "#ffd27a"], [0.82, 0.15, "#ffb3e0"], [0.9, 0.42, "#c8ff9a"], [0.46, 0.12, "#ffd27a"], [0.15, 0.55, "#9fd3ff"], [0.88, 0.62, "#ffe9a8"]];
+    lights.forEach(([u, v, col]) => {
+      const g = ctx.createRadialGradient(sx + u * sw, sy + v * sh, 0, sx + u * sw, sy + v * sh, rad + 1);
+      g.addColorStop(0, col); g.addColorStop(rad > 3 ? 0.85 : 0.3, col); g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.globalAlpha = PB.clamp(2.2 / Math.sqrt(rad), 0.25, 1); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx + u * sw, sy + v * sh, rad + 1, 0, 7); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    // 인물 실루엣(선명)
+    const px = sx + sw * 0.5, base = sy + sh;
+    ctx.fillStyle = "#e8b48a"; ctx.beginPath(); ctx.arc(px, base - sh * 0.62, sh * 0.13, 0, 7); ctx.fill();
+    ctx.fillStyle = "#3a5a8a"; ctx.beginPath(); ctx.ellipse(px, base, sh * 0.3, sh * 0.42, 0, Math.PI, 0); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = P.dim; ctx.font = `11px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+  }, { aspect: 0.55, minHeight: 260, maxHeight: 420 });
+})();
+
+/* ============================================================ 6. 잠망경 */
+(function () {
+  const z = PB.range("pr-z", (v) => v.toFixed(1) + "×", () => {});
+  const ss = PB.seg("pr-s", () => {});
+  const mode = PB.seg("pr-m", () => {});
+  const zc = document.getElementById("pr-zoom");
+  let tt = 0;
+  const cv = PB.canvas("#cv-peri", (ctx, w, h) => {
+    const P = PB.palette();
+    const d = 16 / Number(ss()), f = (z() * 24 * d) / 43.27, D = Math.min(f / 2.8, 5.2), Nf = f / D;
+    const path = 0.95 * f, TH = 8.2, inner = TH - 1.8, Hup = path + 1.3, bumpUp = Math.max(0, Hup - inner);
+    PB.stat("pr-o-f", PB.fmt(f, 3) + " <small>mm, f/" + PB.fmt(Nf, 2) + "</small>");
+    PB.stat("pr-o-l", PB.fmt(path + D / 2, 3) + " <small>mm</small>");
+    PB.stat("pr-o-b", PB.fmt(bumpUp, 3) + " <small>mm</small>");
+    const up = mode() === "up";
+    const Lmm = up ? 30 : Math.max(32, path + D + 10), Vmm = up ? TH + bumpUp + 6 : TH + 9;
+    const s = Math.min((w - 30) / Lmm, (h - 30) / Vmm);
+    const ox = 15, oy = 14;
+    const Y = (mm) => oy + mm * s, Xm = (mm) => ox + mm * s;
+    // 폰 단면 (위 = 화면, 아래 = 뒷면)
+    ctx.fillStyle = P.surface; ctx.strokeStyle = P.border; roundRect(ctx, Xm(0), Y(0), Lmm * s, TH * s, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#6c5ce7"; ctx.globalAlpha = 0.45; ctx.fillRect(Xm(0.5), Y(0), (Lmm - 1) * s, 1.1 * s); ctx.globalAlpha = 1;
+    ctx.fillStyle = P.dim; ctx.font = `11px ${FONT()}`; ctx.textBaseline = "middle"; ctx.textAlign = "right"; ctx.fillText("화면", Xm(Lmm) - 6, Y(0.55));
+    const dots = (pts, n, col) => { // 폴리라인을 따라 움직이는 점
+      const seg = []; let L = 0; for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); seg.push(l); L += l; }
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = 1.2; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(Xm(p[0]), Y(p[1])) : ctx.moveTo(Xm(p[0]), Y(p[1])))); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = col;
+      for (let k = 0; k < n; k++) {
+        let u = ((tt * 12 + (k * L) / n) % L), i = 0; while (i < seg.length - 1 && u > seg[i]) { u -= seg[i]; i++; }
+        const a = pts[i], b = pts[i + 1], q = Math.min(1, u / seg[i]);
+        ctx.beginPath(); ctx.arc(Xm(a[0] + (b[0] - a[0]) * q), Y(a[1] + (b[1] - a[1]) * q), 2.4, 0, 7); ctx.fill();
+      }
+    };
+    const col = PB.isDark() ? "#ffd166" : "#e09a00";
+    if (!up) {
+      const px = 5, cy = TH / 2 + 0.4, ph = Math.min(D, TH - 2.2);
+      // 프리즘
+      ctx.fillStyle = "#9fd3ff"; ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.moveTo(Xm(px), Y(cy + ph / 2)); ctx.lineTo(Xm(px + ph), Y(cy + ph / 2)); ctx.lineTo(Xm(px + ph), Y(cy - ph / 2)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = P.accent; ctx.stroke();
+      const sx = px + ph / 2 + path;
+      const g1 = px + ph + 1.2, g2base = px + ph + path * 0.45, g2 = zc.checked ? g2base + path * 0.18 * Math.sin(tt * 1.2) : g2base;
+      [[g1, ph * 0.45], [g1 + 1.2, ph * 0.42], [g2, ph * 0.36], [g2 + 1, ph * 0.33]].forEach(([x, r], i) => { ctx.fillStyle = i < 2 ? "#9fd3ff" : "#ffcf9a"; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.ellipse(Xm(x), Y(cy), 0.45 * s, r * s, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1; });
+      ctx.fillStyle = "#2a3550"; ctx.fillRect(Xm(sx), Y(cy - Math.min(d * 0.6, TH - 2.5) / 2), 0.5 * s, Math.min(d * 0.6, TH - 2.5) * s);
+      for (let k = -1; k <= 1; k++) {
+        const xin = px + ph / 2 + k * ph * 0.3;
+        dots([[xin, TH + 6], [xin, cy + (xin - px - ph / 2)], [g1, cy + k * ph * 0.3], [sx, cy]], 4, col);
+      }
+      ctx.fillStyle = P.dim; ctx.font = `11px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("프리즘", Xm(px), Y(TH) + 4); ctx.fillText("센서", Xm(sx) - 8, Y(TH) + 4);
+      ctx.fillText(zc.checked ? "이동 렌즈군 ↔ (줌)" : "AF 렌즈군", Xm(g2) - 20, Y(TH) + 18);
+      ctx.strokeStyle = P.accent; ctx.beginPath(); ctx.moveTo(Xm(px + ph / 2), Y(TH + 7.6)); ctx.lineTo(Xm(sx), Y(TH + 7.6)); ctx.stroke();
+      ctx.fillStyle = P.accent; ctx.textAlign = "center"; ctx.fillText(`광로 ≈ ${path.toFixed(1)} mm`, Xm((px + sx) / 2), Y(TH + 7.6) + 3);
+    } else {
+      const mx = Lmm / 2, mw = Math.max(6, d + 2);
+      ctx.fillStyle = P.accent2; ctx.globalAlpha = 0.18; ctx.fillRect(Xm(mx - mw / 2), Y(1.2), mw * s, Hup * s); ctx.globalAlpha = 1;
+      ctx.strokeStyle = P.accent2; ctx.strokeRect(Xm(mx - mw / 2), Y(1.2), mw * s, Hup * s);
+      ctx.fillStyle = "#2a3550"; ctx.fillRect(Xm(mx - d * 0.3), Y(1.5), d * 0.6 * s, 0.4 * s);
+      if (bumpUp > 0) { ctx.strokeStyle = P.bad; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(Xm(0), Y(TH)); ctx.lineTo(Xm(Lmm), Y(TH)); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = P.bad; ctx.font = `600 12px ${MONO()}`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(`범프 ${bumpUp.toFixed(1)} mm`, Xm(mx + mw / 2) + 8, Y(TH + bumpUp / 2)); }
+      for (let k = -1; k <= 1; k++) dots([[mx + k * mw * 0.25, 1.2 + Hup + 5], [mx + k * mw * 0.25, 1.2 + Hup * 0.7], [mx, 1.9]], 4, col);
+    }
+  }, { aspect: 0.5, minHeight: 230, maxHeight: 380 });
+  PB.loop(document.getElementById("cv-peri"), (dt) => { tt += dt; cv.redraw(); });
+})();
+
+/* ============================================================ 6b. 줌 전환 */
+(function () {
+  const zz = PB.range("zm-z", (v) => PB.fmt(0.6 * Math.pow(10 / 0.6, v), 2) + "×", () => cv.redraw());
+  const tcfg = PB.seg("zm-t", () => cv.redraw());
+  const cams = () => {
+    const c = [{ n: "초광각", z: 0.6, mp: 50 }, { n: "메인", z: 1, mp: 50 }];
+    const t = tcfg();
+    if (t === "5") c.push({ n: "5× 잠망경", z: 5, mp: 50 });
+    if (t === "3") c.push({ n: "3× 망원", z: 3, mp: 12 });
+    if (t === "35") { c.push({ n: "3× 망원", z: 3, mp: 12 }); c.push({ n: "5× 잠망경", z: 5, mp: 50 }); }
+    return c;
+  };
+  const pick = (z, c) => c.filter((q) => q.z <= z + 1e-9).pop();
+  const eff = (z, c) => { const q = pick(z, c); return q.mp / Math.pow(z / q.z, 2); };
+  const cv = PB.canvas("#cv-zoom", (ctx, w, h) => {
+    const P = PB.palette(), z = 0.6 * Math.pow(10 / 0.6, zz()), C = cams(), q = pick(z, C);
+    // 장면
+    const sw = Math.min(w * 0.5, (h - 20) * 4 / 3), sh = sw * 0.75, sx = 10, sy = (h - sh) / 2;
+    ctx.save(); ctx.beginPath(); ctx.rect(sx, sy, sw, sh); ctx.clip();
+    const g = ctx.createLinearGradient(0, sy, 0, sy + sh); g.addColorStop(0, "#1d2b4a"); g.addColorStop(1, "#c98b5a"); ctx.fillStyle = g; ctx.fillRect(sx, sy, sw, sh);
+    ctx.fillStyle = "#f4e7b0"; ctx.beginPath(); ctx.arc(sx + sw * 0.53, sy + sh * 0.44, sw * 0.018, 0, 7); ctx.fill();
+    let xx = sx; let seed = 3; const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+    while (xx < sx + sw) { const bw = sw * (0.03 + rnd() * 0.05), bh = sh * (0.12 + rnd() * 0.3); ctx.fillStyle = "#151a26"; ctx.fillRect(xx, sy + sh - bh, bw, bh); ctx.fillStyle = "#ffd27a"; for (let k = 0; k < 6; k++) if (rnd() > 0.5) ctx.fillRect(xx + bw * rnd() * 0.8, sy + sh - bh * rnd(), 1.5, 1.5); xx += bw + 1; }
+    ctx.restore();
+    C.forEach((c) => { const fw = (sw * 0.6) / c.z, fh = fw * 0.75; ctx.strokeStyle = PB.isDark() ? "rgba(255,255,255,.55)" : "rgba(255,255,255,.75)"; ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.strokeRect(sx + sw / 2 - fw / 2, sy + sh * 0.5 - fh / 2, fw, fh); ctx.setLineDash([]); ctx.fillStyle = "#fff"; ctx.font = `10px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(c.n, sx + sw / 2 - fw / 2 + 3, sy + sh * 0.5 - fh / 2 + 2); });
+    const fw = (sw * 0.6) / z, fh = fw * 0.75; ctx.strokeStyle = P.accent; ctx.lineWidth = 2.5; ctx.strokeRect(sx + sw / 2 - fw / 2, sy + sh * 0.5 - fh / 2, fw, fh); ctx.lineWidth = 1;
+    // 차트
+    const bx = sx + sw + 52, box = { x: bx, y: 14, w: w - bx - 12, h: h - 60 };
+    const data = []; for (let k = 0; k <= 400; k++) { const zv = 0.6 * Math.pow(10 / 0.6, k / 400); data.push([zv, eff(zv, C)]); }
+    PB.chart(ctx, box, { x: [0.6, 10], y: [0.3, 80], logX: true, logY: true, xTicks: [0.6, 1, 2, 3, 5, 10], yTicks: [1, 3, 12, 50], xFmt: (v) => v + "×", xLabel: "줌 배율", series: [{ data, color: P.accent, width: 2.2 }], hlines: [{ y: 12, label: "12 MP 출력", color: P.accent2 }], points: [{ x: z, y: eff(z, C), color: P.text, r: 5 }] });
+    ctx.save(); ctx.translate(bx - 40, box.y + box.h / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "center"; ctx.fillText("유효 화소 (MP)", 0, 0); ctx.restore();
+    PB.stat("zm-o-c", q.n);
+    PB.stat("zm-o-k", PB.fmt(z / q.z, 3) + "×");
+    const e = eff(z, C); PB.stat("zm-o-m", PB.fmt(e, 3) + " <small>MP</small>" + (e < 12 ? " <small style='color:var(--bad)'>업스케일</small>" : ""));
+  }, { aspect: 0.42, minHeight: 230, maxHeight: 360 });
+})();
+
+/* ============================================================ 7. AF */
+(function () {
+  const F = 6.8, N = 1.8;
+  const sD = PB.range("af-s", (v) => (v < 1 ? Math.round(v * 100) + " cm" : v.toFixed(2) + " m"), () => { traj = []; cv.redraw(); });
+  const xL = PB.range("af-x", (v) => v + " µm", () => { traj = []; cv.redraw(); });
+  const need = () => ((F * F) / (sD() * 1000 - F)) * 1000; // µm
+  let traj = [], anim = null, afTime = "—";
+  const sharp = (x) => 1 / Math.sqrt(1 + Math.pow((x - need()) / 12, 2));
+  function runPD() {
+    const target = Math.round(need()); const start = xL();
+    traj = [[start, sharp(start)]]; afTime = "≈ 2 프레임 (~50 ms)";
+    let k = 0; anim = setInterval(() => { k++; const v = start + (target - start) * (1 - Math.pow(1 - k / 12, 3)); xL.set(Math.round(v)); traj.push([xL(), sharp(xL())]); if (k >= 12) { clearInterval(anim); anim = null; } cv.redraw(); }, 30);
+  }
+  function runCD() {
+    let x = xL(), step = 40, dir = 1, last = sharp(x), frames = 0;
+    traj = [[x, last]];
+    anim = setInterval(() => {
+      frames++;
+      const nx = PB.clamp(x + dir * step, 0, 650), s = sharp(nx);
+      if (s < last) { dir = -dir; step = Math.round(step / 3); if (step < 3) { clearInterval(anim); anim = null; afTime = `${frames} 프레임 (~${Math.round(frames * 33)} ms)`; xL.set(x); cv.redraw(); return; } }
+      else { x = nx; last = s; }
+      traj.push([nx, s]); xL.set(nx); cv.redraw();
+      if (frames > 60) { clearInterval(anim); anim = null; }
+    }, 110);
+  }
+  document.getElementById("af-pd").addEventListener("click", () => { if (anim) clearInterval(anim); runPD(); });
+  document.getElementById("af-cd").addEventListener("click", () => { if (anim) clearInterval(anim); afTime = "탐색 중…"; runCD(); });
+  const cv = PB.canvas("#cv-af", (ctx, w, h) => {
+    const P = PB.palette(), nd = need(), x = xL(), dl = x - nd, blur = Math.abs(dl) / N, disp = dl / (2 * N);
+    // 위상 신호
+    const h1 = h * 0.46;
+    const box = { x: 46, y: 12, w: w - 60, h: h1 - 40 };
+    const sig = (u, sh) => { const sg = Math.max(0.6, blur / 2.5); let v = 0; for (let k = -3; k <= 3; k++) { const e = u - sh - k * 14; v += 0.5 * (erf((e + 4) / (sg * 1.414)) - erf((e - 4) / (sg * 1.414))); } return 0.15 + 0.7 * v; };
+    const L = [], R = [];
+    for (let u = -40; u <= 40; u += 0.25) { L.push([u, sig(u, disp / 2)]); R.push([u, sig(u, -disp / 2)]); }
+    PB.chart(ctx, box, { x: [-40, 40], y: [0, 1], yTicks: [0, 1], xFmt: (v) => v + " px", series: [{ data: L, color: P.bad, width: 1.8 }, { data: R, color: P.blue, width: 1.8 }] });
+    ctx.fillStyle = P.dim; ctx.font = `11px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("L/R 위상 픽셀 신호", box.x + 4, box.y + 2);
+    // 콘트라스트 곡선
+    const lo = Math.max(0, nd - 160), hi = Math.min(650, nd + 160);
+    const box2 = { x: 46, y: h1 + 8, w: w - 60, h: h - h1 - 46 };
+    const C = []; for (let k = 0; k <= 300; k++) { const xx = lo + ((hi - lo) * k) / 300; C.push([xx, sharp(xx)]); }
+    PB.chart(ctx, box2, { x: [lo, hi], y: [0, 1.05], yTicks: [0, 0.5, 1], xLabel: "렌즈 위치 (µm, 무한대 = 0)", series: [{ data: C, color: P.accent, width: 2 }], vlines: [{ x: nd, label: "초점", color: P.ok }], points: traj.map((t, i) => ({ x: PB.clamp(t[0], lo, hi), y: t[1], r: 3, color: i === traj.length - 1 ? P.text : P.accent2 })).concat([{ x: PB.clamp(x, lo, hi), y: sharp(x), r: 5, color: P.text }]) });
+    ctx.save(); ctx.translate(12, box2.y + box2.h / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = P.dim; ctx.font = `11px ${FONT()}`; ctx.textAlign = "center"; ctx.fillText("선명도", 0, 0); ctx.restore();
+    PB.stat("af-o-n", PB.fmt(nd, 3) + " <small>µm</small>");
+    PB.stat("af-o-d", (dl >= 0 ? "+" : "") + PB.fmt(dl, 3) + " <small>µm</small>");
+    PB.stat("af-o-p", (disp >= 0 ? "+" : "") + PB.fmt(disp, 2) + " <small>px</small>");
+    PB.stat("af-o-t", Math.abs(dl) < 3.6 ? (afTime === "—" ? "초점 맞음" : afTime) : afTime);
+  }, { aspect: 0.62, minHeight: 300, maxHeight: 460 });
+  function erf(x) { const t = 1 / (1 + 0.3275911 * Math.abs(x)); const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x); return x >= 0 ? y : -y; }
+})();
+
+/* ============================================================ 8. OIS */
+(function () {
+  const TS = [1 / 2000, 1 / 1000, 1 / 500, 1 / 250, 1 / 125, 1 / 60, 1 / 30, 1 / 15, 1 / 8, 1 / 4, 1 / 2];
+  const ti = PB.range("oi-t", (v) => "1/" + Math.round(1 / TS[v]) + " s", () => build());
+  const cam = PB.seg("oi-c", () => build());
+  const mode = PB.seg("oi-m", () => build());
+  const amp = PB.range("oi-a", (v) => "±" + v.toFixed(2) + "°", () => build());
+  document.getElementById("oi-re").addEventListener("click", () => { reseed(); build(); });
+  const CAM = { uw: { f: 2.2, px: 1.0, hd: 4000 }, main: { f: 6.8, px: 1.2, hd: 4000 }, tele: { f: 17.7, px: 1.0, hd: 3000 } };
+  const FR = [1.5, 4, 9, 11], WT = [1, 0.6, 0.22, 0.18];
+  let ph = [], t0 = 0;
+  function reseed() { ph = Array.from({ length: 12 }, () => Math.random() * 6.28); t0 = Math.random() * 3; }
+  reseed();
+  const ang = (t, axis) => { let s = 0; FR.forEach((f, i) => (s += WT[i] * Math.sin(2 * Math.PI * f * t + ph[axis * 4 + i]))); return (s / 1.5) * amp(); };
+  let raw = [], cor = [];
+  function build() {
+    const C = CAM[cam()], T = TS[ti()], n = 240, m = mode();
+    raw = []; cor = [];
+    const k = (C.f * 1000) / C.px * Math.PI / 180; // 도 → px
+    const rr = 0.7 * C.hd;
+    for (let i = 0; i <= n; i++) {
+      const t = t0 + (i / n) * T;
+      const ax = ang(t, 0), ay = ang(t, 1), roll = 0.25 * ang(t, 2) * Math.PI / 180;
+      const rx = ax * k, ry = ay * k + rr * roll; // 모서리 점: 롤이 더해진다
+      raw.push([rx, ry]);
+      let cx = rx, cy = ry;
+      if (m === "lens") {
+        const lag = 0.003; const lx = ang(t - lag, 0), ly = ang(t - lag, 1);
+        const lim = 1.0; const ex = PB.clamp(lx, -lim, lim) * 0.95, ey = PB.clamp(ly, -lim, lim) * 0.95;
+        cx = rx - ex * k; cy = ry - ey * k;
+      } else if (m === "sensor") {
+        const lag = 0.002; const lx = ang(t - lag, 0), ly = ang(t - lag, 1), lr = 0.25 * ang(t - lag, 2) * Math.PI / 180;
+        const lim = 2.0; const ex = PB.clamp(lx, -lim, lim) * 0.96, ey = PB.clamp(ly, -lim, lim) * 0.96;
+        cx = rx - ex * k; cy = ry - ey * k - rr * lr * 0.95;
+      }
+      cor.push([cx, cy]);
+    }
+    const norm = (a) => { const x0 = a[0][0], y0 = a[0][1]; return a.map((p) => [p[0] - x0, p[1] - y0]); };
+    raw = norm(raw); cor = norm(cor);
+    cv.redraw();
+  }
+  const ext = (a) => { let mx = 0; for (let i = 0; i < a.length; i++) for (let j = i + 1; j < a.length; j += 6) mx = Math.max(mx, Math.hypot(a[i][0] - a[j][0], a[i][1] - a[j][1])); return mx; };
+  const off = document.createElement("canvas");
+  const cv = PB.canvas("#cv-ois", (ctx, w, h) => {
+    const P = PB.palette();
+    if (!raw.length) return;
+    const er = ext(raw), ec = ext(cor);
+    const half = Math.min(w / 2 - 15, h - 30), cx = 10 + half / 2, cy = 24 + half / 2;
+    const span = Math.max(6, er * 1.15), sc = half / span;
+    ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(`상 궤적 (격자 = ${span > 60 ? 10 : span > 20 ? 5 : 1} px)`, 10, 4);
+    ctx.strokeStyle = P.grid; const gstep = (span > 60 ? 10 : span > 20 ? 5 : 1) * sc;
+    for (let g = -half / 2; g <= half / 2; g += gstep) { ctx.beginPath(); ctx.moveTo(cx + g, cy - half / 2); ctx.lineTo(cx + g, cy + half / 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx - half / 2, cy + g); ctx.lineTo(cx + half / 2, cy + g); ctx.stroke(); }
+    const mean = (a) => a.reduce((p, q) => [p[0] + q[0] / a.length, p[1] + q[1] / a.length], [0, 0]);
+    const drawPath = (a, col, wd) => { const m = mean(a); ctx.strokeStyle = col; ctx.lineWidth = wd; ctx.beginPath(); a.forEach((p, i) => { const X = cx + (p[0] - m[0]) * sc, Y = cy + (p[1] - m[1]) * sc; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.stroke(); };
+    drawPath(raw, P.faint, 1.5); if (mode() !== "off") drawPath(cor, P.accent, 2.5);
+    ctx.lineWidth = 1;
+    // 흐려진 결과
+    const rx = w - 10 - half, ry = 24;
+    const path = mode() === "off" ? raw : cor, m0 = mean(path);
+    const zoom = PB.clamp(half / Math.max(10, ext(path) * 2.2), 1.5, 14);
+    off.width = off.height = Math.round(half);
+    const o = off.getContext("2d"); o.fillStyle = "#0b0d14"; o.fillRect(0, 0, half, half);
+    o.globalCompositeOperation = "lighter";
+    const nS = 60;
+    for (let i = 0; i < nS; i++) {
+      const p = path[Math.floor((i / nS) * (path.length - 1))], dx = (p[0] - m0[0]) * zoom, dy = (p[1] - m0[1]) * zoom;
+      o.globalAlpha = 2.2 / nS * 6;
+      o.fillStyle = "#fff6d8"; o.beginPath(); o.arc(half * 0.3 + dx, half * 0.3 + dy, Math.max(1.2, zoom * 0.6), 0, 7); o.fill();
+      o.globalAlpha = 1.4 / nS; o.fillStyle = "#ffffff"; o.font = `700 ${Math.round(half * 0.22)}px ${FONT()}`; o.textAlign = "center"; o.textBaseline = "middle"; o.fillText("가A", half * 0.55 + dx, half * 0.72 + dy);
+    }
+    o.globalAlpha = 1; o.globalCompositeOperation = "source-over";
+    ctx.drawImage(off, rx, ry);
+    ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.font = `12px ${FONT()}`; ctx.fillText(`결과 (×${zoom.toFixed(1)} 확대)`, rx, 4);
+    PB.stat("oi-o-r", PB.fmt(er, 3) + " <small>px</small>");
+    PB.stat("oi-o-c", PB.fmt(mode() === "off" ? er : ec, 3) + " <small>px</small>");
+    const e = mode() === "off" ? er : ec;
+    PB.stat("oi-o-v", e < 1.5 ? "<span style='color:var(--ok)'>선명</span>" : e < 4 ? "<span style='color:var(--warn)'>약간 흐림</span>" : "<span style='color:var(--bad)'>흔들림</span>");
+  }, { aspect: 0.5, minHeight: 220, maxHeight: 380 });
+  build();
+})();
+
+/* ============================================================ 9. 멀티프레임 */
+(function () {
+  const GX = 96, GY = 60;
+  const nF = PB.range("mf-n", (v) => v + " 장", () => run());
+  const ph = PB.range("mf-p", (v) => v + " γ", () => run());
+  const mv = document.getElementById("mf-mv"), rb = document.getElementById("mf-rb");
+  mv.addEventListener("change", () => run()); rb.addEventListener("change", () => run());
+  document.getElementById("mf-re").addEventListener("click", () => run());
+  function scene(k, moving) {
+    const a = new Float32Array(GX * GY), bx = 30 + (moving ? k * 3 : 0), by = 34;
+    for (let y = 0; y < GY; y++) for (let x = 0; x < GX; x++) {
+      let v = 0.25 + 0.15 * (x / GX);
+      if (x > 8 && x < 26 && y > 8 && y < 22) v = 0.85;
+      if (x > 60 && x < 88 && y > 10 && y < 14) v = 0.9; if (x > 60 && x < 80 && y > 18 && y < 21) v = 0.9;
+      if (x > 64 && x < 70 && y > 30 && y < 54) v = 0.05;
+      if ((x - bx) ** 2 + (y - by) ** 2 < 49) v = 0.95;
+      a[y * GX + x] = v;
+    }
+    return a;
+  }
+  let ref = null, out = null, stats = {};
+  function run() {
+    const n = nF(), p = ph(), moving = mv.checked, robust = rb.checked;
+    const frames = [];
+    for (let k = 0; k < n; k++) { const s = scene(k, moving), f = new Float32Array(GX * GY); for (let i = 0; i < f.length; i++) f[i] = (PB.poisson(s[i] * p) + 1.5 * PB.randn()) / p; frames.push(f); }
+    ref = frames[0];
+    const sm = (a, i) => { const x = i % GX, y = (i / GX) | 0; let s = 0, c = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= GX || yy >= GY) continue; s += a[yy * GX + xx]; c++; } return s / c; };
+    const refS = robust ? ref.map((_, i) => sm(ref, i)) : null;
+    out = new Float32Array(GX * GY);
+    const fs = robust ? frames.map((f) => f.map((_, i) => sm(f, i))) : null;
+    for (let i = 0; i < out.length; i++) {
+      let s = 0, c = 0;
+      for (let k = 0; k < n; k++) {
+        if (robust && k > 0) { const sig = Math.sqrt(Math.max(refS[i], 0.05) / p / 9) * 2 + 0.02; if (Math.abs(fs[k][i] - refS[i]) > 3 * sig) continue; }
+        s += frames[k][i]; c++;
+      }
+      out[i] = s / c;
+    }
+    // 배경 SNR
+    const reg = []; for (let y = 40; y < 56; y++) for (let x = 2; x < 20; x++) reg.push(out[y * GX + x]);
+    const m = reg.reduce((a, b) => a + b, 0) / reg.length, sd = Math.sqrt(reg.reduce((a, b) => a + (b - m) ** 2, 0) / reg.length);
+    stats = { snr: m / sd };
+    cv.redraw();
+  }
+  const o1 = document.createElement("canvas"), o2 = document.createElement("canvas"); o1.width = o2.width = GX; o1.height = o2.height = GY;
+  const put = (o, a) => { const c = o.getContext("2d"), im = c.createImageData(GX, GY); for (let i = 0; i < a.length; i++) { const v = Math.round(255 * Math.pow(PB.clamp(a[i], 0, 1), 1 / 2.2)); im.data[i * 4] = v; im.data[i * 4 + 1] = v; im.data[i * 4 + 2] = Math.min(255, v + 4); im.data[i * 4 + 3] = 255; } c.putImageData(im, 0, 0); };
+  const cv = PB.canvas("#cv-mf", (ctx, w, h) => {
+    const P = PB.palette();
+    if (!out) return;
+    put(o1, ref); put(o2, out);
+    const pw = Math.min((w - 30) / 2, ((h - 28) * GX) / GY), phh = (pw * GY) / GX;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(o1, 10, 22, pw, phh); ctx.drawImage(o2, w - 10 - pw, 22, pw, phh);
+    ctx.fillStyle = P.dim; ctx.font = `12px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("한 장 (기준 프레임)", 10, 4); ctx.fillText(`${nF()}장 병합`, w - 10 - pw, 4);
+    PB.stat("mf-o-g", "×" + PB.fmt(Math.sqrt(nF()), 3) + " <small>(" + PB.fmt(10 * Math.log10(nF()), 2) + " dB)</small>");
+    PB.stat("mf-o-t", nF() + " × 1/30 s");
+    PB.stat("mf-o-s", PB.fmt(stats.snr, 3));
+  }, { aspect: 0.36, minHeight: 170, maxHeight: 330 });
+  run();
+})();
+
+/* ============================================================ 11. 설계 트레이드오프 */
+(function () {
+  const ss = PB.seg("dg-s", () => cv.redraw()), st = PB.seg("dg-t", () => cv.redraw()), so = PB.seg("dg-o", () => cv.redraw());
+  const th = PB.range("dg-th", (v) => v.toFixed(1) + " mm", () => cv.redraw());
+  function calc(o) {
+    const d = 16 / Number(o.s), f = (24 * d) / 43.27;
+    const Hm = 1.18 * f + 1.3 + (o.o === "sensor" ? 0.4 : 0);
+    const H3 = 0.85 * ((72 * 4.7) / 43.27) + 1.2, Hp = 6.0;
+    const Hs = [Hm, 5.2]; let wgt = 2.0 * Math.pow(d / 10.26, 2.5) + (o.o === "sensor" ? 0.6 : 0) + 1.2, cost = { "1.56": 12, "1.3": 20, "1": 35 }[o.s] + (o.o === "sensor" ? 5 : 0) + 6;
+    let area = Math.pow(d * 0.9 + 4, 2) + 64;
+    if (o.t === "t3" || o.t === "both") { Hs.push(H3); wgt += 1.5; cost += 7; area += 64; }
+    if (o.t === "p5" || o.t === "both") { Hs.push(Hp); wgt += 3.5; cost += 18; area += 240; }
+    const Hmax = Math.max(...Hs), bump = Math.max(0, Hmax - (o.th - 1.8));
+    wgt += 2 + 0.6 * bump;
+    return { Hmax, bump, wgt, area: area / 100, cost };
+  }
+  const cv = PB.canvas("#cv-design", (ctx, w, h) => {
+    const P = PB.palette();
+    const cur = calc({ s: ss(), t: st(), o: so(), th: th() }), ref = calc({ s: "1.56", t: "none", o: "lens", th: th() });
+    const rows = [["최대 모듈 높이", cur.Hmax, ref.Hmax, "mm", 2], ["범프 높이", cur.bump, Math.max(ref.bump, 0.3), "mm", 2, cur.bump], ["카메라부 무게", cur.wgt, ref.wgt, "g", 3], ["모듈 바닥 면적 합", cur.area, ref.area, "cm²", 2], ["모듈 원가(대략)", cur.cost, ref.cost, "$", 3]];
+    const lw = Math.min(130, w * 0.32), bx = lw + 14, bw = w - bx - 70, rh = (h - 20) / rows.length, maxR = 4;
+    rows.forEach((r, i) => {
+      const y = 10 + i * rh, ratio = r[1] / r[2];
+      ctx.fillStyle = P.text; ctx.font = `12.5px ${FONT()}`; ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(r[0], lw + 4, y + rh / 2);
+      ctx.fillStyle = P.surface; ctx.fillRect(bx, y + rh * 0.2, bw, rh * 0.6);
+      ctx.fillStyle = ratio > 1.02 ? P.bad : ratio < 0.98 ? P.ok : P.faint;
+      ctx.fillRect(bx, y + rh * 0.2, (Math.min(ratio, maxR) / maxR) * bw, rh * 0.6);
+      const x1 = bx + bw / maxR; ctx.strokeStyle = P.text; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(x1, y + rh * 0.1); ctx.lineTo(x1, y + rh * 0.9); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = `600 12px ${MONO()}`; ctx.fillText(PB.fmt(r[1], r[4]) + " " + r[3], bx + bw + 6, y + rh / 2);
+    });
+  }, { height: 260 });
+})();
+</script>
+</body>
+</html>
