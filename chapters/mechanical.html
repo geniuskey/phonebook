@@ -1,0 +1,1501 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기구 설계: 프레임·유리·방수 · PhoneBook</title>
+<meta name="description" content="스마트폰의 뼈대와 피부: 알루미늄·티타늄 프레임, 굽힘 강성의 t³ 법칙, 화학 강화 유리의 응력 프로파일, 낙하 충격, IP68 방수, 공차 누적, 수리 용이성을 시뮬레이터로 배운다.">
+<link rel="canonical" href="https://phonebook.euiyun.com/chapters/mechanical.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="PhoneBook">
+<meta property="og:title" content="기구 설계: 프레임·유리·방수 · PhoneBook">
+<meta property="og:description" content="스마트폰의 뼈대와 피부: 알루미늄·티타늄 프레임, 굽힘 강성의 t³ 법칙, 화학 강화 유리의 응력 프로파일, 낙하 충격, IP68 방수, 공차 누적, 수리 용이성을 시뮬레이터로 배운다.">
+<meta property="og:url" content="https://phonebook.euiyun.com/chapters/mechanical.html">
+<meta property="og:image" content="https://phonebook.euiyun.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"기구 설계: 프레임·유리·방수","name":"기구 설계: 프레임·유리·방수 · PhoneBook","url":"https://phonebook.euiyun.com/chapters/mechanical.html","mainEntityOfPage":"https://phonebook.euiyun.com/chapters/mechanical.html","inLanguage":"ko","isAccessibleForFree":true,"learningResourceType":"interactive textbook chapter","position":12,"image":"https://phonebook.euiyun.com/og.png","dateModified":"2026-10-03","isPartOf":{"@type":"Book","@id":"https://phonebook.euiyun.com/#book","name":"PhoneBook — 인터랙티브 스마트폰 해부 교과서","url":"https://phonebook.euiyun.com/"},"publisher":{"@type":"Organization","name":"PhoneBook","url":"https://phonebook.euiyun.com/"},"description":"스마트폰의 뼈대와 피부: 알루미늄·티타늄 프레임, 굽힘 강성의 t³ 법칙, 화학 강화 유리의 응력 프로파일, 낙하 충격, IP68 방수, 공차 누적, 수리 용이성을 시뮬레이터로 배운다."},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"PhoneBook","item":"https://phonebook.euiyun.com/"},{"@type":"ListItem","position":2,"name":"12 기구 설계: 프레임·유리·방수","item":"https://phonebook.euiyun.com/chapters/mechanical.html"}]}]}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  [hidden] { display: none !important; }
+  figure.diagram svg .t { font-size: 15px; }
+  figure.diagram svg .t-dim { font-size: 14px; }
+  figure.diagram svg .t-mono { font-size: 13px; }
+  figure.diagram svg .t-acc { font-size: 15px; }
+  .mx-info { padding: 12px 18px; border-top: 1px solid var(--border); font-size: 14.5px; line-height: 1.6; min-height: 4.6em; }
+  .mx-info b.hd { display: block; font-size: 15.5px; margin-bottom: 2px; }
+  .mx-info .kv { display: flex; flex-wrap: wrap; gap: 2px 16px; font-family: var(--mono); font-size: 12.5px; color: var(--text-dim); margin-top: 4px; }
+  .verdict { padding: 10px 18px; border-top: 1px solid var(--border); font-size: 14.5px; }
+  .verdict.ok { background: color-mix(in srgb, var(--ok) 12%, transparent); }
+  .verdict.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .verdict.bad { background: color-mix(in srgb, var(--bad) 13%, transparent); }
+  .ant-svg .seg { cursor: pointer; stroke-linecap: butt; fill: none; transition: stroke-width .15s; }
+  .ant-svg .seg:hover { stroke-width: 15; }
+  .ant-svg .split { fill: var(--text); }
+  .seal-svg .pt { cursor: pointer; }
+  .seal-svg .pt circle { fill: var(--accent-2); stroke: var(--bg-elev); stroke-width: 2; }
+  .seal-svg .pt:hover circle, .seal-svg .pt.on circle { fill: var(--accent); }
+  .seal-svg .pt text { fill: #fff; font-family: var(--mono); font-size: 13px; font-weight: 700; pointer-events: none; }
+  .bar-list { padding: 12px 18px 4px; display: grid; gap: 7px; }
+  .bar-list .row { display: grid; grid-template-columns: 8.5em minmax(0, 1fr) 6.5em; gap: 10px; align-items: center; font-size: 13.5px; }
+  .bar-list .row .lb { color: var(--text-dim); }
+  .bar-list .row .tr { height: 12px; background: var(--surface); border-radius: 6px; overflow: hidden; }
+  .bar-list .row .tr i { display: block; height: 100%; background: var(--accent); border-radius: 6px; transition: width .2s; }
+  .bar-list .row .vv { font-family: var(--mono); font-size: 12.5px; text-align: right; }
+  @media (max-width: 520px) { .bar-list .row { grid-template-columns: 6.5em minmax(0, 1fr) 5.6em; font-size: 12.5px; } }
+  .mat-tbl td:first-child { font-weight: 600; white-space: nowrap; }
+  .mat-tbl td.num { font-family: var(--mono); font-size: 13.5px; white-space: nowrap; }
+</style>
+</head>
+<body data-chapter="mechanical">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 12</div>
+    <h1>기구 설계: 프레임·유리·방수</h1>
+    <p class="lead">스마트폰의 전자 부품은 모두 하나의 <b>뼈대</b> 위에 놓이고 두 장의 <b>유리</b> 사이에 갇힌다. 이 기구(mechanical) 구조가 폰을 주머니 속 굽힘, 1 m 낙하, 수심 수 m의 물에서 지켜 낸다. 동시에 그 뼈대는 안테나이고, 방열판이며, 손에 닿는 디자인 그 자체다. 이 장에서는 재료를 고르고, 두께를 정하고, 유리를 강화하고, 틈을 막고, 공차를 맞추는 일을 직접 해 본다.</p>
+    <ul class="objectives">
+      <li>프레임+미드플레이트 일체형 구조와 유리 샌드위치가 강성을 만드는 원리를 설명할 수 있다.</li>
+      <li>애시비 차트로 비강성·비강도를 비교해 프레임 재료를 고를 수 있다.</li>
+      <li>굽힘 강성이 두께의 세제곱(또는 제곱)에 비례함을 이용해 '얇게'의 대가를 계산할 수 있다.</li>
+      <li>이온 교환 강화 유리의 응력 프로파일과 균열이 멈추는 원리를 이해한다.</li>
+      <li>낙하 충격 가속도, IP68 방수, 공차 누적을 수치로 추정할 수 있다.</li>
+    </ul>
+  </header>
+
+  <!-- ============================================================ 1. 위치 -->
+  <section id="where">
+    <h2>폰 안의 위치: 뼈대와 피부</h2>
+    <p>기구 부품은 세 가지다. ① <span class="term">프레임·미드플레이트</span><span class="en">(Frame / Mid-plate)</span>: 측면 테두리(레일)와 내부의 판이 한 덩어리로 가공된 뼈대. 디스플레이, 메인보드, 배터리가 모두 여기에 고정된다. ② <span class="term">커버 글라스</span><span class="en">(Cover Glass)</span>: 화면 앞의 강화 유리. ③ <span class="term">후면 글라스</span><span class="en">(Back Glass)</span>: 무선 충전과 전파가 지나갈 수 있도록 금속 대신 쓰는 뒷판. 이 셋이 접착제로 붙어 하나의 상자, 즉 <b>하우징</b><span class="en">(housing)</span>을 이룬다.</p>
+    <div class="sim" id="sim-pos">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>폰 안의 기구 부품</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v3d-pos"><div class="part-card" id="pos-card" hidden></div><div class="hint">드래그: 회전 · 클릭: 부품 정보</div></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>강조할 부품</span>
+            <div class="chips" id="pos-chips">
+              <button data-id="frame" class="on"><i style="background:#a7adb8"></i>프레임·미드플레이트</button>
+              <button data-id="cover"><i style="background:#9fd3ff"></i>커버 글라스</button>
+              <button data-id="backglass"><i style="background:#3d4a5c"></i>후면 글라스</button>
+              <button data-id="all"><i style="background:var(--accent)"></i>셋 다</button>
+            </div>
+          </div>
+          <label class="ctrl"><span>분해 정도 <output id="pos-ex-out"></output></span><input type="range" id="pos-ex" min="0" max="1" step="0.01" value="0.6"></label>
+          <label class="check"><input type="checkbox" id="pos-split" checked> 안테나 분할선 깜빡이기</label>
+          <label class="check"><input type="checkbox" id="pos-xray"> 엑스레이(나머지 반투명)</label>
+          <label class="check"><input type="checkbox" id="pos-rot"> 자동 회전</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">측면 레일 두께</span><span class="v">1.2–1.6<small>mm</small></span></div>
+        <div class="stat"><span class="k">미드플레이트</span><span class="v">0.4–0.6<small>mm</small></span></div>
+        <div class="stat"><span class="k">유리 두께(앞/뒤)</span><span class="v">0.5–0.7<small>mm</small></span></div>
+        <div class="stat"><span class="k">분할선(모델)</span><span class="v" id="pos-nsplit">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 분해 정도를 0으로 내리면 세 부품이 정확히 맞물려 '상자'가 된다. 프레임을 클릭해 측면에 박힌 검은 띠(수지로 채운 분할선)를 찾아보자. 이 띠가 금속 테두리를 여러 조각의 안테나로 나눈다.</div>
+    </div>
+    <p>무게로 보면 기구 부품은 폰 전체(170~230 g)의 약 <b>30~40 %</b>를 차지한다. 프레임 20~45 g, 두 장의 유리 25~35 g 정도다. 그래서 프레임 재료를 알루미늄에서 티타늄으로 바꾸거나, 유리를 0.1 mm 얇게 하는 결정이 곧바로 체감 무게로 이어진다.</p>
+  </section>
+
+  <!-- ============================================================ 2. 아키텍처 -->
+  <section id="architecture">
+    <h2>하우징 아키텍처: 유리 샌드위치</h2>
+    <p>2010년대 초 폰은 플라스틱 뒷판을 끼우는 구조가 많았고, 이어서 알루미늄 덩어리를 깎은 <b>유니바디</b><span class="en">(unibody)</span>가 유행했다. 금속 유니바디는 단단하고 고급스럽지만 전파를 막아 위아래에 플라스틱 띠를 둘러야 했다. 무선 충전이 표준이 되면서 지금의 주류는 <b>유리–금속 프레임–유리 샌드위치</b>다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 640 330" role="img" aria-label="유리 샌드위치 하우징의 단면">
+        <!-- frame rails -->
+        <rect x="40" y="70" width="26" height="190" rx="8" class="f-surface" style="fill:var(--text-faint);opacity:.55"/>
+        <rect x="574" y="70" width="26" height="190" rx="8" class="f-surface" style="fill:var(--text-faint);opacity:.55"/>
+        <!-- midplate -->
+        <rect x="60" y="148" width="520" height="12" style="fill:var(--text-faint);opacity:.45"/>
+        <!-- cover glass -->
+        <rect x="46" y="62" width="548" height="14" rx="6" style="fill:var(--blue);opacity:.35;stroke:var(--blue)"/>
+        <!-- display -->
+        <rect x="70" y="78" width="500" height="16" style="fill:var(--accent);opacity:.35"/>
+        <!-- board -->
+        <rect x="80" y="164" width="150" height="40" rx="3" style="fill:var(--green);opacity:.4"/>
+        <rect x="90" y="155" width="34" height="9" style="fill:var(--text-dim)"/>
+        <!-- battery -->
+        <rect x="250" y="164" width="300" height="70" rx="6" class="f-acc2-soft"/>
+        <!-- camera -->
+        <rect x="96" y="204" width="44" height="78" rx="4" style="fill:var(--blue);opacity:.5"/>
+        <!-- back glass -->
+        <rect x="46" y="250" width="548" height="14" rx="6" style="fill:var(--blue);opacity:.35;stroke:var(--blue)"/>
+        <rect x="90" y="264" width="56" height="20" rx="5" style="fill:var(--blue);opacity:.35;stroke:var(--blue)"/>
+        <!-- adhesive dots -->
+        <rect x="58" y="76" width="16" height="4" class="f-acc"/><rect x="566" y="76" width="16" height="4" class="f-acc"/>
+        <rect x="58" y="246" width="16" height="4" class="f-acc"/><rect x="566" y="246" width="16" height="4" class="f-acc"/>
+        <!-- labels -->
+        <text x="320" y="48" text-anchor="middle" class="t">커버 글라스 0.5–0.7 mm (화학 강화)</text>
+        <text x="320" y="110" text-anchor="middle" class="t-dim">OLED 디스플레이 모듈 ~0.8 mm</text>
+        <text x="390" y="143" text-anchor="middle" class="t-dim">미드플레이트 (프레임과 일체 CNC)</text>
+        <text x="155" y="188" text-anchor="middle" class="t-dim">메인보드</text>
+        <text x="400" y="204" text-anchor="middle" class="t">배터리</text>
+        <text x="320" y="306" text-anchor="middle" class="t">후면 글라스 ~0.6 mm · 카메라 범프</text>
+        <text x="53" y="290" text-anchor="middle" class="t-mono">레일</text>
+        <text x="587" y="290" text-anchor="middle" class="t-mono">레일</text>
+        <line x1="582" y1="80" x2="616" y2="40" class="s-acc"/><text x="612" y="34" text-anchor="end" class="t-acc">접착 씰</text>
+        <text x="20" y="168" class="t-mono" transform="rotate(-90 20 168)">총 두께 7–9 mm</text>
+      </svg>
+      <figcaption><b>그림 12-1.</b> 유리 샌드위치 하우징의 폭 방향 단면(두께 과장). 측면 레일과 미드플레이트는 한 덩어리의 금속에서 깎아 낸다. 앞뒤 유리는 프레임 테두리에 접착되어 방수 씰을 겸하고, 구조적으로는 <b>샌드위치 보의 면재(face sheet)</b> 역할까지 한다.</figcaption>
+    </figure>
+    <h3>프레임은 어떻게 만드나</h3>
+    <p>대표적인 공정은 압출 또는 단조한 알루미늄 블록(빌릿)을 CNC로 깎는 것이다. 블록 무게의 70~80 %가 칩(절삭 부스러기)으로 날아가고, 수십 개의 공정(황삭 → 정삭 → 안테나 슬롯 가공 → 수지 사출 → 외관 정삭 → 연마 → 표면 처리)을 거친다. 안테나 분할선은 금속 슬롯에 플라스틱을 사출해 금속과 결합시키는 <span class="term">나노 몰딩</span><span class="en">(NMT, Nano Molding Technology)</span>으로 채운다. 금속 표면에 나노 크기 구멍을 화학적으로 낸 뒤 수지가 파고들게 해서 기계적으로 고정하는 방식이다.</p>
+    <div class="flow">
+      <div><b>빌릿 준비</b>압출·단조 Al 7000계 또는 Ti 판재. 결 방향을 맞춘다.</div>
+      <div><b>황삭 CNC</b>내부 포켓(배터리·보드 자리)을 크게 파낸다. 가장 긴 공정.</div>
+      <div><b>슬롯 + NMT</b>안테나 분할 슬롯을 내고 수지를 사출해 금속 조각을 다시 잇는다.</div>
+      <div><b>정삭·연마</b>외관면을 0.01 mm 단위로 다듬고 모서리 챔퍼를 깎는다.</div>
+      <div><b>표면 처리</b>아노다이징(Al) 또는 PVD·블라스팅(Ti·SUS)으로 색과 내마모성.</div>
+    </div>
+    <div class="callout tip"><strong>왜 미드플레이트와 레일을 한 덩어리로?</strong>
+      <p>따로 만든 뒤 붙이면 접합부가 굽힘에서 미끄러져 강성이 떨어지고, 접지(ground)도 불안정해진다. 일체형으로 깎으면 비싸지만 강성·접지·열 확산이 모두 좋아진다. 티타늄 프레임 폰 중에는 측면 레일만 티타늄으로 하고 내부 미드플레이트는 열전도가 좋은 알루미늄으로 만들어 <b>고상 확산 접합</b> 등으로 붙이는 하이브리드 구조도 있다.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 3. 재료 -->
+  <section id="materials">
+    <h2>재료: 무엇으로 뼈대를 만드나</h2>
+    <p>프레임 재료에 요구되는 성질은 서로 부딪친다. <b>가벼워야</b>(밀도 \(\rho\) 낮음) 하고, <b>휘지 않아야</b>(탄성계수 \(E\) 높음) 하고, <b>찍히거나 영구 변형되지 않아야</b>(항복강도 \(\sigma_y\) 높음) 하며, <b>열을 잘 퍼뜨려야</b>(열전도도 \(k\) 높음) 하고, 가공이 쉽고 싸야 한다.</p>
+    <div class="table-wrap">
+      <table class="mat-tbl">
+        <thead><tr><th>재료</th><th class="num">밀도 g/cm³</th><th class="num">E GPa</th><th class="num">σ<sub>y</sub> MPa</th><th class="num">k W/m·K</th><th>특징</th></tr></thead>
+        <tbody>
+          <tr><td>Al 6000계 (6061/6013-T6)</td><td class="num">2.70</td><td class="num">69</td><td class="num">240–330</td><td class="num">150–200</td><td>가공·아노다이징 쉽고 저렴. 찍힘에 약하다.</td></tr>
+          <tr><td>Al 7000계 (7075-T6 계열)</td><td class="num">2.81</td><td class="num">71</td><td class="num">430–540</td><td class="num">120–150</td><td>아연 합금. 강도 약 1.5배. 굽힘 사고 이후 플래그십 주류.</td></tr>
+          <tr><td>티타늄 Gr.5 (Ti-6Al-4V)</td><td class="num">4.43</td><td class="num">114</td><td class="num">830–950</td><td class="num">~7</td><td>강하고 흠집·찍힘에 강함. 무겁고 가공이 수 배 느림. 열을 잘 못 퍼뜨린다.</td></tr>
+          <tr><td>스테인리스 (316L·17-4PH)</td><td class="num">7.9</td><td class="num">193</td><td class="num">200–1,000</td><td class="num">~16</td><td>강성 최고, 광택. 하지만 알루미늄의 3배 무게.</td></tr>
+          <tr><td>마그네슘 (AZ31/AZ91)</td><td class="num">1.80</td><td class="num">45</td><td class="num">150–230</td><td class="num">60–100</td><td>가장 가벼운 구조 금속. 부식·가공 중 화재 위험, 노트북·태블릿 내부 프레임에 쓰임.</td></tr>
+          <tr><td>유리섬유 강화 PC/PA (GF30)</td><td class="num">1.43</td><td class="num">6–10</td><td class="num">90–150</td><td class="num">~0.3</td><td>사출 성형으로 1분 내 생산. 전파 투명. 보급형 프레임.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>숫자만 보면 '어느 것이 최고'인지 알 수 없다. 무게당 성능은 <b>어떤 모양으로 하중을 받느냐</b>에 따라 다른 지수로 비교해야 하기 때문이다. 같은 강성을 내는 가장 가벼운 재료를 찾는 지수(재료 지수, material index)는 다음과 같다.</p>
+    <div class="formula">$$\underbrace{\frac{E}{\rho}}_{\text{인장 막대}}\qquad \underbrace{\frac{E^{1/2}}{\rho}}_{\text{보(폭 고정, 두께 자유)}}\qquad \underbrace{\frac{E^{1/3}}{\rho}}_{\text{판(면적 고정, 두께 자유)}}$$
+      <div class="where">판의 굽힘 강성은 \(E t^3\)에 비례하므로, 같은 강성이면 \(t \propto E^{-1/3}\), 무게 \(\propto \rho t \propto \rho/E^{1/3}\). 지수가 클수록 같은 강성에서 가볍다.</div></div>
+    <p>미드플레이트처럼 넓은 판에서는 \(E^{1/3}/\rho\)가 중요한데, 이 지수에서는 <b>마그네슘(≈1.98) &gt; 알루미늄(≈1.52) &gt; 유리섬유 PC(≈1.4) &gt; 티타늄(≈1.09) &gt; 스테인리스(≈0.73)</b> 순이다. 티타늄이 '가볍고 강하다'는 말은 <b>강도</b>(찍힘, 영구 변형)에 대한 이야기이지 강성에 대한 이야기는 아니다. 아래 애시비 차트에서 직접 확인해 보자.</p>
+
+    <div class="sim" id="sim-ashby">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>애시비 차트: 밀도 대비 강성·강도·열전도</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-ashby"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>세로축 물성</span><div class="seg" id="ash-prop"><button data-value="E" class="on">강성 E</button><button data-value="s">강도 σ<sub>y</sub></button><button data-value="k">열전도 k</button></div></div>
+          <div class="ctrl"><span>설계 지수(가이드선)</span><div class="seg" id="ash-idx"><button data-value="1">인장</button><button data-value="2">보</button><button data-value="3" class="on">판</button></div></div>
+          <label class="check"><input type="checkbox" id="ash-glass" checked> 유리·세라믹도 표시</label>
+          <p style="margin:0;font-size:13px;color:var(--text-dim)">재료 타원을 클릭하면 상세 정보가 나온다. 점선은 같은 지수 값의 선: 선 위쪽(왼쪽 위)일수록 무게 대비 우수하다.</p>
+        </div>
+      </div>
+      <div class="mx-info" id="ash-info">재료를 클릭해 보자.</div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">현재 지수</span><span class="v" id="ash-o-idx">—</span></div>
+        <div class="stat"><span class="k">1위</span><span class="v" id="ash-o-1">—</span></div>
+        <div class="stat"><span class="k">2위</span><span class="v" id="ash-o-2">—</span></div>
+        <div class="stat"><span class="k">3위</span><span class="v" id="ash-o-3">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: '강성 E + 판'에서 마그네슘이 1위인 것을 확인하고, '강도 σ<sub>y</sub>'로 바꿔 티타늄이 얼마나 앞서는지 보자. '열전도'에서는 티타늄과 스테인리스가 알루미늄보다 10~30배 나쁘다. 티타늄 폰의 내부 판을 알루미늄이나 구리로 보강하는 이유다.</div>
+    </div>
+    <div class="callout deep"><strong>7000계 알루미늄이 표준이 된 사연</strong>
+      <p>얇은 6000계 알루미늄 폰이 주머니 속에서 휘는 문제가 2014년 무렵 크게 화제가 된 뒤, 업계는 항복강도가 1.5배 이상 높은 7000계(Al-Zn-Mg-Cu)로 옮겨 갔다. 강성(E)은 거의 같으므로 <b>휘는 양</b>은 같지만, 손을 떼면 <b>원래대로 돌아오는 한계</b>가 높아진 것이다. 영구 변형(소성)이 생기지 않는 한계가 기구 설계의 진짜 기준인 경우가 많다.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 4. 굽힘 -->
+  <section id="bending">
+    <h2>얇아지면 얼마나 약해지나: 굽힘 강성</h2>
+    <p>폰을 양 끝에서 받치고 가운데를 누르는 <b>3점 굽힘</b>은 '뒷주머니에 넣고 앉기'를 단순화한 시험이다. 가운데 처짐 \(\delta\)는 보 이론으로 계산한다.</p>
+    <div class="formula">$$\delta = \frac{F L^3}{48\,(EI)_{\text{eff}}},\qquad (EI)_{\text{eff}} = \sum_i E_i\left(I_i + A_i\,d_i^2\right),\qquad I_{\text{rect}}=\frac{b\,h^3}{12}$$
+      <div class="where">\(F\): 하중, \(L\): 받침 간격, \(E_i\): 층 \(i\)의 탄성계수, \(A_i\): 단면적, \(d_i\): 중립축에서 층 중심까지 거리. 여러 재료가 붙은 단면은 \(E\)로 가중한 '환산 단면'으로 계산한다.</div></div>
+    <p>여기서 두 가지 법칙이 나온다. 측면 레일처럼 <b>두께 방향으로 꽉 찬 판</b>은 \(I\propto h^3\)이라 두께를 10 % 줄이면 강성이 27 % 떨어진다(\(0.9^3=0.73\)). 반면 앞뒤 유리처럼 <b>중립축에서 멀리 떨어진 얇은 면재</b>는 \(A d^2\) 항이 지배적이라 \(I\propto T^2\)에 가깝다. 실제 폰은 둘이 섞여 있어 두께의 2~3제곱 사이로 강성이 변한다.</p>
+
+    <div class="sim" id="sim-beam">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>3점 굽힘: 두께·재료·유리 접착의 효과</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-beam"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>폰 두께 T <output id="bm-t-out"></output></span><input type="range" id="bm-t" min="5" max="10" step="0.1" value="8"></label>
+          <label class="ctrl"><span>하중 F <output id="bm-f-out"></output></span><input type="range" id="bm-f" min="20" max="600" step="10" value="250"></label>
+          <div class="ctrl"><span>프레임 재료</span><div class="seg" id="bm-mat"><button data-value="al" class="on">Al</button><button data-value="ti">Ti</button><button data-value="sus">SUS</button><button data-value="pc">GF-PC</button></div></div>
+          <label class="check"><input type="checkbox" id="bm-glass" checked> 앞뒤 유리가 프레임에 접착됨</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">유효 굽힘 강성 EI</span><span class="v" id="bm-o-ei">—</span></div>
+        <div class="stat"><span class="k">가운데 처짐 δ</span><span class="v" id="bm-o-d">—</span></div>
+        <div class="stat"><span class="k">8 mm 대비 강성</span><span class="v" id="bm-o-r">—</span></div>
+        <div class="stat"><span class="k">유리 최대 응력</span><span class="v" id="bm-o-sg">—</span></div>
+        <div class="stat"><span class="k">레일 응력 / 항복</span><span class="v" id="bm-o-sr">—</span></div>
+      </div>
+      <div class="sim-note">모델: 받침 간격 140 mm, 레일 2×1.4 mm, 미드플레이트 0.5 mm, 유리 0.6 mm(E = 75 GPa, 접착 전단 지연을 고려해 유효 결합률 50 %). 해볼 것: 유리 접착을 끄면 강성이 몇 분의 1로 떨어진다. 유리는 장식이 아니라 구조 부재다. 그 대가로 굽힘이 커지면 <b>유리가 먼저 인장 응력을 받는다</b>.</div>
+    </div>
+    <div class="callout warn"><strong>강성이 높으면 무조건 좋은가?</strong>
+      <p>너무 딱딱한 하우징은 낙하 때 충격을 흡수하지 못해 유리와 내부 부품으로 응력을 고스란히 전달한다. 그래서 디스플레이 모듈과 미드플레이트 사이에는 폼(foam) 쿠션을, 프레임 모서리에는 약간의 변형 여유(크럼플 존)를 둔다. 강성은 '충분히', 강도와 에너지 흡수는 '넉넉히'가 원칙이다.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 5. 유리 -->
+  <section id="glass">
+    <h2>화학 강화 유리: 표면에 압축을 심다</h2>
+    <p>유리는 이론 강도가 수 GPa에 이르지만, 실제로는 표면의 눈에 보이지 않는 미세 균열(그리피스 결함) 때문에 수십 MPa에서 깨진다. 균열 끝에 응력이 집중되기 때문이다. 파괴역학은 이것을 <b>응력 확대 계수</b> \(K\)로 다룬다.</p>
+    <div class="formula">$$K_I = Y\,\sigma\sqrt{\pi a}\;\geq\;K_{IC}\ \Rightarrow\ \text{파괴},\qquad \sigma_f = \frac{K_{IC}}{Y\sqrt{\pi a}}$$
+      <div class="where">\(a\): 균열 깊이, \(Y\approx1.12\): 표면 균열 형상 계수, \(K_{IC}\): 파괴 인성. 일반 유리는 \(K_{IC}\approx0.7\text{–}0.8\ \text{MPa}\sqrt{\text{m}}\)로, 깊이 20 µm 결함만 있어도 강도가 약 80 MPa로 떨어진다.</div></div>
+    <p>해법은 <b>균열이 열리지 못하도록 표면을 미리 눌러 두는 것</b>이다. 알루미노실리케이트 유리를 400 °C 안팎의 질산칼륨(KNO₃) 용융염에 수 시간 담그면, 유리 속 작은 나트륨 이온(Na⁺)이 빠져나가고 큰 칼륨 이온(K⁺)이 그 자리에 끼어든다. 큰 이온이 좁은 자리에 들어가니 표면층이 팽창하려 하고, 주변 유리가 이를 붙잡아 표면에 <span class="term">압축응력</span><span class="en">(CS, Compressive Stress)</span>이 생긴다. 힘의 평형 때문에 중심부에는 그만큼의 <span class="term">중심 인장</span><span class="en">(CT, Central Tension)</span>이 남는다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 640 260" role="img" aria-label="이온 교환 원리">
+        <rect x="20" y="40" width="260" height="170" rx="8" class="f-surface"/>
+        <rect x="20" y="40" width="260" height="34" rx="8" style="fill:var(--accent-2);opacity:.22"/>
+        <text x="150" y="30" text-anchor="middle" class="t">KNO₃ 용융염 (~380–450 °C)</text>
+        <g>
+          <circle cx="60" cy="57" r="11" style="fill:var(--accent-2)"/><text x="60" y="62" text-anchor="middle" class="t-mono" style="fill:#fff">K⁺</text>
+          <circle cx="120" cy="57" r="11" style="fill:var(--accent-2)"/><text x="120" y="62" text-anchor="middle" class="t-mono" style="fill:#fff">K⁺</text>
+          <circle cx="180" cy="57" r="11" style="fill:var(--accent-2)"/><text x="180" y="62" text-anchor="middle" class="t-mono" style="fill:#fff">K⁺</text>
+          <circle cx="240" cy="57" r="11" style="fill:var(--accent-2)"/><text x="240" y="62" text-anchor="middle" class="t-mono" style="fill:#fff">K⁺</text>
+        </g>
+        <g style="fill:var(--accent)">
+          <circle cx="60" cy="110" r="7"/><circle cx="120" cy="120" r="7"/><circle cx="180" cy="105" r="7"/><circle cx="240" cy="118" r="7"/>
+          <circle cx="90" cy="160" r="7"/><circle cx="150" cy="170" r="7"/><circle cx="210" cy="158" r="7"/><circle cx="260" cy="185" r="7"/>
+        </g>
+        <path d="M90 104 C 95 85, 100 75, 115 66" class="s-acc" marker-end="url(#mx-arr)"/>
+        <path d="M150 65 C 158 78, 160 90, 172 100" style="stroke:var(--accent-2);fill:none;stroke-width:2" marker-end="url(#mx-arr2)"/>
+        <text x="150" y="232" text-anchor="middle" class="t-dim">작은 Na⁺(청록)가 나가고 큰 K⁺(주황)가 들어간다</text>
+        <defs>
+          <marker id="mx-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--accent)"/></marker>
+          <marker id="mx-arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--accent-2)"/></marker>
+        </defs>
+        <!-- stress profile sketch -->
+        <line x1="340" y1="40" x2="340" y2="215" class="s-axis"/>
+        <line x1="330" y1="128" x2="620" y2="128" class="s-axis"/>
+        <text x="350" y="34" class="t-dim">유리 깊이 →(위: 앞면, 아래: 뒷면)</text>
+        <path d="M340 45 L 360 45" class="s-axis"/>
+        <path d="M600 46 C 470 52, 420 64, 400 78 L 400 178 C 420 192, 470 204, 600 210" style="stroke:var(--accent);fill:var(--accent-soft);stroke-width:2"/>
+        <path d="M400 78 L 400 178" style="stroke:var(--bad);stroke-width:3"/>
+        <text x="604" y="62" text-anchor="end" class="t-acc">표면 CS ~800 MPa (압축)</text>
+        <text x="408" y="133" class="t" style="fill:var(--bad)">CT (인장) ~50–100 MPa</text>
+        <text x="472" y="226" text-anchor="middle" class="t-dim">← 인장 · 압축 →</text>
+        <text x="350" y="100" class="t-mono">DOC</text>
+      </svg>
+      <figcaption><b>그림 12-2.</b> 이온 교환(ion exchange) 강화. 왼쪽: 확산으로 이온이 교체된다. 오른쪽: 결과 응력 프로파일. 양 표면은 강한 압축, 중심은 약한 인장이다. 압축이 0이 되는 깊이를 <b>압축 깊이</b>(DOC, Depth of Compression)라 한다.</figcaption>
+    </figure>
+    <p>최근 커버 유리는 리튬을 포함한 유리를 <b>두 번</b> 교환하는 경우가 많다. Li⁺↔Na⁺ 교환은 확산이 빨라 깊은 압축층(100 µm 이상)을 만들고, 이어서 Na⁺↔K⁺ 교환으로 표면에만 날카로운 압축 '스파이크'를 더한다. 깊은 압축층은 거친 바닥(모래, 아스팔트)에 떨어져 생기는 <b>깊은 흠</b>을 붙잡고, 표면 스파이크는 일상적인 미세 흠집을 붙잡는다.</p>
+
+    <div class="sim" id="sim-glass">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>응력 프로파일과 균열: 언제 멈추고 언제 깨지나</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-gl1"></canvas><canvas id="cv-gl2"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>유리 종류(프리셋)</span><div class="seg" id="gl-pre"><button data-value="soda">비강화</button><button data-value="al" class="on">단일 교환</button><button data-value="li">이중 교환</button><button data-value="gc">유리-세라믹</button></div></div>
+          <label class="ctrl"><span>두께 t <output id="gl-t-out"></output></span><input type="range" id="gl-t" min="0.4" max="1.0" step="0.05" value="0.6"></label>
+          <label class="ctrl"><span>표면 압축응력 CS <output id="gl-cs-out"></output></span><input type="range" id="gl-cs" min="0" max="1000" step="10" value="850"></label>
+          <label class="ctrl"><span>압축층 확산 깊이 <output id="gl-d-out"></output></span><input type="range" id="gl-d" min="5" max="150" step="1" value="35"></label>
+          <label class="ctrl"><span>표면 균열 깊이 a <output id="gl-a-out"></output></span><input type="range" id="gl-a" min="1" max="250" step="1" value="30"></label>
+          <label class="ctrl"><span>가해진 인장 응력 <output id="gl-s-out"></output></span><input type="range" id="gl-s" min="0" max="800" step="5" value="200"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">중심 인장 CT</span><span class="v" id="gl-o-ct">—</span></div>
+        <div class="stat"><span class="k">압축 깊이 DOC</span><span class="v" id="gl-o-doc">—</span></div>
+        <div class="stat"><span class="k">이 균열의 파괴 강도</span><span class="v" id="gl-o-sf">—</span></div>
+        <div class="stat"><span class="k">비강화 대비</span><span class="v" id="gl-o-gain">—</span></div>
+      </div>
+      <div class="verdict" id="gl-verdict">—</div>
+      <div class="sim-note">위: 깊이에 따른 잔류 응력(음수 = 압축)과 단면 띠(파랑 = 압축, 빨강 = 인장) 속의 균열. 아래: 균열 깊이별 파괴 강도. 균열 위 잔류 응력을 가중 평균(가장자리 균열의 가중 함수 근사)해 외부 응력에서 뺐다. 해볼 것: 균열 깊이를 DOC보다 깊게 늘리면 강도가 급격히 떨어진다. CS와 깊이를 너무 키우면 CT가 커져서 일단 깨질 때 산산조각(frangibility)이 난다.</div>
+    </div>
+
+    <h3>유리-세라믹과 사파이어</h3>
+    <p><b>유리-세라믹</b><span class="en">(glass-ceramic)</span>은 유리 속에 나노미터 크기 결정을 석출시킨 재료다. 결정이 빛의 파장보다 훨씬 작아 투명하면서도, 균열이 결정을 만나 휘거나 멈추어 파괴 인성이 일반 유리보다 높다(대략 1 MPa√m 이상으로 알려져 있다). 여기에 이온 교환까지 더해 낙하 저항을 높인 제품이 플래그십에 쓰인다. <b>사파이어</b>(Al₂O₃ 단결정)는 모스 경도 9로 흠집에 매우 강하지만 비싸고 무겁고 \(K_{IC}\)가 높지 않아 충격에 오히려 약할 수 있어, 카메라 렌즈 커버처럼 작은 곳에 주로 쓴다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>지표</th><th>의미</th><th>대표 범위</th></tr></thead>
+      <tbody>
+        <tr><td>CS (표면 압축응력)</td><td>흠집·미세 균열에 대한 저항</td><td>700–1,000 MPa (K 스파이크)</td></tr>
+        <tr><td>DOC (압축 깊이)</td><td>거친 바닥에 의한 깊은 흠 저항</td><td>두께의 15–20 % (0.6 mm에서 ~100–120 µm, 이중 교환)</td></tr>
+        <tr><td>CT (중심 인장)</td><td>너무 크면 깨질 때 잘게 부서짐</td><td>~50–120 MPa (두께에 따라 한계)</td></tr>
+        <tr><td>경도·스크래치</td><td>모래(석영, 모스 7)보다 단단해야 흠이 덜 남</td><td>유리 모스 ~6–7, 사파이어 9</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout"><strong>낙하 저항 vs 흠집 저항</strong>
+      <p>둘은 서로 다른 성질이다. 흠집은 표면 경도의 문제이고, 낙하 파손은 '얼마나 깊은 흠이 생기고 그 흠에 얼마나 큰 인장이 걸리는가'의 문제다. 강화 조건을 낙하 쪽(깊은 DOC)으로 맞추면 표면 CS가 줄어 흠집에는 조금 약해지는 식의 트레이드오프가 있다.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 6. 낙하 -->
+  <section id="drop">
+    <h2>낙하 충격: 수천 g의 0.5 밀리초</h2>
+    <p>높이 \(h\)에서 떨어진 폰의 충돌 속도는 \(v=\sqrt{2gh}\), 1 m면 약 4.4 m/s다. 바닥에 닿은 뒤 속도가 0을 지나 튀어 오르기까지 걸리는 시간 \(\tau\)(충격 펄스 폭)이 매우 짧아서 가속도가 커진다. 반정현파(half-sine) 펄스로 근사하면</p>
+    <div class="formula">$$a_{\text{peak}} = \frac{\pi\,(1+e)\,v}{2\,\tau},\qquad F_{\text{peak}} = m\,a_{\text{peak}}$$
+      <div class="where">\(e\): 반발 계수(튀어 오르는 속도 비, 0.2–0.5), \(\tau\): 펄스 폭. 단단한 바닥(콘크리트, 대리석)은 \(\tau\)가 0.2–0.5 ms로 매우 짧고, 카펫이나 케이스는 수 ms로 늘린다. 1 m → 콘크리트면 최고 가속도가 수천 g에 이른다.</div></div>
+    <p>그런데 실제로 가장 위험한 것은 <b>모서리(코너) 낙하</b>다. 코너로 떨어지면 폰 전체의 가속도는 오히려 낮지만(충돌점이 무게중심에서 벗어나 몸체가 회전하고, 국부 변형으로 펄스가 길어진다), 힘이 수 mm² 면적에 집중된다. 게다가 코너는 유리의 가장자리 — 가공 결함이 가장 많고 압축층이 얇은 곳 — 바로 옆이다. 코너로 부딪힌 뒤 몸체가 회전해 화면이 바닥을 다시 때리는 <b>2차 충돌(slap-down)</b>도 흔하다.</p>
+
+    <div class="sim" id="sim-drop">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>낙하 높이·자세·바닥 → 충격 펄스</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-drop"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>낙하 높이 <output id="dr-h-out"></output></span><input type="range" id="dr-h" min="0.3" max="2" step="0.05" value="1.2"></label>
+          <label class="ctrl"><span>폰 무게 <output id="dr-m-out"></output></span><input type="range" id="dr-m" min="150" max="250" step="5" value="200"></label>
+          <div class="ctrl"><span>충돌 자세</span><div class="seg" id="dr-or"><button data-value="face" class="on">면(화면)</button><button data-value="edge">측면</button><button data-value="corner">코너</button></div></div>
+          <div class="ctrl"><span>바닥</span><div class="seg" id="dr-fl"><button data-value="con" class="on">콘크리트</button><button data-value="tile">타일</button><button data-value="wood">마루</button><button data-value="carpet">카펫</button></div></div>
+          <label class="check"><input type="checkbox" id="dr-case"> 실리콘 케이스</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">충돌 속도</span><span class="v" id="dr-o-v">—</span></div>
+        <div class="stat"><span class="k">펄스 폭 τ</span><span class="v" id="dr-o-t">—</span></div>
+        <div class="stat"><span class="k">최고 가속도</span><span class="v" id="dr-o-g">—</span></div>
+        <div class="stat"><span class="k">최대 접촉력</span><span class="v" id="dr-o-f">—</span></div>
+        <div class="stat"><span class="k">접촉 압력(평균)</span><span class="v" id="dr-o-p">—</span></div>
+      </div>
+      <div class="sim-note">단순 모델: 자세별로 유효 질량 비(면 1, 측면 0.6, 코너 0.4)와 펄스 폭 배율(1, 1.5, 2), 접촉 면적(면 ~2,000 mm², 측면 ~60 mm², 코너 ~8 mm²)을 가정했다. 실제 바닥의 모래알 같은 돌기는 면 낙하에서도 국부 응력을 만든다. 오른쪽 그래프의 흐린 선은 같은 조건에서 다른 바닥의 펄스.</div>
+    </div>
+    <h3>낙하 시험과 설계 대책</h3>
+    <ul>
+      <li><b>시험</b>: 제조사마다 고유 기준이 있지만, 대표적으로 1–1.5 m 높이에서 면·측면·코너 등 여러 자세로 단단한 바닥(대리석, 화강암, 사포를 붙인 판)에 반복 낙하하고, 회전 통(tumble) 속에서 수백 번 굴리는 시험을 한다. 군용 규격(MIL-STD-810의 운송 낙하)을 마케팅에 인용하기도 한다.</li>
+      <li><b>유리 가장자리 보호</b>: 프레임 테두리를 유리 표면보다 0.1–0.3 mm 높게(립, lip) 해서 면 낙하 때 유리 대신 금속이 먼저 닿게 한다. 대신 화면 가장자리 스와이프 감촉과 디자인이 손해를 본다.</li>
+      <li><b>코너 형상</b>: 코너 반경과 프레임 단면을 키워 에너지를 금속의 소성 변형(찌그러짐)으로 흡수시킨다. 티타늄·7000계 알루미늄은 찍힘이 덜 생기는 대신 그 에너지가 유리로 더 많이 간다.</li>
+      <li><b>내부 고정</b>: 무거운 배터리와 카메라 모듈이 수천 g에서 움직이지 않도록 접착·브래킷으로 묶는다. 카메라 OIS, 보드 대 보드 커넥터, BGA 솔더 조인트가 대표적인 낙하 약점이다.</li>
+    </ul>
+  </section>
+
+  <!-- ============================================================ 7. 방수 -->
+  <section id="water">
+    <h2>방수: IP68의 의미와 씰링</h2>
+    <p><span class="term">IP 등급</span><span class="en">(Ingress Protection, IEC 60529)</span>은 두 자리 숫자다. 첫째 자리는 고체(먼지), 둘째 자리는 물에 대한 보호다. IP68은 <b>6 = 먼지 완전 차단</b>(감압 상태의 활석 가루 챔버에서 8시간), <b>8 = 1 m보다 깊은 곳에 계속 잠겨도 됨</b>을 뜻한다. 8의 구체적 조건(깊이·시간)은 표준이 아니라 제조사가 정하며, 스마트폰은 대개 '수심 1.5 m에서 30분'부터 '6 m에서 30분'까지를 표기한다. 담수·상온·정지 상태 기준이라 바닷물, 온수, 수압이 센 물줄기는 보증하지 않는다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>둘째 자리</th><th>시험 조건(요약)</th><th>폰에서의 의미</th></tr></thead>
+      <tbody>
+        <tr><td>IPX4</td><td>모든 방향에서 튀는 물</td><td>생활 방수(비, 물 튐)</td></tr>
+        <tr><td>IPX7</td><td>수심 1 m, 30분 침수</td><td>물에 빠뜨려도 바로 꺼내면 안전</td></tr>
+        <tr><td>IPX8</td><td>1 m 초과, 조건은 제조사 지정</td><td>대부분의 플래그십(1.5–6 m, 30분)</td></tr>
+        <tr><td>IPX9(K)</td><td>고온·고압 물줄기(80 °C 수준)</td><td>일부 러기드·최신 모델이 함께 표기</td></tr>
+      </tbody>
+    </table></div>
+    <div class="formula">$$p = \rho_w\,g\,h \approx 9.8\ \text{kPa/m},\qquad \Delta p_{\text{열}} \approx p_0\,\frac{\Delta T}{T_0}$$
+      <div class="where">수심 1.5 m는 약 15 kPa, 6 m는 약 59 kPa(대기압의 0.6배). 그런데 35 °C의 폰이 15 °C 물에 들어가면 내부 공기가 식으며 약 6.6 kPa의 '부압'이 생겨 물을 빨아들이려 한다. 수심 0.7 m의 수압과 맞먹는다.</div></div>
+    <figure class="diagram">
+      <svg viewBox="0 0 640 330" class="seal-svg" role="img" aria-label="스마트폰의 방수 경로">
+        <rect x="200" y="20" width="240" height="290" rx="34" class="f-surface"/>
+        <rect x="214" y="34" width="212" height="262" rx="24" class="f-elev"/>
+        <circle cx="320" cy="50" r="6" style="fill:var(--text-faint)"/>
+        <rect x="290" y="300" width="60" height="10" rx="5" style="fill:var(--text-faint)"/>
+        <rect x="196" y="100" width="6" height="40" rx="2" style="fill:var(--text-dim)"/>
+        <rect x="438" y="110" width="6" height="30" rx="2" style="fill:var(--text-dim)"/>
+        <rect x="438" y="190" width="6" height="30" rx="2" style="fill:var(--text-faint)"/>
+        <g class="pt" data-k="0"><circle cx="214" cy="200" r="13"/><text x="214" y="205" text-anchor="middle">1</text></g>
+        <g class="pt" data-k="1"><circle cx="200" cy="120" r="13"/><text x="200" y="125" text-anchor="middle">2</text></g>
+        <g class="pt" data-k="2"><circle cx="320" cy="304" r="13"/><text x="320" y="309" text-anchor="middle">3</text></g>
+        <g class="pt" data-k="3"><circle cx="262" cy="304" r="13"/><text x="262" y="309" text-anchor="middle">4</text></g>
+        <g class="pt" data-k="4"><circle cx="440" cy="205" r="13"/><text x="440" y="210" text-anchor="middle">5</text></g>
+        <g class="pt" data-k="5"><circle cx="378" cy="304" r="13"/><text x="378" y="309" text-anchor="middle">6</text></g>
+        <g class="pt" data-k="6"><circle cx="320" cy="34" r="13"/><text x="320" y="39" text-anchor="middle">7</text></g>
+        <text x="20" y="60" class="t">경로를 클릭:</text>
+        <text x="20" y="84" class="t-dim">1 유리 접착 씰</text>
+        <text x="20" y="106" class="t-dim">2 버튼 O-링</text>
+        <text x="20" y="128" class="t-dim">3 USB-C 포트</text>
+        <text x="20" y="150" class="t-dim">4 스피커 그릴</text>
+        <text x="20" y="172" class="t-dim">5 SIM 트레이</text>
+        <text x="20" y="194" class="t-dim">6 마이크 구멍</text>
+        <text x="20" y="216" class="t-dim">7 수화부·기압 통기</text>
+        <foreignObject x="462" y="20" width="170" height="290"><div xmlns="http://www.w3.org/1999/xhtml" id="seal-info" style="font-size:13px;line-height:1.5;color:var(--text-dim)">물이 들어올 수 있는 곳은 생각보다 많다. 번호를 눌러 각 경로를 어떻게 막는지 보자.</div></foreignObject>
+      </svg>
+      <figcaption><b>그림 12-3.</b> 스마트폰의 물 침투 경로와 씰링 방법(클릭). 큰 면적은 접착 씰, 움직이는 부품은 고무 가스켓·O-링, 소리와 공기가 지나가야 하는 구멍은 통기 멤브레인으로 막는다.</figcaption>
+    </figure>
+    <p>고무 가스켓(실리콘, EPDM 등)은 보통 원래 높이의 <b>15–30 %</b>를 눌러야 안정적으로 씰링한다. 너무 적게 누르면 공차와 휨으로 한쪽에 틈이 생기고, 너무 많이 누르면 조립력이 커져 유리·프레임이 휘고 고무가 영구 변형(<span class="term">압축 영구 줄음</span><span class="en">(compression set)</span>)되어 몇 년 뒤 복원력을 잃는다. 시간이 지나 방수 성능이 떨어지는 주된 원인이다.</p>
+
+    <div class="sim" id="sim-seal">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>가스켓 압축률·휨·노화·수심</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-seal"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>설계 압축률 <output id="se-c-out"></output></span><input type="range" id="se-c" min="5" max="45" step="1" value="22"></label>
+          <label class="ctrl"><span>프레임 휨·공차 진폭 <output id="se-w-out"></output></span><input type="range" id="se-w" min="0" max="0.15" step="0.005" value="0.05"></label>
+          <label class="ctrl"><span>사용 기간(노화) <output id="se-y-out"></output></span><input type="range" id="se-y" min="0" max="5" step="0.25" value="0"></label>
+          <label class="ctrl"><span>수심 <output id="se-h-out"></output></span><input type="range" id="se-h" min="0" max="10" step="0.1" value="1.5"></label>
+          <label class="ctrl"><span>폰–물 온도 차 <output id="se-dt-out"></output></span><input type="range" id="se-dt" min="0" max="30" step="1" value="15"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">수압</span><span class="v" id="se-o-p">—</span></div>
+        <div class="stat"><span class="k">열수축 부압</span><span class="v" id="se-o-dp">—</span></div>
+        <div class="stat"><span class="k">필요 최소 압축</span><span class="v" id="se-o-min">—</span></div>
+        <div class="stat"><span class="k">실제 최소 압축</span><span class="v" id="se-o-act">—</span></div>
+        <div class="stat"><span class="k">누수 구간</span><span class="v" id="se-o-leak">—</span></div>
+      </div>
+      <div class="verdict" id="se-verdict">—</div>
+      <div class="sim-note">위: 가스켓 단면(높이 0.6 mm 기준). 아래: 둘레 430 mm를 따라 펼친 국부 압축률. 공차·휨이 사인파와 잡음으로 더해지고, 노화는 압축 영구 줄음으로 실효 압축을 깎는다. 접촉 응력이 '안착 응력 0.1 MPa + 수압의 2배'(가스켓 계수 m = 2)를 넘어야 씰링된다고 가정했다(고무 유효 탄성 4 MPa).</div>
+    </div>
+    <div class="callout tip"><strong>통기 멤브레인: 물은 막고 공기는 통과</strong>
+      <p>스피커·마이크·기압 센서 구멍은 막을 수 없다. 여기에는 <b>ePTFE</b>(연신 PTFE) 같은 미세다공성 멤브레인을 붙인다. 구멍 크기가 0.1–1 µm 수준이라 물방울은 표면장력 때문에 들어오지 못하고 공기 분자와 음파는 지나간다. 멤브레인은 공기압 평형을 맞춰 위의 '열수축 부압'도 풀어 준다. 대신 음향 손실(약간의 감쇠)이 있어 스피커 설계와 함께 조율해야 한다. 스피커는 물에 젖은 뒤 진동판을 특정 주파수로 흔들어 물을 털어내는 기능을 넣기도 한다.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 8. 조립 -->
+  <section id="assembly">
+    <h2>조립: 나사·접착제·스냅, 그리고 공차 누적</h2>
+    <p>부품을 고정하는 방법은 크게 셋이다. 각각 두께·방수·수리성·생산성에서 장단이 뚜렷하다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>방식</th><th>쓰는 곳</th><th>장점</th><th>단점</th></tr></thead>
+      <tbody>
+        <tr><td><b>나사</b> (M1.2–M1.6)</td><td>보드, 브래킷, 차폐 캔, 일부 후면</td><td>재작업·수리 쉬움, 확실한 접지</td><td>보스(나사 기둥) 공간과 두께, 조립 시간</td></tr>
+        <tr><td><b>접착제</b> (PSA 테이프, 핫멜트 PUR, UV 경화)</td><td>유리–프레임, 배터리, 디스플레이</td><td>얇고 넓은 면 고정, 방수 씰 겸용, 충격 분산</td><td>분해 어려움(열·용제 필요), 경화 시간</td></tr>
+        <tr><td><b>스냅 핏·클립</b></td><td>플라스틱 부품, 커넥터 고정 브래킷</td><td>도구 없이 빠른 조립</td><td>반복 분해 시 파손, 정밀 위치 오차</td></tr>
+      </tbody>
+    </table></div>
+    <p>부품 하나하나는 정밀해도 <b>오차는 쌓인다</b>. 예를 들어 커버 유리와 프레임 사이 틈(외관 갭)은 '프레임 개구부 폭 − 유리 폭'과 '조립 위치 오차'로 정해진다. 설계자는 각 부품 공차를 정한 뒤, 최악의 경우(worst case)와 통계적 합(RSS, root-sum-square)을 비교한다.</p>
+    <div class="formula">$$g = \frac{O - G}{2} - x,\qquad \Delta g_{\text{WC}} = \frac{t_O}{2}+\frac{t_G}{2}+t_x,\qquad \Delta g_{\text{RSS}} = \sqrt{\left(\tfrac{t_O}{2}\right)^2+\left(\tfrac{t_G}{2}\right)^2+t_x^2}$$
+      <div class="where">\(O\): 프레임 개구부 폭, \(G\): 유리 폭, \(x\): 조립 시 좌우 치우침, \(t\): 각 부품의 공차(±3σ). 독립 오차는 제곱합으로 더해져 최악 합보다 훨씬 작다. 대량 생산의 실제 분포는 몬테카를로로 확인한다.</div></div>
+
+    <div class="sim" id="sim-tol">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>공차 스택업 몬테카를로: 유리–프레임 갭</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-tol"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span><span>프레임 개구부 공차 t<sub>O</sub></span> <output id="tl-o-out"></output></span><input type="range" id="tl-o" min="0.01" max="0.10" step="0.005" value="0.03"></label>
+          <label class="ctrl"><span><span>유리 폭 공차 t<sub>G</sub></span> <output id="tl-g-out"></output></span><input type="range" id="tl-g" min="0.02" max="0.15" step="0.005" value="0.06"></label>
+          <label class="ctrl"><span><span>조립 위치 공차 t<sub>x</sub></span> <output id="tl-x-out"></output></span><input type="range" id="tl-x" min="0.01" max="0.15" step="0.005" value="0.05"></label>
+          <label class="ctrl"><span>유리 폭 평균 이동 <output id="tl-s-out"></output></span><input type="range" id="tl-s" min="-0.08" max="0.08" step="0.005" value="0"></label>
+          <div class="ctrl"><span>샘플 수</span><div class="seg" id="tl-n"><button data-value="2000">2천</button><button data-value="20000" class="on">2만</button><button data-value="200000">20만</button></div></div>
+          <button class="btn primary" id="tl-run">다시 생산하기</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">갭 평균 / σ</span><span class="v" id="tl-o-ms">—</span></div>
+        <div class="stat"><span class="k">최악 합 범위</span><span class="v" id="tl-o-wc">—</span></div>
+        <div class="stat"><span class="k">RSS ±3σ 범위</span><span class="v" id="tl-o-rss">—</span></div>
+        <div class="stat"><span class="k">불량률</span><span class="v" id="tl-o-ppm">—</span></div>
+        <div class="stat"><span class="k">C<sub>pk</sub></span><span class="v" id="tl-o-cpk">—</span></div>
+      </div>
+      <div class="sim-note">규격: 갭 0.05–0.35 mm(공칭 0.20 mm). 0.05 mm 미만이면 유리가 프레임에 닿아 응력·파손 위험, 0.35 mm 초과면 외관 불량·먼지 유입. 해볼 것: 공차를 하나씩 키우면서 '최악 합'과 '실제 분포'가 얼마나 다른지 보자. 평균 이동(공정 치우침)은 공차보다 치명적일 때가 많다. C<sub>pk</sub> ≥ 1.33(약 63 ppm 이하)이 흔한 양산 기준이다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 9. 수리 -->
+  <section id="repair">
+    <h2>수리 용이성: 열 수 있게 닫기</h2>
+    <p>방수와 얇음을 위해 접착제를 많이 쓸수록 수리는 어려워진다. 배터리는 2–4년이면 용량이 80 % 근처로 떨어지는 소모품인데, 배터리 교체가 어렵다면 폰 전체의 수명이 배터리 수명에 묶인다. 그래서 최근 설계는 '닫을 때는 단단히, 열 때는 쉽게'를 목표로 한다.</p>
+    <ul>
+      <li><b>당김 탭</b><span class="en">(stretch-release adhesive)</span>: 배터리 밑 접착 테이프의 끝을 잡고 길게 당기면 테이프가 늘어나며 접착력을 잃는다. 각도와 속도를 잘못 맞추면 끊어지는 것이 약점.</li>
+      <li><b>전기 분리 접착</b>: 일부 최신 모델은 배터리 접착층에 낮은 전압을 걸어 접착력을 떨어뜨리는 방식을 쓴다고 알려져 있다.</li>
+      <li><b>모듈화</b>: USB-C 포트, 스피커, 카메라를 별도 서브보드·모듈로 나눠 커넥터로 연결하면 고장 난 부분만 바꿀 수 있다. 대신 커넥터 높이와 면적, 원가가 늘어난다.</li>
+      <li><b>후면 먼저 열기</b>: 비싼 디스플레이를 떼지 않고 배터리에 접근할 수 있게 하는 구조. 내부 프레임을 양면으로 설계해야 한다.</li>
+      <li><b>부품 페어링</b>: 부품 일련번호를 메인보드와 짝지어 정품 확인·보정을 하는 방식. 보안·품질 이점이 있지만 독립 수리를 어렵게 만든다는 비판을 받는다.</li>
+    </ul>
+    <p><b>규제</b>도 설계를 바꾸고 있다. EU의 스마트폰 에코디자인 규정(2025년 6월 적용)은 수리용 부품을 출시 후 수년간 공급하고, 배터리 내구성(수백 회 이상 충방전 후 일정 용량 유지)·낙하 내구성 등 최소 요건과 수리성 등급 표시를 요구한다. EU 배터리 규정은 2027년부터 휴대 기기 배터리를 사용자가 교체할 수 있게 하라고 요구하되 일정 조건에서 예외를 둔다. 미국 여러 주의 '수리할 권리' 법도 부품·설명서·도구 제공을 요구한다. 세부 조건은 개정될 수 있으니 설계 시점의 원문을 확인해야 한다.</p>
+
+    <div class="sim" id="sim-repair">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>수리성 설계: 배터리 교체에 몇 분이 걸릴까</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-repair"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>여는 방향</span><div class="seg" id="rp-open"><button data-value="back" class="on">후면 먼저</button><button data-value="front">화면 먼저</button></div></div>
+          <div class="ctrl"><span>후면(또는 화면) 고정</span><div class="seg" id="rp-close"><button data-value="glue" class="on">접착</button><button data-value="screw">나사+가스켓</button></div></div>
+          <div class="ctrl"><span>배터리 고정</span><div class="seg" id="rp-bat"><button data-value="glue">일반 접착</button><button data-value="tab" class="on">당김 탭</button><button data-value="elec">전기 분리</button><button data-value="bracket">브래킷</button></div></div>
+          <div class="ctrl"><span>충전 포트</span><div class="seg" id="rp-port"><button data-value="board">메인보드 일체</button><button data-value="sub" class="on">별도 서브보드</button></div></div>
+          <div class="ctrl"><span>나사</span><div class="seg" id="rp-screw"><button data-value="std" class="on">표준</button><button data-value="prop">특수 머리</button></div></div>
+          <label class="check"><input type="checkbox" id="rp-pair"> 부품 페어링(교체 후 보정 필요)</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">배터리 교체 시간</span><span class="v" id="rp-o-t">—</span></div>
+        <div class="stat"><span class="k">수리성 점수</span><span class="v" id="rp-o-s">—</span></div>
+        <div class="stat"><span class="k">두께·부피 손해</span><span class="v" id="rp-o-v">—</span></div>
+        <div class="stat"><span class="k">방수 설계 난이도</span><span class="v" id="rp-o-w">—</span></div>
+      </div>
+      <div class="sim-note">각 단계 시간과 점수는 수리 가이드·분해 리뷰에서 보이는 경향을 단순화한 교육용 추정이다. 해볼 것: 나사+가스켓 후면은 수리가 쉬워지지만 압축 플랜지 때문에 두께가 늘고, 가스켓 압축률 관리(앞 시뮬레이터)가 어려워진다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 10. 안테나 -->
+  <section id="antenna">
+    <h2>금속 프레임과 안테나</h2>
+    <p>금속 프레임은 전파를 가두는 패러데이 상자의 벽이 될 수도, 그 자체로 훌륭한 안테나가 될 수도 있다. 프레임을 <b>분할선</b>으로 끊어 몇 개의 금속 조각으로 만들고, 각 조각의 한 점에 급전(feed)하고 다른 점을 접지에 연결하면 조각이 공진기가 된다. 조각 길이가 공진 주파수를 대략 정한다(1/4 파장 근사).</p>
+    <div class="formula">$$f_0 \approx \frac{c}{4\,\ell\,\sqrt{\varepsilon_{\text{eff}}}}$$
+      <div class="where">\(\ell\): 급전점에서 열린 끝까지의 길이, \(\varepsilon_{\text{eff}}\): 주변 수지·유리를 고려한 유효 유전율(여기선 1.6 가정). 실제로는 튜너(가변 커패시터·스위치)로 여러 대역을 오간다. 자세한 내용은 <a href="rf.html">7장 통신과 안테나</a>.</div></div>
+    <figure class="diagram">
+      <svg viewBox="0 0 640 330" class="ant-svg" id="ant-svg" role="img" aria-label="프레임 분할선과 안테나 조각">
+        <g id="ant-g"></g>
+        <rect id="ant-hand" x="440" y="30" width="150" height="270" rx="60" style="fill:var(--accent-2);opacity:.16" hidden/>
+        <text x="320" y="320" text-anchor="middle" class="t-dim" id="ant-cap">금속 조각을 클릭하면 길이와 대략의 공진 주파수가 나온다</text>
+      </svg>
+      <figcaption><b>그림 12-4.</b> 3D 모델의 프레임을 위에서 본 그림(왼쪽이 폰 위쪽). 검은 띠가 분할선, 색으로 구분된 것이 각각의 금속 조각이다. <label class="check" style="display:inline-flex"><input type="checkbox" id="ant-hand-on"> 손으로 아래쪽을 쥐기</label></figcaption>
+    </figure>
+    <div class="mx-info" id="ant-info" style="border:1px solid var(--border);border-radius:12px;margin-top:-6px">—</div>
+    <p>기구 설계자는 안테나 엔지니어와 함께 <b>분할선 위치와 폭</b>(보통 1–2 mm), <b>금속–접지 사이 간격</b>(클리어런스), 급전·접지 스프링 핀 위치를 정한다. 손으로 쥐는 하단은 손의 유전체·손실 때문에 공진이 내려가고 효율이 떨어지므로, 하단 주 안테나에는 튜너 여유를 크게 둔다. 티타늄은 알루미늄보다 전기 전도도가 수십 배 낮아(저항률 ~4×10⁻⁷ vs ~3×10⁻⁸ Ω·m) 안테나 손실이 조금 늘 수 있고, 플라스틱 프레임은 전파에 투명하지만 안테나를 내부에 따로(LDS, FPC) 만들어야 한다.</p>
+  </section>
+
+  <!-- ============================================================ 11. 마감 -->
+  <section id="finish">
+    <h2>색상·마감·원가</h2>
+    <p>소비자가 가장 먼저 만지는 것은 표면이다. 표면 처리는 색과 촉감뿐 아니라 흠집 저항, 지문, 내식성, 그리고 원가를 결정한다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>공정</th><th>재료</th><th>원리</th><th>특징</th></tr></thead>
+      <tbody>
+        <tr><td><b>아노다이징</b></td><td>알루미늄</td><td>황산 전해로 표면에 10–25 µm 다공성 산화알루미늄(Al₂O₃) 층을 키우고 염료를 넣은 뒤 봉공</td><td>경도 높고 색 자유로움. 모서리에서 벗겨지면 은색이 드러남. 색 일관성(로트 간 편차) 관리가 어렵다.</td></tr>
+        <tr><td><b>PVD</b></td><td>티타늄·스테인리스</td><td>진공에서 TiN, CrN, DLC 등을 1–3 µm 증착</td><td>매우 단단하고 금속 광택. 색 범위가 좁고 장비가 비싸다. 티타늄은 아노다이징으로는 얇은 간섭색만 나온다.</td></tr>
+        <tr><td><b>블라스팅·브러싱</b></td><td>모든 금속</td><td>미세 입자 분사 또는 연마로 무광·결 무늬</td><td>지문이 덜 보이고 흠집이 덜 티 남. 다른 공정의 전처리로도 쓰인다.</td></tr>
+        <tr><td><b>유리 에칭·인쇄</b></td><td>후면 글라스</td><td>불산 계열 에칭·샌드 블라스트로 무광, 안쪽 면에 색 잉크·광학 필름</td><td>무광 유리는 지문에 강함. 색은 유리 '안쪽'에 있어 닳지 않는다.</td></tr>
+      </tbody>
+    </table></div>
+    <p>원가 측면에서 기구 부품은 플래그십 BOM의 대략 5–10 %다. 알루미늄 프레임은 공정 수십 개를 합쳐 기계 시간이 수십 분 수준이고, 티타늄은 열전도가 낮아 공구 끝이 뜨거워지고 마모가 심해 절삭 속도를 크게 낮춰야 하므로 가공 시간이 수 배로 늘어난다. 그래서 '티타늄 프레임'은 재료비보다 <b>가공 시간</b>과 <b>공구 비용</b>에서 비싸다. CNC 기계 수천 대가 돌아가는 공장에서 대당 가공 시간 1분은 생산 능력(capa)과 직결된다.</p>
+  </section>
+
+  <!-- ============================================================ 12. 설계 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <p>기구 설계는 '모든 부품이 들어갈 자리를 만들고, 그 자리를 지키는' 일이다. 핵심 지표와 다른 부품과의 상호작용을 정리하면 다음과 같다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>지표</th><th>목표 감각</th><th>얽혀 있는 것</th></tr></thead>
+      <tbody>
+        <tr><td>두께·무게</td><td>7–9 mm, 170–230 g</td><td>배터리 용량(5장), 카메라 범프(8장), 열(11장)</td></tr>
+        <tr><td>굽힘·비틀림 강성</td><td>수백 N에서 영구 변형 없음</td><td>유리 응력, 디스플레이 손상, 배터리 압박</td></tr>
+        <tr><td>낙하 생존</td><td>1–1.5 m 다자세 반복</td><td>유리 강화, 프레임 립, 내부 부품 고정, 솔더 조인트</td></tr>
+        <tr><td>방수</td><td>IP68 (1.5–6 m)</td><td>스피커·마이크 음향(10장), 수리성, 공차</td></tr>
+        <tr><td>안테나 성능</td><td>대역별 효율·손 효과</td><td>분할선 위치, 금속 재료, 내부 부품 클리어런스(7장)</td></tr>
+        <tr><td>열 확산</td><td>표면 핫스팟 최소화</td><td>미드플레이트 재료·두께, 베이퍼 챔버(11장)</td></tr>
+        <tr><td>무게중심·그립</td><td>중앙 근처, 위로 쏠리지 않게</td><td>카메라 모듈 무게, 배터리 위치</td></tr>
+        <tr><td>원가·생산성</td><td>가공 시간, 수율</td><td>재료, 표면 처리, 공차 등급</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>무게 분포와 무게중심</h3>
+    <p>카메라 모듈이 커지면서 폰의 무게중심이 위쪽(카메라 쪽)으로 이동한다. 한 손으로 아래쪽을 쥐면 무게중심까지의 거리만큼 손목 토크가 생기고, 같은 무게라도 '머리가 무거운' 폰은 더 무겁게 느껴진다. 배터리를 아래쪽으로 옮기거나 무거운 부품을 중앙에 모아 균형을 잡는다.</p>
+    <div class="sim" id="sim-com">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>무게중심과 손목 토크</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-com"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>카메라 모듈 무게 <output id="cm-cam-out"></output></span><input type="range" id="cm-cam" min="8" max="45" step="1" value="22"></label>
+          <label class="ctrl"><span>배터리 무게 <output id="cm-bat-out"></output></span><input type="range" id="cm-bat" min="40" max="85" step="1" value="68"></label>
+          <label class="ctrl"><span>배터리 위치(아래로 +) <output id="cm-pos-out"></output></span><input type="range" id="cm-pos" min="-10" max="25" step="1" value="10"></label>
+          <div class="ctrl"><span>프레임 재료</span><div class="seg" id="cm-mat"><button data-value="al" class="on">Al</button><button data-value="ti">Ti</button><button data-value="sus">SUS</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">총 무게</span><span class="v" id="cm-o-m">—</span></div>
+        <div class="stat"><span class="k">무게중심(중앙 기준, 위 +)</span><span class="v" id="cm-o-z">—</span></div>
+        <div class="stat"><span class="k">손목 토크(그립 기준)</span><span class="v" id="cm-o-t">—</span></div>
+        <div class="stat"><span class="k">그립축 관성 모멘트</span><span class="v" id="cm-o-i">—</span></div>
+      </div>
+      <div class="sim-note">그립점은 아래 끝에서 45 mm 위로 가정했다. 관성 모멘트가 크면 폰을 손목으로 휙 돌리거나 멈출 때 무겁게 느껴진다.</div>
+    </div>
+
+    <h3>프레임 트레이드오프</h3>
+    <div class="sim" id="sim-frame">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>프레임 재료·레일 두께·폰 두께의 트레이드오프</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><div class="bar-list" id="fr-bars"></div></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>측면 레일 재료</span><div class="seg" id="fr-mat"><button data-value="al6">Al6</button><button data-value="al7" class="on">Al7</button><button data-value="ti">Ti</button><button data-value="sus">SUS</button><button data-value="mg">Mg</button><button data-value="pc">PC</button></div></div>
+          <label class="ctrl"><span>레일 두께 <output id="fr-w-out"></output></span><input type="range" id="fr-w" min="0.8" max="2.2" step="0.05" value="1.4"></label>
+          <label class="ctrl"><span>폰 두께 <output id="fr-t-out"></output></span><input type="range" id="fr-t" min="7" max="9.5" step="0.1" value="8.0"></label>
+          <div class="ctrl"><span>표면 처리</span><div class="seg" id="fr-fin"><button data-value="anod" class="on">아노다이징</button><button data-value="pvd">PVD</button><button data-value="blast">블라스팅</button></div></div>
+        </div>
+      </div>
+      <div class="sim-note">막대 길이는 각 항목에서 가장 좋은 값을 100으로 놓은 상대값(무게·시간·원가는 작을수록 막대가 김). Ti·SUS는 측면만 해당 재료이고 미드플레이트는 알루미늄(하이브리드), PC는 플라스틱 레일 + 알루미늄 미드플레이트로 가정했다. 원가·가공 시간은 경향만 보여 주는 대략치다.</div>
+    </div>
+    <div class="callout warn"><strong>흔한 실패 사례</strong>
+      <p>① <b>얇게만</b>: 두께를 줄였더니 굽힘 강성이 30 % 떨어져 주머니 속 영구 변형, 유리 크랙. ② <b>배터리 스웰링 여유 부족</b>: 수명 말기 배터리가 수 % 부풀어 후면 유리나 화면을 밀어 올림(5장). ③ <b>나사 보스 근처 응력 집중</b>: 낙하 시 보스 뿌리에서 미드플레이트 균열. ④ <b>안테나 분할선 근처 강성 저하</b>: 수지로 채운 슬롯이 약한 고리가 되어 굽힘이 집중. ⑤ <b>공차 누적 무시</b>: 시제품 몇 대는 괜찮았는데 양산 수만 대에서 유리 들뜸·갭 불량. ⑥ <b>방수 시험만 통과</b>: 신품 IP68은 통과했지만 2년 뒤 가스켓 영구 줄음으로 침수.</p>
+    </div>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>현대 스마트폰 하우징은 일체형 CNC 금속 프레임(레일+미드플레이트)과 앞뒤 강화 유리를 접착한 <b>유리 샌드위치</b>다. 유리는 구조 부재로서 강성의 큰 몫을 맡는다.</li>
+      <li>재료 선택은 하중 형태에 맞는 지수로 한다. 판 강성은 \(E^{1/3}/\rho\)(Mg &gt; Al &gt; Ti &gt; SUS), 찍힘·영구 변형은 \(\sigma_y\)(Ti, 7000계 Al 우수), 열 확산은 \(k\)(Al 압도적).</li>
+      <li>굽힘 강성은 꽉 찬 판에서 두께의 세제곱, 면재가 지배하는 샌드위치에서 대략 제곱에 비례한다. 1 mm 얇게 하면 강성이 25–35 % 줄어든다.</li>
+      <li>화학 강화 유리는 이온 교환으로 표면에 수백 MPa의 압축응력을 심어, 압축층 안에 있는 균열이 열리지 못하게 한다. DOC보다 깊은 균열과 큰 CT가 약점이다.</li>
+      <li>낙하 충격은 \(a\approx\pi(1+e)v/2\tau\)로 수천 g에 이르며, 단단한 바닥과 짧은 펄스가 위험하다. 코너 낙하는 전체 가속도는 낮아도 힘이 좁은 면적에 집중되어 가장 위험하다.</li>
+      <li>IP68은 먼지 완전 차단 + 제조사가 지정한 1 m 초과 침수 조건이다. 가스켓 압축률 15–30 %, 공차·휨·노화를 견딜 여유, 통기 멤브레인, 열수축 부압이 핵심이다.</li>
+      <li>공차는 누적된다. 최악 합 대신 RSS·몬테카를로로 분포를 보고, 평균 이동을 특히 경계한다. 양산 기준으로 C<sub>pk</sub> ≥ 1.33.</li>
+      <li>수리성(당김 탭, 모듈화, 후면 개봉)은 규제와 함께 중요한 설계 목표가 되었고, 방수·두께와 트레이드오프 관계에 있다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>Q1. 넓은 미드플레이트처럼 '면적이 고정되고 두께를 자유롭게 정하는 판'을 같은 굽힘 강성에서 가장 가볍게 만드는 재료 지수는?</p><div class="opts">
+        <button class="opt">\(E/\rho\)</button><button class="opt">\(\sigma_y/\rho\)</button><button class="opt" data-correct>\(E^{1/3}/\rho\)</button><button class="opt">\(k/\rho\)</button>
+      </div><div class="quiz-exp">판 강성 \(\propto E t^3\)이므로 같은 강성에서 \(t\propto E^{-1/3}\), 무게 \(\propto\rho t\propto\rho/E^{1/3}\). 지수 \(E^{1/3}/\rho\)가 클수록 가볍다. 이 지수에서는 마그네슘·알루미늄이 티타늄·스테인리스보다 우수하다.</div></div>
+      <div class="quiz-q"><p>Q2. 측면 레일(두께 방향으로 꽉 찬 직사각형 단면)의 높이를 8 mm에서 7 mm로 줄이면 레일의 굽힘 강성은 대략 몇 %가 되나?</p><div class="opts">
+        <button class="opt">88 %</button><button class="opt">77 %</button><button class="opt" data-correct>67 %</button><button class="opt">50 %</button>
+      </div><div class="quiz-exp">\(I\propto h^3\): \((7/8)^3 = 0.67\). 1 mm(12.5 %) 얇게 하면 강성은 33 % 줄어든다.</div></div>
+      <div class="quiz-q"><p>Q3. 화학 강화 유리에서 깊이 150 µm의 균열이 압축 깊이(DOC) 100 µm짜리 유리에 생겼다. 무엇이 문제인가?</p><div class="opts">
+        <button class="opt">표면 압축응력이 너무 커져 균열이 닫힌다</button><button class="opt" data-correct>균열 끝이 중심 인장(CT) 영역에 있어 압축의 보호를 거의 받지 못한다</button><button class="opt">K⁺ 이온이 균열 속으로 빠져나간다</button><button class="opt">아무 문제 없다. 강화 유리는 균열 깊이와 무관하다</button>
+      </div><div class="quiz-exp">압축층은 그 안에 있는 균열을 닫아 준다. 균열이 DOC를 넘으면 균열 끝이 인장 영역에 들어가 외부 응력이 작아도 성장할 수 있다. 거친 바닥 낙하에 대비해 이중 이온 교환으로 DOC를 깊게 만드는 이유다.</div></div>
+      <div class="quiz-q"><p>Q4. 1 m 높이에서 콘크리트에 면으로 떨어질 때(펄스 폭 0.3 ms, 반발 계수 0.3) 최고 가속도는 대략?</p><div class="opts">
+        <button class="opt">약 30 g</button><button class="opt">약 300 g</button><button class="opt" data-correct>약 3,000 g</button><button class="opt">약 30,000 g</button>
+      </div><div class="quiz-exp">\(v=\sqrt{2\cdot9.8\cdot1}=4.4\) m/s, \(a=\pi(1.3)(4.4)/(2\cdot0.0003)\approx3.0\times10^4\) m/s² ≈ 3,000 g.</div></div>
+      <div class="quiz-q"><p>Q5. IP68 등급에 대한 설명으로 옳은 것은?</p><div class="opts">
+        <button class="opt">바닷물 수심 6 m에서 무제한 사용 가능</button><button class="opt">첫째 자리 6은 수심 6 m를 뜻한다</button><button class="opt" data-correct>먼지 완전 차단 + 1 m 초과 침수, 구체적 깊이·시간은 제조사가 정한다</button><button class="opt">고압 물줄기 세척을 보장한다</button>
+      </div><div class="quiz-exp">첫째 자리 6은 먼지 완전 차단, 둘째 자리 8은 1 m 초과 지속 침수이며 조건(예: 1.5 m 30분, 6 m 30분)은 제조사 지정이다. 담수·상온 기준이며, 고압·고온 물줄기는 IPX9(K)의 영역이다.</div></div>
+      <div class="quiz-q"><p>Q6. 세 부품 공차가 각각 ±0.03, ±0.03, ±0.04 mm(±3σ, 독립)일 때 RSS로 계산한 합성 공차는?</p><div class="opts">
+        <button class="opt">±0.10 mm</button><button class="opt" data-correct>±0.058 mm</button><button class="opt">±0.034 mm</button><button class="opt">±0.04 mm</button>
+      </div><div class="quiz-exp">\(\sqrt{0.03^2+0.03^2+0.04^2}=\sqrt{0.0034}\approx0.058\). 최악 합 0.10 mm보다 훨씬 작다. 단, 평균 이동이 있거나 분포가 정규가 아니면 RSS가 낙관적일 수 있다.</div></div>
+      <div class="quiz-q"><p>Q7. 따뜻한 폰을 찬물에 넣었을 때 방수에 불리한 이유는?</p><div class="opts">
+        <button class="opt">유리가 열충격으로 즉시 깨진다</button><button class="opt" data-correct>내부 공기가 식어 압력이 낮아지며 물을 빨아들이려는 부압이 생긴다</button><button class="opt">가스켓이 차가워지면 팽창해 틈이 생긴다</button><button class="opt">찬물은 밀도가 높아 수압이 수십 배 커진다</button>
+      </div><div class="quiz-exp">\(\Delta p\approx p_0\Delta T/T_0\): 20 K 차이면 약 6.6 kPa, 수심 0.7 m에 해당하는 부압이 생긴다. 통기 멤브레인이 이 압력 차를 풀어 준다.</div></div>
+      <div class="quiz-q"><p>Q8. 티타늄 프레임에 대한 설명으로 가장 적절한 것은?</p><div class="opts">
+        <button class="opt">알루미늄보다 밀도가 낮아 가볍다</button><button class="opt">열전도도가 높아 방열에 유리하다</button><button class="opt" data-correct>항복강도가 높아 찍힘에 강하지만, 열전도가 낮고 가공 시간이 길다</button><button class="opt">판 강성 지수 \(E^{1/3}/\rho\)가 모든 금속 중 최고다</button>
+      </div><div class="quiz-exp">Ti-6Al-4V는 밀도 4.43(Al의 1.6배), 열전도 ~7 W/m·K(Al의 1/20 수준)이지만 항복강도가 2–3배 높다. 그래서 측면만 티타늄으로 하고 내부는 알루미늄으로 만드는 하이브리드가 쓰인다.</div></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const F = PB.fmt;
+  const font = () => getComputedStyle(document.body).getPropertyValue("--font");
+  const mono = () => getComputedStyle(document.body).getPropertyValue("--mono");
+  function alpha(c, a) { // CSS color(hex or rgb) -> rgba
+    c = (c || "").trim();
+    if (c[0] === "#") { let h = c.slice(1); if (h.length === 3) h = h.split("").map((x) => x + x).join(""); const n = parseInt(h, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; }
+    const m = c.match(/rgba?\(([^)]+)\)/); if (m) { const p = m[1].split(",").map((s) => s.trim()); return `rgba(${p[0]},${p[1]},${p[2]},${a})`; }
+    return c;
+  }
+  function erfc(x) {
+    const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+    const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? r : 2 - r;
+  }
+  function txt(ctx, s, x, y, o = {}) {
+    ctx.font = (o.bold ? "700 " : "") + (o.size || 12) + "px " + (o.mono ? mono() : font());
+    ctx.fillStyle = o.color || PB.color("text-dim"); ctx.textAlign = o.align || "left"; ctx.textBaseline = o.base || "alphabetic";
+    ctx.fillText(s, x, y);
+  }
+
+  /* ============================================================ 1. 3D 위치 */
+  function lazy(el, fn) { // 화면 근처에 올 때 한 번만 초기화(3D 초기화 비용을 페이지 로드에서 분리)
+    if (!window.IntersectionObserver) return fn();
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); fn(); } }, { rootMargin: "300px" });
+    io.observe(el);
+  }
+  lazy($("v3d-pos"), function () {
+    const el = $("v3d-pos");
+    const T = PB.three(el, { camera: [150, 115, 175], target: [0, 0, 0], fov: 35, minDistance: 80, maxDistance: 420 });
+    if (!T) return;
+    const P = PB.phone3d(T);
+    const THREE = T.THREE;
+    let cur = "frame";
+    P.highlight(cur);
+    const ex = PB.range("pos-ex", (v) => Math.round(v * 100) + " %", (v) => P.setExplode(v));
+    P.setExplode(ex());
+    const splits = (P.byId.frame && P.byId.frame.splits) || [];
+    $("pos-nsplit").textContent = splits.length + "곳";
+    const hlMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(PB.color("accent-2") || "#e2630f"), transparent: true, opacity: 0.8, depthTest: true });
+    const glow = splits.map((s) => {
+      const m = new THREE.Mesh(s.geometry, hlMat);
+      m.position.copy(s.position); m.quaternion.copy(s.quaternion); m.scale.copy(s.scale).multiplyScalar(1.18);
+      m.userData.noPick = true; s.parent.add(m); return m;
+    });
+    PB.onTheme(() => hlMat.color.set(PB.color("accent-2")));
+    T.onFrame((dt, t) => { if ($("pos-split").checked) hlMat.opacity = 0.45 + 0.45 * (0.5 + 0.5 * Math.sin(t * 5)); });
+    $("pos-split").addEventListener("change", (e) => glow.forEach((g) => (g.visible = e.target.checked)));
+    $("pos-xray").addEventListener("change", (e) => P.setXray(e.target.checked));
+    $("pos-rot").addEventListener("change", (e) => { if (T.controls) T.controls.autoRotate = e.target.checked; });
+    const chips = [...document.querySelectorAll("#pos-chips button")];
+    chips.forEach((b) => b.addEventListener("click", () => {
+      chips.forEach((c) => c.classList.toggle("on", c === b));
+      cur = b.dataset.id;
+      P.highlight(cur === "all" ? ["frame", "cover", "backglass"] : cur);
+      if (cur !== "all") showCard(P.byId[cur]);
+    }));
+    const card = $("pos-card");
+    function showCard(part) {
+      if (!part) return;
+      card.innerHTML = PB.partCardHTML(part, "");
+      card.hidden = false;
+      card.querySelector(".x").addEventListener("click", () => (card.hidden = true));
+    }
+    T.pick([P.group], (hit) => {
+      if (!hit) return;
+      const part = P.partAt(hit.object);
+      if (!part) return;
+      showCard(part);
+      if (["frame", "cover", "backglass"].includes(part.id)) { chips.forEach((c) => c.classList.toggle("on", c.dataset.id === part.id)); }
+      P.highlight(part.id);
+    });
+  });
+
+  /* ============================================================ 2. 애시비 */
+  (function () {
+    const MATS = [
+      { id: "al6", dy: 14, n: "Al 6000계", rho: [2.68, 2.72], E: [68, 71], s: [240, 330], k: [150, 200], col: "accent", note: "6061/6013-T6. 가공성·아노다이징 품질이 좋고 저렴하다. 보급형~중급형 프레임." },
+      { id: "al7", dy: -2, n: "Al 7000계", rho: [2.78, 2.84], E: [70, 73], s: [430, 540], k: [120, 150], col: "accent", note: "Al-Zn-Mg-Cu. 강도가 높아 얇은 프레임에서도 영구 변형이 적다. 플래그십 알루미늄 프레임의 주류." },
+      { id: "ti", n: "티타늄 Gr.5", rho: [4.40, 4.47], E: [110, 118], s: [830, 950], k: [6, 7.5], col: "accent-2", note: "Ti-6Al-4V. 비강도 최고 수준, 내식·생체 친화. 열전도가 낮아 하이브리드(내부 Al) 구조가 쓰인다." },
+      { id: "sus", dy: 16, left: true, n: "스테인리스", rho: [7.8, 8.0], E: [190, 200], s: [200, 1000], k: [14, 18], col: "warn", note: "316L(낮은 강도, 높은 내식)~17-4PH(석출 경화, 고강도). 강성은 최고지만 무겁다." },
+      { id: "mg", n: "마그네슘", rho: [1.77, 1.83], E: [42, 46], s: [150, 230], k: [60, 100], col: "ok", note: "AZ31/AZ91. 판 강성 지수 최고. 부식 방지 코팅이 필수이고, 절삭 칩이 탈 수 있어 가공 관리가 까다롭다." },
+      { id: "pc", n: "GF 강화 PC/PA", rho: [1.35, 1.50], E: [6, 10], s: [90, 150], k: [0.25, 0.4], col: "blue", note: "유리섬유 30 % 강화 플라스틱. 사출로 싸고 빠르게 만들며 전파에 투명하다. 강성이 낮아 두께로 보완한다." },
+      { id: "glass", dy: -16, left: true, n: "강화 유리", rho: [2.38, 2.50], E: [65, 80], s: [150, 800], k: [0.9, 1.3], col: "text-dim", glass: true, note: "알루미노실리케이트. '항복' 없이 취성 파괴하므로 강도는 결함 크기에 따라 크게 달라진다(여기 범위는 강화 후 실사용 강도의 대략치)." },
+      { id: "zr", dy: -12, left: true, n: "지르코니아", rho: [5.9, 6.1], E: [200, 210], s: [800, 1200], k: [2, 3], col: "bad", glass: true, note: "세라믹 후면·버튼에 일부 쓰인다. 단단하고 촉감이 좋지만 무겁고 가공이 어렵다." },
+    ];
+    const prop = PB.seg("ash-prop", () => cv.redraw());
+    const idx = PB.seg("ash-idx", () => cv.redraw());
+    $("ash-glass").addEventListener("change", () => cv.redraw());
+    let sel = "al7", hover = null, ellipses = [];
+    const AX = { E: { y: [3, 400], lab: "탄성계수 E (GPa)", n: [1, 2, 3], names: ["E/ρ", "E½/ρ", "E⅓/ρ"] }, s: { y: [50, 2000], lab: "항복강도 σy (MPa)", n: [1, 1.5, 2], names: ["σ/ρ", "σ⅔/ρ", "σ½/ρ"] }, k: { y: [0.1, 500], lab: "열전도도 k (W/m·K)", n: [1, 1, 1], names: ["k/ρ", "k/ρ", "k/ρ"] } };
+    const gm = (r) => Math.sqrt(r[0] * r[1]);
+    function score(m, p, n) { return Math.pow(gm(m[p]), 1 / n) / gm(m.rho); }
+    const cv = PB.canvas($("cv-ashby"), (ctx, w, h) => {
+      const pal = PB.palette();
+      const p = prop(), ax = AX[p], ni = Number(idx()) - 1, n = ax.n[ni];
+      const box = { x: 58, y: 14, w: w - 58 - 14, h: h - 14 - 46 };
+      const C = PB.chart(ctx, box, { x: [1, 10], y: ax.y, logX: true, logY: true, xLabel: "밀도 ρ (g/cm³)", yLabel: ax.lab, xTicks: [1, 2, 3, 5, 10], xFmt: (v) => String(v) });
+      // guide lines through selected
+      const sm = MATS.find((m) => m.id === sel) || MATS[1];
+      const r0 = gm(sm.rho), v0 = gm(sm[p]);
+      ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
+      for (let k = -4; k <= 4; k++) {
+        const fac = Math.pow(1.6, k);
+        ctx.strokeStyle = k === 0 ? pal.accent2 : pal.faint; ctx.lineWidth = k === 0 ? 1.6 : 1; ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        // v = v0*fac^n*(rho/r0)^n  (index const along line)
+        const ya = v0 * Math.pow(fac, n) * Math.pow(1 / r0, n), yb = v0 * Math.pow(fac, n) * Math.pow(10 / r0, n);
+        ctx.moveTo(C.X(1), C.Y(ya)); ctx.lineTo(C.X(10), C.Y(yb)); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ellipses = [];
+      const showG = $("ash-glass").checked;
+      MATS.forEach((m) => {
+        if (m.glass && !showG) return;
+        const x0 = C.X(m.rho[0]), x1 = C.X(m.rho[1]), y0 = C.Y(m[p][0]), y1 = C.Y(m[p][1]);
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = Math.max(8, Math.abs(x1 - x0) / 2 + 4), ry = Math.max(8, Math.abs(y1 - y0) / 2 + 4);
+        const col = PB.color(m.col) || pal.accent;
+        ctx.fillStyle = alpha(col, m.id === sel ? 0.5 : m.id === hover ? 0.38 : 0.24);
+        ctx.strokeStyle = col; ctx.lineWidth = m.id === sel ? 2.5 : 1.2;
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ellipses.push({ m, cx, cy, rx, ry });
+      });
+      ellipses.forEach(({ m, cx, cy, rx, ry }) => {
+        const right = !m.left && cx + rx + 4 + 80 < box.x + box.w;
+        txt(ctx, m.n, right ? cx + rx + 4 : cx - rx - 4, cy + 4 + (m.dy || 0), { color: pal.text, size: 12, align: right ? "left" : "right", bold: m.id === sel });
+      });
+      ctx.restore();
+      txt(ctx, "점선: " + ax.names[ni] + " = 일정 (주황 = 선택 재료)", box.x + 8, box.y + 14, { size: 11.5, color: pal.dim });
+      // ranking
+      const list = MATS.filter((m) => showG || !m.glass).map((m) => ({ m, v: score(m, p, n) })).sort((a, b) => b.v - a.v);
+      PB.stat("ash-o-idx", ax.names[ni]);
+      ["ash-o-1", "ash-o-2", "ash-o-3"].forEach((id, i) => PB.stat(id, list[i] ? `${list[i].m.n} <small>${F(list[i].v, 3)}</small>` : "—"));
+    }, { aspect: 0.72, maxHeight: 520, minHeight: 300 });
+    function hit(ev) {
+      const r = cv.canvas.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
+      let best = null, bd = 1e9;
+      ellipses.forEach((e) => { const d = Math.pow((x - e.cx) / e.rx, 2) + Math.pow((y - e.cy) / e.ry, 2); if (d < 1.6 && d < bd) { bd = d; best = e.m; } });
+      return best;
+    }
+    function info() {
+      const m = MATS.find((q) => q.id === sel);
+      $("ash-info").innerHTML = `<b class="hd">${m.n}</b>${m.note}<div class="kv"><span>ρ ${m.rho[0]}–${m.rho[1]} g/cm³</span><span>E ${m.E[0]}–${m.E[1]} GPa</span><span>σ ${m.s[0]}–${m.s[1]} MPa</span><span>k ${m.k[0]}–${m.k[1]} W/m·K</span><span>E⅓/ρ ${F(score(m, "E", 3), 3)}</span><span>σ⅔/ρ ${F(score(m, "s", 1.5), 3)}</span></div>`;
+    }
+    cv.canvas.addEventListener("click", (ev) => { const m = hit(ev); if (m) { sel = m.id; info(); cv.redraw(); } });
+    cv.canvas.addEventListener("mousemove", (ev) => { const m = hit(ev); const id = m ? m.id : null; cv.canvas.style.cursor = m ? "pointer" : "default"; if (id !== hover) { hover = id; cv.redraw(); } });
+    info(); cv.redraw();
+  })();
+
+  /* ============================================================ 공통: 단면 강성 */
+  const FRAME_MAT = { al: { E: 70e3, rho: 2.75, sy: 480, n: "Al 7000계" }, ti: { E: 114e3, rho: 4.43, sy: 880, n: "Ti Gr.5" }, sus: { E: 193e3, rho: 7.9, sy: 500, n: "스테인리스" }, pc: { E: 8e3, rho: 1.43, sy: 110, n: "GF-PC" } };
+  /** 폭 방향 단면의 유효 EI (N·mm²). T 두께(mm) */
+  function sectionEI(T, mat, glass, railW = 1.4) {
+    const Em = FRAME_MAT[mat].E, Eg = 75e3 * 0.5;
+    const L = [
+      { E: Em, b: 2 * railW, h: T, y: T / 2 },               // rails
+      { E: mat === "pc" ? 70e3 : Em, b: 66, h: 0.5, y: 0.68 * T },  // midplate (PC 폰은 Al 미드플레이트)
+    ];
+    if (glass) { L.push({ E: Eg, b: 70, h: 0.6, y: 0.3 }); L.push({ E: Eg, b: 70, h: 0.6, y: T - 0.3 }); }
+    let EA = 0, EAy = 0; L.forEach((l) => { const A = l.b * l.h; EA += l.E * A; EAy += l.E * A * l.y; });
+    const yb = EAy / EA;
+    let EI = 0; L.forEach((l) => { const A = l.b * l.h; EI += l.E * (l.b * l.h * l.h * l.h / 12 + A * (l.y - yb) * (l.y - yb)); });
+    return { EI, yb, Eg, Em };
+  }
+
+  /* ============================================================ 3. 굽힘 */
+  (function () {
+    const t = PB.range("bm-t", (v) => v.toFixed(1) + " mm", () => upd());
+    const f = PB.range("bm-f", (v) => v + " N", () => upd());
+    const mat = PB.seg("bm-mat", () => upd());
+    $("bm-glass").addEventListener("change", () => upd());
+    const Lspan = 140;
+    let st = {};
+    function upd() {
+      const T = t(), Fv = f(), g = $("bm-glass").checked, m = mat();
+      const s = sectionEI(T, m, g), s8 = sectionEI(8, m, g);
+      const d = Fv * Lspan ** 3 / (48 * s.EI);
+      const M = Fv * Lspan / 4, kap = M / s.EI;
+      const sg = g ? s.Eg * kap * (T - 0.3 - s.yb) : 0;  // 위쪽(압축)과 아래(인장) 중 아래 유리 인장
+      const sgB = g ? s.Eg * kap * (s.yb - 0.3) : 0;
+      const sr = s.Em * kap * Math.max(T - s.yb, s.yb);
+      st = { T, Fv, g, m, s, d, kap };
+      PB.stat("bm-o-ei", F(s.EI / 1e6, 3) + "<small>N·m²</small>");
+      PB.stat("bm-o-d", F(d, 3) + "<small>mm</small>");
+      PB.stat("bm-o-r", Math.round((s.EI / s8.EI) * 100) + "<small>%</small>");
+      PB.stat("bm-o-sg", g ? F(Math.max(sg, sgB), 3) + "<small>MPa</small>" : "—");
+      const ratio = sr / FRAME_MAT[m].sy;
+      PB.stat("bm-o-sr", `<span style="color:${ratio > 1 ? "var(--bad)" : ratio > 0.6 ? "var(--warn)" : "var(--text)"}">${Math.round(ratio * 100)}<small>%</small></span>`);
+      cv.redraw();
+    }
+    let phase = 0;
+    const cv = PB.canvas($("cv-beam"), (ctx, w, h) => {
+      if (!st.s) return;
+      const pal = PB.palette();
+      const topH = Math.round(h * 0.46);
+      // ---- 애니메이션: 보
+      const k = 0.5 - 0.5 * Math.cos(phase);
+      const x0 = 40, x1 = w - 40, span = x1 - x0;
+      const scaleT = 3.2; // px per mm thickness
+      const thick = st.T * scaleT;
+      const yMid = topH * 0.48;
+      const gain = Math.min(1600, 40 / Math.max(st.d, 1e-4)); // 과장
+      const dpx = st.d * k * gain * (span / Lspan) / (span / Lspan); // px
+      const defl = (u) => { const x = u * Lspan; const xx = x <= Lspan / 2 ? x : Lspan - x; return (xx * (3 * Lspan * Lspan - 4 * xx * xx)) / (Lspan ** 3); }; // normalized (max=1 at center)
+      const N = 60;
+      const path = (off) => { const pts = []; for (let i = 0; i <= N; i++) { const u = i / N; pts.push([x0 + u * span, yMid + off + defl(u) * dpx]); } return pts; };
+      const top = path(-thick / 2), bot = path(thick / 2);
+      // body
+      ctx.beginPath(); top.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); bot.slice().reverse().forEach(([x, y]) => ctx.lineTo(x, y)); ctx.closePath();
+      ctx.fillStyle = alpha(pal.dim, 0.25); ctx.fill();
+      // glass layers
+      if (st.g) {
+        ctx.lineWidth = 3; ctx.strokeStyle = alpha(PB.color("blue"), 0.8);
+        [top, bot].forEach((arr) => { ctx.beginPath(); arr.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); });
+      }
+      // supports
+      ctx.fillStyle = pal.dim;
+      [x0 + 8, x1 - 8].forEach((x) => { const y = yMid + thick / 2 + 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 9, y + 14); ctx.lineTo(x + 9, y + 14); ctx.closePath(); ctx.fill(); });
+      // load arrow
+      const cx = x0 + span / 2, cyTop = yMid - thick / 2 + dpx;
+      ctx.strokeStyle = pal.accent2; ctx.fillStyle = pal.accent2; ctx.lineWidth = 2.5;
+      const al = 16 + 26 * k;
+      ctx.beginPath(); ctx.moveTo(cx, cyTop - al - 6); ctx.lineTo(cx, cyTop - 6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx, cyTop - 2); ctx.lineTo(cx - 6, cyTop - 11); ctx.lineTo(cx + 6, cyTop - 11); ctx.closePath(); ctx.fill();
+      txt(ctx, "F = " + Math.round(st.Fv * k) + " N", cx + 10, cyTop - al, { color: pal.accent2, size: 12, mono: true });
+      txt(ctx, `처짐 ${F(st.d * k, 2)} mm (화면에서는 ×${Math.round(gain)} 과장)`, 12, 18, { size: 12, color: pal.text });
+      txt(ctx, `두께 ${st.T.toFixed(1)} mm · ${FRAME_MAT[st.m].n}${st.g ? " + 유리 접착" : ""}`, 12, topH - 8, { size: 11.5 });
+      // ---- 차트: EI vs T
+      const m = st.m, g = st.g, ref = sectionEI(8, m, g).EI;
+      const s1 = [], s3 = [], s2 = [];
+      for (let T = 5; T <= 10.001; T += 0.1) { s1.push([T, sectionEI(T, m, g).EI / ref]); s3.push([T, Math.pow(T / 8, 3)]); s2.push([T, Math.pow(T / 8, 2)]); }
+      const box = { x: 58, y: topH + 12, w: w - 58 - 16, h: h - topH - 12 - 44 };
+      PB.chart(ctx, box, {
+        x: [5, 10], y: [0, 2.2], xLabel: "폰 두께 T (mm)", yLabel: "8 mm 대비 강성",
+        series: [{ data: s3, color: pal.faint, dash: [6, 4], width: 1.5 }, { data: s2, color: pal.dim, dash: [2, 3], width: 1.5 }, { data: s1, color: pal.accent, width: 2.5 }],
+        points: [{ x: st.T, y: st.s.EI / ref, color: pal.accent2, r: 5 }],
+        vlines: [{ x: 8, color: pal.faint }],
+      });
+      txt(ctx, "— 이 단면   - - T³   ··· T²", box.x + 10, box.y + 14, { size: 11.5, color: pal.dim });
+    }, { aspect: 0.78, maxHeight: 560, minHeight: 380 });
+    PB.loop($("cv-beam"), (dt) => { phase += dt * 2.0; cv.redraw(); });
+    upd();
+  })();
+
+  /* ============================================================ 4. 유리 */
+  (function () {
+    const PRE = {
+      soda: { cs: 0, d: 20, dual: false, kic: 0.75, t: 0.6 },
+      al: { cs: 850, d: 35, dual: false, kic: 0.7, t: 0.6 },
+      li: { cs: 800, d: 90, dual: true, kic: 0.8, t: 0.6, cs2: 220 },
+      gc: { cs: 650, d: 85, dual: true, kic: 1.1, t: 0.6, cs2: 200 },
+    };
+    let pre = PRE.al;
+    const tt = PB.range("gl-t", (v) => v.toFixed(2) + " mm", () => upd());
+    const cs = PB.range("gl-cs", (v) => v + " MPa", () => upd());
+    const dd = PB.range("gl-d", (v) => v + " µm", () => upd());
+    const aa = PB.range("gl-a", (v) => v + " µm", () => { grow = 0; upd(); });
+    const sa = PB.range("gl-s", (v) => v + " MPa", () => { grow = 0; upd(); });
+    PB.seg("gl-pre", (v) => { pre = PRE[v]; tt.set(pre.t); cs.set(pre.cs); dd.set(pre.d); grow = 0; upd(); });
+    let st = {}, grow = 0;
+    function profile(t_um, CS, d, dual, cs2) {
+      const N = 400, z = [], f = [];
+      const comp = (x) => dual ? CS * erfc(x / 6) + cs2 * erfc(x / d) : CS * erfc(x / d);
+      let mean = 0;
+      for (let i = 0; i <= N; i++) { const zz = (t_um * i) / N; const v = comp(zz) + comp(t_um - zz); z.push(zz); f.push(v); mean += v; }
+      mean /= N + 1;
+      const s = f.map((v) => -v + mean); // MPa, 음수=압축
+      const at = (x) => { if (x <= 0) return s[0]; if (x >= t_um) return s[N]; const u = (x / t_um) * N, i = Math.floor(u), r = u - i; return s[i] * (1 - r) + s[Math.min(N, i + 1)] * r; };
+      let doc = 0; for (let i = 0; i <= N / 2; i++) if (s[i] < 0) doc = z[i];
+      return { z, s, CT: mean, at, doc };
+    }
+    function resEff(pr, a) { // (2/π)∫ σ(a sinθ) dθ
+      const n = 40; let sum = 0; for (let i = 0; i < n; i++) { const th = ((i + 0.5) / n) * (Math.PI / 2); sum += pr.at(a * Math.sin(th)); } return (sum / n);
+    }
+    function strength(pr, a_um, kic) { const a = a_um * 1e-6; return kic / (1.12 * Math.sqrt(Math.PI * a)) - resEff(pr, a_um); }
+    function upd() {
+      const t_um = tt() * 1000, CS = cs(), d = dd(), a = Math.min(aa(), t_um * 0.95);
+      const pr = profile(t_um, CS, d, pre.dual && CS > 0, pre.cs2 || 0);
+      const sf = strength(pr, a, pre.kic);
+      const sf0 = pre.kic / (1.12 * Math.sqrt(Math.PI * a * 1e-6));
+      st = { t_um, CS, d, a, pr, sf, sf0, kic: pre.kic };
+      PB.stat("gl-o-ct", F(pr.CT, 3) + "<small>MPa</small>");
+      PB.stat("gl-o-doc", CS > 0 ? Math.round(pr.doc) + "<small>µm</small>" : "—");
+      PB.stat("gl-o-sf", F(Math.max(0, sf), 3) + "<small>MPa</small>");
+      PB.stat("gl-o-gain", CS > 0 ? "×" + F(Math.max(0, sf) / sf0, 2) : "×1");
+      const v = $("gl-verdict"), app = sa();
+      const frag = pr.CT > 140 * Math.sqrt(0.6 / tt());
+      if (sf <= 0) { v.className = "verdict bad"; v.innerHTML = "<b>자발 파괴</b>: 균열이 인장 영역 깊숙이 있어 외부 힘 없이도 성장한다."; }
+      else if (app >= sf) { v.className = "verdict bad"; v.innerHTML = `<b>균열 전파 → 파손</b>: 가해진 ${app} MPa ≥ 이 균열의 강도 ${F(sf, 3)} MPa.` + (frag ? " CT가 커서 잘게 부서진다(파편화)." : ""); }
+      else if (a < pr.doc) { v.className = "verdict ok"; v.innerHTML = `<b>균열 정지</b>: 균열 끝(${Math.round(a)} µm)이 압축층(DOC ${Math.round(pr.doc)} µm) 안에 있어 눌려 닫혀 있다. 여유 ${F(sf - app, 3)} MPa.`; }
+      else { v.className = "verdict warn"; v.innerHTML = `<b>버티는 중</b>: 균열 끝이 압축층 밖이다. 조금만 더 힘을 받으면 위험(여유 ${F(sf - app, 3)} MPa).`; }
+      if (frag && sf > 0 && app < sf) v.innerHTML += " ⚠ CT가 커서 파손 시 파편화 위험.";
+      c1.redraw(); c2.redraw();
+    }
+    const c1 = PB.canvas($("cv-gl1"), (ctx, w, h) => {
+      if (!st.pr) return;
+      const pal = PB.palette(), pr = st.pr, t = st.t_um;
+      const band = { x: 58, y: 10, w: w - 58 - 16, h: 34 };
+      // stress band
+      const nb = 120;
+      for (let i = 0; i < nb; i++) {
+        const z = (t * (i + 0.5)) / nb, s = pr.at(z);
+        const a = Math.min(1, Math.abs(s) / 500);
+        ctx.fillStyle = s < 0 ? alpha(PB.color("blue"), 0.15 + 0.75 * a) : alpha(PB.color("red"), 0.15 + 0.75 * Math.min(1, Math.abs(s) / 120));
+        ctx.fillRect(band.x + (band.w * i) / nb, band.y, band.w / nb + 1, band.h);
+      }
+      ctx.strokeStyle = pal.border; ctx.strokeRect(band.x, band.y, band.w, band.h);
+      // crack (from left surface)
+      const fail = st.sf <= 0 || sa() >= st.sf;
+      const aShow = fail ? st.a + (t - st.a) * Math.min(1, grow) : st.a;
+      const cxp = band.x + (band.w * aShow) / t;
+      ctx.fillStyle = pal.text;
+      ctx.beginPath(); ctx.moveTo(band.x, band.y + band.h / 2 - 5); ctx.lineTo(cxp, band.y + band.h / 2); ctx.lineTo(band.x, band.y + band.h / 2 + 5); ctx.closePath(); ctx.fill();
+      txt(ctx, "앞면", band.x - 6, band.y + band.h / 2 + 4, { align: "right", size: 11 });
+      // chart
+      const box = { x: 58, y: band.y + band.h + 14, w: w - 58 - 16, h: h - band.y - band.h - 14 - 44 };
+      const data = pr.z.map((z, i) => [z, pr.s[i]]);
+      const ymin = Math.min(-200, -Math.max(st.CS * 1.1, 100)), ymax = Math.max(150, pr.CT * 1.6);
+      PB.chart(ctx, box, { x: [0, t], y: [ymin, ymax], xLabel: "앞면에서의 깊이 (µm)", yLabel: "잔류 응력 (MPa)",
+        series: [{ data, color: pal.accent, width: 2.2, fill: alpha(pal.accent, 0.12) }],
+        hlines: [{ y: 0, color: pal.axis, dash: [] }],
+        vlines: [{ x: st.a, color: pal.accent2 }].concat(st.CS > 0 ? [{ x: pr.doc, color: pal.dim }] : []) });
+      const Xd = (v) => box.x + (v / t) * box.w;
+      txt(ctx, "균열 끝 a", Xd(st.a) + 4, box.y + box.h - 8, { size: 11.5, color: pal.accent2 });
+      if (st.CS > 0) txt(ctx, "DOC", Xd(pr.doc) + 4, box.y + 14, { size: 11.5, color: pal.dim });
+    }, { aspect: 0.5, maxHeight: 320, minHeight: 230 });
+    const c2 = PB.canvas($("cv-gl2"), (ctx, w, h) => {
+      if (!st.pr) return;
+      const pal = PB.palette();
+      const amax = Math.min(500, st.t_um * 0.9);
+      const s1 = [], s0 = [];
+      for (let i = 0; i <= 120; i++) { const a = Math.exp(Math.log(1) + (Math.log(amax) - Math.log(1)) * (i / 120)); s1.push([a, Math.max(0, strength(st.pr, a, st.kic))]); s0.push([a, st.kic / (1.12 * Math.sqrt(Math.PI * a * 1e-6))]); }
+      PB.chart(ctx, null, { x: [1, amax], y: [0, 1400], logX: true, xLabel: "균열 깊이 a (µm)", yLabel: "파괴 강도 (MPa)",
+        series: [{ data: s0, color: pal.dim, dash: [5, 4], width: 1.6 }, { data: s1, color: pal.accent, width: 2.5 }],
+        hlines: [{ y: sa(), color: pal.accent2, label: "가해진 응력 " + sa() + " MPa" }],
+        points: [{ x: Math.max(1, st.a), y: Math.max(0, st.sf), color: pal.accent2, r: 5 }],
+        xTicks: [1, 3, 10, 30, 100, 300].filter((v) => v <= amax), xFmt: (v) => String(v) });
+      txt(ctx, "— 강화 유리   - - 비강화(같은 K_IC)", 70, 30, { size: 11.5, color: pal.dim });
+    }, { aspect: 0.42, maxHeight: 280, minHeight: 210 });
+    PB.loop($("cv-gl1"), (dt) => { const fail = st.pr && (st.sf <= 0 || sa() >= st.sf); if (fail && grow < 1) { grow = Math.min(1, grow + dt * 1.2); c1.redraw(); } });
+    upd();
+  })();
+
+  /* ============================================================ 5. 낙하 */
+  (function () {
+    const hh = PB.range("dr-h", (v) => v.toFixed(2) + " m", () => upd());
+    const mm = PB.range("dr-m", (v) => v + " g", () => upd());
+    const orr = PB.seg("dr-or", () => upd());
+    const fl = PB.seg("dr-fl", () => upd());
+    $("dr-case").addEventListener("change", () => upd());
+    const TAU = { con: 0.25, tile: 0.3, wood: 0.7, carpet: 2.5 };
+    const FLN = { con: "콘크리트", tile: "타일", wood: "마루", carpet: "카펫" };
+    const OR = { face: { meff: 1, tf: 1, A: 2000, ang: 0 }, edge: { meff: 0.6, tf: 1.5, A: 60, ang: Math.PI / 2 }, corner: { meff: 0.4, tf: 2.0, A: 8, ang: 0.62 } };
+    const e = 0.3;
+    function calc(h, m, o, f, cs) {
+      const v = Math.sqrt(2 * 9.81 * h);
+      const O = OR[o];
+      const tau = TAU[f] * O.tf * (cs ? 3 : 1) * 1e-3;
+      const a = O.meff * Math.PI * (1 + e) * v / (2 * tau);
+      const Fp = (m / 1000) * a;
+      const A = O.A * (cs && o !== "face" ? 4 : 1);
+      return { v, tau, a, g: a / 9.81, Fp, P: Fp / A };
+    }
+    let st = {}, tAnim = 0;
+    function upd() {
+      st = calc(hh(), mm(), orr(), fl(), $("dr-case").checked);
+      PB.stat("dr-o-v", F(st.v, 3) + "<small>m/s</small>");
+      PB.stat("dr-o-t", F(st.tau * 1000, 2) + "<small>ms</small>");
+      PB.stat("dr-o-g", Math.round(st.g).toLocaleString() + "<small>g</small>");
+      PB.stat("dr-o-f", Math.round(st.Fp).toLocaleString() + "<small>N</small>");
+      PB.stat("dr-o-p", F(st.P, 3) + "<small>MPa</small>");
+      cv.redraw();
+    }
+    const cv = PB.canvas($("cv-drop"), (ctx, w, h) => {
+      if (!st.v) return;
+      const pal = PB.palette();
+      const narrow = w < 560;
+      const aw = narrow ? w : Math.round(w * 0.36);
+      const ah = narrow ? Math.round(h * 0.45) : h;
+      // --- 낙하 애니메이션
+      const floorY = ah - 26;
+      const H = hh(), period = 2.6;
+      const tf = Math.sqrt((2 * H) / 9.81);
+      const slow = 1.6 / Math.max(tf, 0.25);
+      const tt = (tAnim % period);
+      const fallT = tf * slow; // seconds displayed
+      let y01, flash = 0;
+      if (tt < fallT) { const tr = tt / slow; y01 = 1 - (0.5 * 9.81 * tr * tr) / H; }
+      else { const tb = tt - fallT; const vb = e * Math.sqrt(2 * 9.81 * H) / slow; y01 = Math.max(0, (vb * tb - 0.5 * 9.81 / (slow * slow) * tb * tb) / H); flash = Math.max(0, 1 - tb * 4); }
+      const top = 26, phy = floorY - top;
+      const o = orr(), O = OR[o];
+      const pw = Math.min(aw * 0.18, 26), pl = pw * 2.06;
+      // floor
+      ctx.fillStyle = alpha(pal.dim, 0.25); ctx.fillRect(0, floorY, aw, ah - floorY);
+      txt(ctx, FLN[fl()] + ($("dr-case").checked ? " · 케이스" : ""), 8, ah - 8, { size: 11.5 });
+      // height ruler
+      ctx.strokeStyle = pal.faint; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(18, top); ctx.lineTo(18, floorY); ctx.stroke(); ctx.setLineDash([]);
+      txt(ctx, H.toFixed(2) + " m", 24, top + 10, { size: 11.5, mono: true });
+      // phone
+      const cx = aw * 0.58;
+      const ang = O.ang;
+      const halfH = Math.abs(Math.cos(ang)) * pw / 2 + Math.abs(Math.sin(ang)) * pl / 2;
+      const cy = floorY - halfH - y01 * (phy - 2 * halfH);
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+      ctx.fillStyle = alpha(pal.dim, 0.7); ctx.strokeStyle = pal.text; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(-pl / 2, -pw / 2, pl, pw, 4) : ctx.rect(-pl / 2, -pw / 2, pl, pw); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = alpha(PB.color("blue"), 0.8); ctx.fillRect(-pl / 2 + 3, pw / 2 - 4, pl - 6, 3); // screen side (down for face)
+      ctx.restore();
+      if (flash > 0) {
+        ctx.fillStyle = alpha(pal.accent2, 0.6 * flash);
+        ctx.beginPath(); ctx.arc(cx, floorY, 10 + 26 * (1 - flash), 0, Math.PI * 2); ctx.fill();
+      }
+      // --- 펄스 차트
+      const box = narrow ? { x: 58, y: ah + 14, w: w - 58 - 14, h: h - ah - 14 - 44 } : { x: aw + 58, y: 16, w: w - aw - 58 - 14, h: h - 16 - 46 };
+      const cs = $("dr-case").checked;
+      const others = Object.keys(TAU).filter((k) => k !== fl()).map((k) => calc(hh(), mm(), o, k, cs));
+      const tmax = Math.max(st.tau * 1000 * 1.25, 1.0);
+      const gmax = Math.max(st.g, ...others.filter((q) => q.tau * 1000 < tmax * 1.5).map((q) => q.g)) * 1.15;
+      const pulse = (q) => { const d = []; const T = q.tau * 1000; for (let i = 0; i <= 80; i++) { const t = (tmax * i) / 80; d.push([t, t <= T ? q.g * Math.sin((Math.PI * t) / T) : 0]); } return d; };
+      PB.chart(ctx, box, { x: [0, tmax], y: [0, gmax], xLabel: "시간 (ms)",
+        series: others.map((q) => ({ data: pulse(q), color: pal.faint, width: 1.2 })).concat([{ data: pulse(st), color: pal.accent2, width: 2.6, fill: alpha(pal.accent2, 0.12) }]),
+        yFmt: (v) => (v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k" : String(Math.round(v))) });
+      txt(ctx, "가속도 (g)", box.x + 6, box.y + 12, { size: 11.5 });
+      txt(ctx, "최고 " + Math.round(st.g).toLocaleString() + " g", box.x + box.w - 6, box.y + 14, { align: "right", color: pal.accent2, bold: true, size: 13 });
+    }, { aspect: 0.5, minHeight: 300, maxHeight: 420 });
+    PB.loop($("cv-drop"), (dt) => { tAnim += dt; cv.redraw(); });
+    upd();
+  })();
+
+  /* ============================================================ 6. 방수 경로 SVG */
+  (function () {
+    const INFO = [
+      ["유리 접착 씰", "커버·후면 유리 둘레 전체를 방수 접착 테이프(PSA) 또는 디스펜싱 접착제로 붙인다. 접착 폭은 1–2 mm 정도로 좁아서, 접착면의 기포·이물이 곧 누수 경로가 된다. 수리 후 재접착 품질이 방수를 좌우한다."],
+      ["버튼 O-링", "움직이는 버튼 축에 실리콘 O-링을 끼운다. 반복 동작(수만 회)에도 마모되지 않도록 압축률과 윤활을 설계한다. 최근에는 움직이지 않는 압력 감지 버튼으로 구멍 자체를 없애기도 한다."],
+      ["USB-C 포트", "포트 자체를 방수형으로 만든다: 커넥터 셸과 하우징 사이 가스켓, 핀 사이는 수지로 몰딩. 포트 안쪽은 젖어도 되고 그 뒤가 막혀 있다. 젖은 상태로 충전하지 않도록 수분 감지 기능을 둔다."],
+      ["스피커 그릴", "소리가 나가야 하므로 메시 + 방수 멤브레인. 진동판 앞 공간(전면 음향 챔버)은 젖어도 되도록 설계하고, 진동판 뒤의 백 볼륨을 밀폐한다."],
+      ["SIM 트레이", "트레이 둘레에 실리콘 가스켓. eSIM만 쓰는 모델은 이 구멍이 사라져 방수·공간 면에서 유리하다."],
+      ["마이크 구멍", "MEMS 마이크 앞에 ePTFE 멤브레인. 음향 저항이 작아야 하므로 면적과 두께를 신중히 고른다(10장)."],
+      ["수화부·기압 통기", "수화부 스피커 메시, 그리고 기압 센서·내부 압력 평형을 위한 통기 멤브레인. 열수축 부압을 풀어 주는 '숨구멍'이다."],
+    ];
+    const pts = [...document.querySelectorAll(".seal-svg .pt")];
+    pts.forEach((p) => p.addEventListener("click", () => {
+      const k = +p.dataset.k;
+      pts.forEach((q) => q.classList.toggle("on", q === p));
+      $("seal-info").innerHTML = `<b style="color:var(--text);font-size:14px">${k + 1}. ${INFO[k][0]}</b><br>${INFO[k][1]}`;
+    }));
+  })();
+
+  /* ============================================================ 7. 가스켓 */
+  (function () {
+    const cc = PB.range("se-c", (v) => v + " %", () => upd());
+    const ww = PB.range("se-w", (v) => "±" + v.toFixed(3) + " mm", () => upd());
+    const yy = PB.range("se-y", (v) => v + " 년", () => upd());
+    const hh = PB.range("se-h", (v) => v.toFixed(1) + " m", () => upd());
+    const dT = PB.range("se-dt", (v) => v + " K", () => upd());
+    const h0 = 0.6, Er = 4, PER = 430;
+    // 고정 잡음(결정적)
+    let sd = 11; const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+    const noise = []; for (let i = 0; i < 12; i++) noise.push([rnd() * 2 - 1, rnd() * Math.PI * 2, 3 + i * 2]);
+    let st = {};
+    function warp(s, A) { // mm
+      let v = A * Math.sin((2 * Math.PI * s) / PER * 2 + 0.6) + 0.5 * A * Math.sin((2 * Math.PI * s) / PER * 5 + 1.7);
+      noise.forEach(([a, ph, k]) => (v += 0.12 * A * a * Math.sin((2 * Math.PI * s * k) / PER + ph)));
+      return v;
+    }
+    function upd() {
+      const cn = cc() / 100, A = ww(), yrs = yy(), dep = hh();
+      const p = 1000 * 9.81 * dep / 1e6; // MPa
+      const dp = 101.325e-3 * dT() / 308; // MPa
+      const set = 0.3 * (1 - Math.exp(-yrs / 1.5)); // compression set 비율
+      const need = (0.1 + 2 * (p + dp)) / Er;
+      const N = 400, arr = [];
+      let minc = 9, leak = 0;
+      for (let i = 0; i <= N; i++) {
+        const s = (PER * i) / N;
+        const eps = cn - warp(s, A) / h0;
+        const eff = eps - set * cn;
+        arr.push([s, eff * 100]);
+        minc = Math.min(minc, eff);
+        if (eff < need) leak++;
+      }
+      st = { cn, A, set, need, arr, minc, leakFrac: leak / (N + 1), p, dp };
+      PB.stat("se-o-p", F(p * 1000, 3) + "<small>kPa</small>");
+      PB.stat("se-o-dp", F(dp * 1000, 3) + "<small>kPa</small>");
+      PB.stat("se-o-min", F(need * 100, 2) + "<small>%</small>");
+      PB.stat("se-o-act", F(minc * 100, 2) + "<small>%</small>");
+      PB.stat("se-o-leak", F(st.leakFrac * 100, 2) + "<small>%</small>");
+      const v = $("se-verdict");
+      const over = cn + A / h0 > 0.4;
+      if (st.leakFrac > 0) { v.className = "verdict bad"; v.innerHTML = `<b>누수</b>: 둘레의 ${F(st.leakFrac * 100, 2)} %에서 접촉 응력이 부족하다. 압축률을 높이거나, 프레임 평탄도(휨)를 개선하거나, 영구 줄음이 작은 고무를 써야 한다.`; }
+      else if (minc - need < 0.03) { v.className = "verdict warn"; v.innerHTML = `<b>간신히 통과</b>: 최소 여유 ${F((minc - need) * 100, 2)} %p. 노화·온도·낙하 후 변형까지 생각하면 위험하다.`; }
+      else { v.className = "verdict ok"; v.innerHTML = `<b>씰링 양호</b>: 최소 여유 ${F((minc - need) * 100, 2)} %p.`; }
+      if (over) v.innerHTML += " ⚠ 최대 압축이 40 %를 넘는 구간이 있어 조립력 과다·고무 손상 위험.";
+      cv.redraw();
+    }
+    let ph = 0;
+    const cv = PB.canvas($("cv-seal"), (ctx, w, h) => {
+      if (!st.arr) return;
+      const pal = PB.palette();
+      const topH = Math.round(h * 0.42);
+      // ---- 단면
+      const sc = Math.min(70, (topH - 40) / 1.0, w / 7); // px per mm
+      const gx = w * 0.5, base = topH - 18;
+      const gw = 1.0 * sc, grooveD = 0.35 * sc;
+      // frame with groove
+      ctx.fillStyle = alpha(pal.dim, 0.35);
+      ctx.fillRect(gx - gw * 2.2, base - grooveD, gw * 1.6, grooveD + 12);
+      ctx.fillRect(gx + gw * 0.6, base - grooveD, gw * 1.6, grooveD + 12);
+      ctx.fillRect(gx - gw * 0.6, base, gw * 1.2, 12);
+      txt(ctx, "프레임 홈", w - 8, base + 10, { size: 11.5, align: "right" });
+      // gasket
+      const k = 0.5 - 0.5 * Math.cos(ph);
+      const comp = st.cn * Math.min(1, k * 1.15);
+      const gh = h0 * sc * (1 - comp);
+      ctx.fillStyle = alpha(pal.accent, 0.55); ctx.strokeStyle = pal.accent; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(gx, base - gh / 2, gw * 0.42 * (1 + comp * 0.9), gh / 2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // cover plate
+      const plateY = base - gh;
+      ctx.fillStyle = alpha(PB.color("blue"), 0.45); ctx.fillRect(gx - gw * 2.2, plateY - 10, gw * 4.4, 10);
+      txt(ctx, "커버", w - 8, plateY - 2, { size: 11.5, align: "right" });
+      // water arrows
+      const n = Math.min(8, 1 + Math.round((st.p + st.dp) * 1000 / 10));
+      ctx.strokeStyle = PB.color("blue"); ctx.fillStyle = PB.color("blue"); ctx.lineWidth = 2;
+      for (let i = 0; i < n; i++) {
+        const y = plateY + 4 + (i % 2) * 4, x = Math.max(20, gx - gw * 2.2 - 30) + ((i * 7 + ph * 8) % 24);
+        ctx.beginPath(); ctx.moveTo(x - 14, y); ctx.lineTo(x, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + 4, y); ctx.lineTo(x - 3, y - 4); ctx.lineTo(x - 3, y + 4); ctx.closePath(); ctx.fill();
+      }
+      txt(ctx, "물 " + F((st.p + st.dp) * 1000, 2) + " kPa", 10, plateY - 14, { size: 12, color: PB.color("blue"), bold: true });
+      txt(ctx, "압축 " + Math.round(comp * 100) + " %", gx, plateY - 16, { align: "center", size: 12, mono: true, color: pal.text });
+      // ---- 둘레 압축률
+      const box = { x: 58, y: topH + 12, w: w - 58 - 16, h: h - topH - 12 - 44 };
+      const ymax = Math.max(50, st.cn * 100 + st.A / h0 * 100 + 5);
+      const bands = [];
+      let s0 = null;
+      st.arr.forEach(([s, v], i) => { const bad = v < st.need * 100; if (bad && s0 == null) s0 = s; if ((!bad || i === st.arr.length - 1) && s0 != null) { bands.push({ x0: s0, x1: s, color: alpha(pal.bad, 0.25) }); s0 = null; } });
+      PB.chart(ctx, box, { x: [0, PER], y: [Math.min(-5, Math.floor(st.minc * 100) - 3), ymax], xLabel: "둘레 위치 (mm)", yLabel: "실효 압축률 (%)",
+        bands, series: [{ data: st.arr, color: pal.accent, width: 2.2 }],
+        hlines: [{ y: st.need * 100, color: pal.bad, label: "필요 최소 " + F(st.need * 100, 2) + " %" }, { y: 40, color: pal.warn, label: "과압축 40 %" }] });
+    }, { aspect: 0.74, minHeight: 380, maxHeight: 540 });
+    PB.loop($("cv-seal"), (dt) => { if (ph < Math.PI) { ph = Math.min(Math.PI, ph + dt * 1.6); cv.redraw(); } });
+    ["se-c"].forEach((id) => $(id).addEventListener("input", () => (ph = 0)));
+    upd();
+  })();
+
+  /* ============================================================ 8. 공차 */
+  (function () {
+    const to = PB.range("tl-o", (v) => "±" + v.toFixed(3), () => run());
+    const tg = PB.range("tl-g", (v) => "±" + v.toFixed(3), () => run());
+    const tx = PB.range("tl-x", (v) => "±" + v.toFixed(3), () => run());
+    const ts = PB.range("tl-s", (v) => (v >= 0 ? "+" : "") + v.toFixed(3) + " mm", () => run());
+    const nn = PB.seg("tl-n", () => run());
+    $("tl-run").addEventListener("click", () => run());
+    const LSL = 0.05, USL = 0.35, O0 = 69.2, G0 = 68.8;
+    let st = null;
+    function run() {
+      const N = Number(nn()), sO = to() / 3, sG = tg() / 3, sX = tx() / 3, sh = ts();
+      const bins = 90, lo = -0.15, hi = 0.55, hist = new Array(bins).fill(0);
+      let sum = 0, sum2 = 0, bad = 0;
+      for (let i = 0; i < N; i++) {
+        const O = O0 + sO * PB.randn(), G = G0 + sh + sG * PB.randn(), x = sX * PB.randn();
+        const g = (O - G) / 2 - x;
+        sum += g; sum2 += g * g;
+        if (g < LSL || g > USL) bad++;
+        const b = Math.floor(((g - lo) / (hi - lo)) * bins); if (b >= 0 && b < bins) hist[b]++;
+      }
+      const mu = sum / N, sd = Math.sqrt(Math.max(0, sum2 / N - mu * mu));
+      const nom = (O0 - G0 - sh) / 2;
+      const wc = to() / 2 + tg() / 2 + tx(), rss = Math.sqrt((to() / 2) ** 2 + (tg() / 2) ** 2 + tx() ** 2);
+      const cpk = Math.min(USL - mu, mu - LSL) / (3 * sd);
+      st = { hist, bins, lo, hi, N, mu, sd, nom, wc, rss, bad };
+      PB.stat("tl-o-ms", F(mu, 3) + " / " + F(sd, 2) + "<small>mm</small>");
+      PB.stat("tl-o-wc", F(nom - wc, 3) + "…" + F(nom + wc, 3));
+      PB.stat("tl-o-rss", F(nom - rss, 3) + "…" + F(nom + rss, 3));
+      const ppm = (bad / N) * 1e6;
+      PB.stat("tl-o-ppm", `<span style="color:${ppm > 1000 ? "var(--bad)" : ppm > 63 ? "var(--warn)" : "var(--ok)"}">${ppm >= 10000 ? F(ppm / 1e4, 3) + "<small>%</small>" : Math.round(ppm).toLocaleString() + "<small>ppm</small>"}</span>`);
+      PB.stat("tl-o-cpk", `<span style="color:${cpk >= 1.33 ? "var(--ok)" : cpk >= 1 ? "var(--warn)" : "var(--bad)"}">${F(cpk, 3)}</span>`);
+      cv.redraw();
+    }
+    const cv = PB.canvas($("cv-tol"), (ctx, w, h) => {
+      if (!st) return;
+      const pal = PB.palette();
+      const box = { x: 58, y: 34, w: w - 58 - 16, h: h - 34 - 46 };
+      const bw = (st.hi - st.lo) / st.bins;
+      const dens = st.hist.map((c) => c / (st.N * bw));
+      const ymax = Math.max(...dens, 1) * 1.15;
+      const C = PB.chart(ctx, box, { x: [st.lo, st.hi], y: [0, ymax], xLabel: "유리–프레임 갭 (mm)", yLabel: "확률 밀도",
+        bands: [{ x0: st.lo, x1: LSL, color: alpha(pal.bad, 0.12) }, { x0: USL, x1: st.hi, color: alpha(pal.bad, 0.12) }],
+        vlines: [{ x: LSL, color: pal.bad, label: "LSL" }, { x: USL, color: pal.bad, label: "USL" }], yFmt: (v) => String(Math.round(v)) });
+      st.hist.forEach((c, i) => {
+        const x0 = st.lo + i * bw, g = x0 + bw / 2;
+        const ok = g >= LSL && g <= USL;
+        ctx.fillStyle = ok ? alpha(pal.accent, 0.7) : alpha(pal.bad, 0.8);
+        const y = C.Y(dens[i]); ctx.fillRect(C.X(x0) + 0.5, y, Math.max(1, C.X(x0 + bw) - C.X(x0) - 1), C.Y(0) - y);
+      });
+      // range bars
+      const bar = (a, b, y, col, label) => { ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(C.X(a), y); ctx.lineTo(C.X(b), y); ctx.stroke(); ctx.fillRect(C.X(a) - 1, y - 5, 2, 10); ctx.fillRect(C.X(b) - 1, y - 5, 2, 10); txt(ctx, label, C.X(b) + 6, y + 4, { size: 11.5, color: col }); };
+      bar(st.nom - st.wc, st.nom + st.wc, 10, pal.warn, "최악 합");
+      bar(st.nom - st.rss, st.nom + st.rss, 24, pal.accent2, "RSS ±3σ");
+    }, { aspect: 0.5, minHeight: 280, maxHeight: 400 });
+    run();
+  })();
+
+  /* ============================================================ 9. 수리 */
+  (function () {
+    const o = PB.seg("rp-open", () => upd()), c = PB.seg("rp-close", () => upd()), b = PB.seg("rp-bat", () => upd()), p = PB.seg("rp-port", () => upd()), s = PB.seg("rp-screw", () => upd());
+    $("rp-pair").addEventListener("change", () => upd());
+    let steps = [];
+    function upd() {
+      steps = [];
+      const front = o() === "front";
+      steps.push([c() === "glue" ? "가열·흡착컵으로 " + (front ? "화면" : "후면") + " 분리" : "나사 풀고 " + (front ? "화면" : "후면") + " 분리", c() === "glue" ? (front ? 14 : 11) : 4]);
+      if (front) steps.push(["디스플레이 플렉스 분리(파손 주의)", 4]);
+      steps.push(["차폐·브래킷 나사 제거", s() === "prop" ? 5 : 3]);
+      steps.push(["배터리 커넥터 분리", 1]);
+      steps.push([{ glue: "용제·열로 배터리 접착 제거", tab: "당김 탭으로 배터리 분리", elec: "전원 인가로 접착 해제", bracket: "브래킷 나사 풀고 분리" }[b()], { glue: 16, tab: 4, elec: 3, bracket: 3 }[b()]]);
+      steps.push(["새 배터리 장착·커넥터 연결", 3]);
+      steps.push([c() === "glue" ? "새 방수 접착 씰 부착·압착" : "가스켓 확인·나사 체결", c() === "glue" ? 8 : 3]);
+      if ($("rp-pair").checked) steps.push(["부품 페어링·보정(전용 소프트웨어)", 6]);
+      const T = steps.reduce((a, q) => a + q[1], 0);
+      let sc = 10;
+      if (c() === "glue") sc -= 1.5;
+      if (front) sc -= 2;
+      sc -= { glue: 2.5, tab: 0.8, elec: 0.6, bracket: 0 }[b()];
+      if (p() === "board") sc -= 1.2;
+      if (s() === "prop") sc -= 0.8;
+      if ($("rp-pair").checked) sc -= 1.5;
+      sc = Math.max(1, sc);
+      let vol = 0, th = 0;
+      if (c() === "screw") { th += 0.3; vol += 2.0; }
+      if (b() === "bracket") { th += 0.2; vol += 1.5; }
+      if (p() === "sub") vol += 0.6;
+      PB.stat("rp-o-t", T + "<small>분</small>");
+      PB.stat("rp-o-s", F(sc, 2) + "<small>/10</small>");
+      PB.stat("rp-o-v", (th ? "+" + th.toFixed(1) + " mm" : "±0") + ` <small>${vol ? "+" + vol.toFixed(1) + " cm³" : ""}</small>`);
+      PB.stat("rp-o-w", c() === "screw" ? "<span style='color:var(--warn)'>높음</span>" : "보통");
+      cv.redraw();
+    }
+    const cv = PB.canvas($("cv-repair"), (ctx, w, h) => {
+      const pal = PB.palette();
+      const total = steps.reduce((a, q) => a + q[1], 0) || 1;
+      const maxT = 60;
+      const x0 = 12, x1 = w - 12, rowH = Math.min(30, (h - 40) / Math.max(steps.length, 1));
+      let acc = 0;
+      txt(ctx, "단계별 소요 시간(누적, 분)", x0, 16, { size: 12, color: pal.text, bold: true });
+      steps.forEach(([name, t], i) => {
+        const y = 28 + i * rowH;
+        const xa = x0 + ((x1 - x0) * acc) / maxT, xb = x0 + ((x1 - x0) * (acc + t)) / maxT;
+        ctx.fillStyle = alpha(t >= 10 ? pal.bad : t >= 5 ? pal.warn : pal.accent, 0.75);
+        ctx.fillRect(xa, y + 3, Math.max(2, xb - xa), rowH - 8);
+        const label = name + " · " + t + "분";
+        const tw = ctx.measureText(label).width;
+        txt(ctx, label, xb + 6 + tw > x1 ? xa - 6 : xb + 6, y + rowH / 2 + 3, { size: 12, align: xb + 6 + tw > x1 ? "right" : "left", color: pal.text });
+        acc += t;
+      });
+      txt(ctx, "합계 " + total + "분", x1, h - 8, { align: "right", size: 12.5, bold: true, color: pal.text });
+    }, { aspect: 0.42, minHeight: 250, maxHeight: 330 });
+    upd();
+  })();
+
+  /* ============================================================ 10. 안테나 SVG */
+  (function () {
+    const W = 71.5, L = 147, R = 10.5;
+    const s = 3.55, cx = 320, cy = 160;
+    const SP = [[-1, -56.5], [1, -56.5], [-1, 56.5], [1, 56.5], [-1, -20], [1, 28]].map(([side, z]) => [side * W / 2, z]); // (x, z) z: -위
+    SP.push([-14, -L / 2]); SP.push([14, L / 2]);
+    // perimeter sampling (rounded rect), param along path
+    const pts = [];
+    const seg = (ax, az, bx, bz, n) => { for (let i = 0; i < n; i++) pts.push([ax + (bx - ax) * (i / n), az + (bz - az) * (i / n)]); };
+    const arc = (ox, oz, a0, a1, n) => { for (let i = 0; i < n; i++) { const a = a0 + (a1 - a0) * (i / n); pts.push([ox + R * Math.cos(a), oz + R * Math.sin(a)]); } };
+    const hw = W / 2, hl = L / 2;
+    seg(-hw + R, -hl, hw - R, -hl, 60); arc(hw - R, -hl + R, -Math.PI / 2, 0, 14);
+    seg(hw, -hl + R, hw, hl - R, 120); arc(hw - R, hl - R, 0, Math.PI / 2, 14);
+    seg(hw - R, hl, -hw + R, hl, 60); arc(-hw + R, hl - R, Math.PI / 2, Math.PI, 14);
+    seg(-hw, hl - R, -hw, -hl + R, 120); arc(-hw + R, -hl + R, Math.PI, Math.PI * 1.5, 14);
+    const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const P = cum[cum.length - 1] + Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]);
+    const nearest = ([x, z]) => { let bi = 0, bd = 1e9; pts.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; bi = i; } }); return bi; };
+    const sIdx = SP.map(nearest).sort((a, b) => a - b);
+    const toSvg = ([x, z]) => [cx + z * s, cy + x * s];
+    const g = $("ant-g");
+    const NS = "http://www.w3.org/2000/svg";
+    const cols = ["accent", "accent-2", "blue", "ok", "warn", "bad", "text-dim", "accent"];
+    const segs = [];
+    const bandOf = (f) => (f < 1.0 ? "저대역(LB, 600–960 MHz)" : f < 2.3 ? "중대역(MB, 1.4–2.2 GHz)" : f < 3.0 ? "고대역(HB, 2.3–2.7 GHz)" : "초고대역·Wi‑Fi(3–6 GHz)");
+    const where = (i0, i1) => { const m = pts[Math.floor((i0 + i1) / 2) % pts.length]; if (m[1] < -hl + 12) return "상단"; if (m[1] > hl - 12) return "하단"; return (m[0] > 0 ? "오른쪽 " : "왼쪽 ") + (m[1] < -30 ? "위" : m[1] > 30 ? "아래" : "가운데"); };
+    for (let k = 0; k < sIdx.length; k++) {
+      const i0 = sIdx[k], i1 = k + 1 < sIdx.length ? sIdx[k + 1] : sIdx[0] + pts.length;
+      const arr = []; for (let i = i0 + 1; i < i1; i++) arr.push(pts[i % pts.length]);
+      const len = i1 < pts.length ? cum[i1] - cum[i0] : P - cum[i0] + cum[i1 - pts.length];
+      const d = arr.map((p, i) => (i ? "L" : "M") + toSvg(p).map((v) => v.toFixed(1)).join(" ")).join(" ");
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", d); path.setAttribute("class", "seg");
+      path.style.stroke = "var(--" + cols[k % cols.length] + ")"; path.style.strokeWidth = 10;
+      g.appendChild(path);
+      const f = 3e8 / (4 * (len * 1e-3) * Math.sqrt(1.6)) / 1e9;
+      const info = { len, f, pos: where(i0, i1), path };
+      segs.push(info);
+      path.addEventListener("click", () => show(info));
+    }
+    SP.forEach((p) => { const [x, y] = toSvg(p); const r = document.createElementNS(NS, "circle"); r.setAttribute("cx", x); r.setAttribute("cy", y); r.setAttribute("r", 6.5); r.setAttribute("class", "split"); g.appendChild(r); });
+    const lab = (t, x, y) => { const e = document.createElementNS(NS, "text"); e.setAttribute("x", x); e.setAttribute("y", y); e.setAttribute("class", "t-dim"); e.setAttribute("text-anchor", "middle"); e.textContent = t; g.appendChild(e); };
+    lab("위(카메라)", cx - hl * s - 2, cy - hw * s - 14); lab("아래(USB-C)", cx + hl * s, cy - hw * s - 14);
+    const handOn = $("ant-hand-on");
+    function show(q) {
+      segs.forEach((o) => o.path.style.strokeWidth = o === q ? 15 : 10);
+      const hand = handOn.checked && q.pos.indexOf("하단") >= 0 || (handOn.checked && q.pos.indexOf("아래") >= 0);
+      const fh = hand ? q.f * 0.88 : q.f;
+      $("ant-info").innerHTML = `<b class="hd">${q.pos} 금속 조각</b>길이 약 <b>${F(q.len, 3)} mm</b> → 1/4 파장 공진 ≈ <b>${F(fh, 3)} GHz</b> (${bandOf(fh)}).` +
+        (hand ? ` <span style="color:var(--bad)">손이 닿아 공진이 약 10 % 내려가고 손실이 늘었다 → 튜너로 보정.</span>` : "") +
+        `<div class="kv"><span>둘레 전체 ${F(P, 3)} mm</span><span>분할선 ${SP.length}곳</span><span>ε_eff 1.6 가정</span></div>`;
+    }
+    handOn.addEventListener("change", () => { $("ant-hand").hidden = !handOn.checked; const cur = segs.find((o) => o.path.style.strokeWidth == 15) || segs[0]; show(cur); });
+    // hand rect position: bottom side (right in svg)
+    const hr = $("ant-hand"); hr.setAttribute("x", cx + (hl - 40) * s); hr.setAttribute("y", cy - (hw + 8) * s); hr.setAttribute("width", 52 * s); hr.setAttribute("height", (W + 16) * s);
+    const longest = segs.reduce((a, b) => (b.len > a.len ? b : a));
+    show(longest);
+  })();
+
+  /* ============================================================ 11. 무게중심 */
+  (function () {
+    const cam = PB.range("cm-cam", (v) => v + " g", () => upd());
+    const bat = PB.range("cm-bat", (v) => v + " g", () => upd());
+    const pos = PB.range("cm-pos", (v) => (v > 0 ? "+" : "") + v + " mm", () => upd());
+    const mat = PB.seg("cm-mat", () => upd());
+    const Wd = 71.5, Ln = 147;
+    let st = {};
+    function upd() {
+      const frameM = { al: 28, ti: 40, sus: 55 }[mat()];
+      // z: 위(-) 아래(+), 중앙 0 (mm)
+      const parts = [
+        { n: "화면+커버", m: 32, x: 0, z: 0, w: 68, l: 144, c: "blue", a: 0.12 },
+        { n: "프레임", m: frameM, x: 0, z: 0, w: 71.5, l: 147, c: "text-dim", a: 0.0 },
+        { n: "후면 유리", m: 15, x: 0, z: 0, w: 70, l: 146, c: "text-faint", a: 0.0 },
+        { n: "카메라", m: cam(), x: -17, z: -56, w: 30, l: 30, c: "accent-2", a: 0.6 },
+        { n: "메인보드", m: 18, x: 8, z: -46, w: 40, l: 40, c: "ok", a: 0.45 },
+        { n: "배터리", m: bat(), x: 0, z: 8 + pos(), w: 62, l: 76, c: "accent", a: 0.45 },
+        { n: "하단 모듈", m: 12, x: 0, z: 63, w: 60, l: 16, c: "warn", a: 0.5 },
+        { n: "기타", m: 10, x: 0, z: 0, w: 0, l: 0, c: "text-dim", a: 0 },
+      ];
+      const M = parts.reduce((a, p) => a + p.m, 0);
+      const zc = parts.reduce((a, p) => a + p.m * p.z, 0) / M;
+      const xc = parts.reduce((a, p) => a + p.m * p.x, 0) / M;
+      const zg = Ln / 2 - 45; // 그립점 z
+      const torque = (M / 1000) * 9.81 * ((zg - zc) / 1000) * 1000; // mN·m
+      let I = 0; parts.forEach((p) => { const r = (p.z - zg); I += p.m * (r * r + (p.l * p.l) / 12); });
+      st = { parts, M, zc, xc, zg };
+      PB.stat("cm-o-m", Math.round(M) + "<small>g</small>");
+      PB.stat("cm-o-z", (zc < 0 ? "+" : "") + F(-zc, 2) + "<small>mm</small>");
+      PB.stat("cm-o-t", F(torque, 3) + "<small>mN·m</small>");
+      PB.stat("cm-o-i", F(I / 100, 3) + "<small>g·cm²</small>");
+      cv.redraw();
+    }
+    const cv = PB.canvas($("cv-com"), (ctx, w, h) => {
+      if (!st.parts) return;
+      const pal = PB.palette();
+      const sc = Math.min((h - 30) / Ln, (w * 0.5) / Wd);
+      const ox = w * 0.36, oy = h / 2;
+      const X = (x) => ox + x * sc, Z = (z) => oy + z * sc;
+      ctx.fillStyle = alpha(pal.dim, 0.12); ctx.strokeStyle = pal.dim; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(X(-Wd / 2), Z(-Ln / 2), Wd * sc, Ln * sc, 10.5 * sc) : ctx.rect(X(-Wd / 2), Z(-Ln / 2), Wd * sc, Ln * sc); ctx.fill(); ctx.stroke();
+      st.parts.forEach((p) => {
+        if (!p.a) return;
+        const col = PB.color(p.c);
+        ctx.fillStyle = alpha(col, p.a); ctx.strokeStyle = col; ctx.lineWidth = 1;
+        ctx.fillRect(X(p.x - p.w / 2), Z(p.z - p.l / 2), p.w * sc, p.l * sc); ctx.strokeRect(X(p.x - p.w / 2), Z(p.z - p.l / 2), p.w * sc, p.l * sc);
+        if (p.w > 20 && p.a > 0.2) txt(ctx, p.n + " " + p.m + "g", X(p.x), Z(p.z) + 4, { align: "center", size: 11, color: pal.text });
+      });
+      // grip line
+      ctx.strokeStyle = pal.accent2; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(X(-Wd / 2) - 14, Z(st.zg)); ctx.lineTo(X(Wd / 2) + 14, Z(st.zg)); ctx.stroke(); ctx.setLineDash([]);
+      txt(ctx, "그립", X(Wd / 2) + 18, Z(st.zg) + 4, { size: 12, color: pal.accent2 });
+      // center & CoM
+      ctx.strokeStyle = pal.faint; ctx.beginPath(); ctx.moveTo(X(-Wd / 2), Z(0)); ctx.lineTo(X(Wd / 2), Z(0)); ctx.stroke();
+      const gx = X(st.xc), gz = Z(st.zc);
+      ctx.fillStyle = pal.bad; ctx.beginPath(); ctx.arc(gx, gz, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = pal.bg; ctx.beginPath(); ctx.moveTo(gx, gz); ctx.arc(gx, gz, 7, 0, Math.PI / 2); ctx.lineTo(gx, gz); ctx.arc(gx, gz, 7, Math.PI, Math.PI * 1.5); ctx.fill();
+      txt(ctx, "무게중심", X(Wd / 2) + 18, gz + 4, { size: 12, color: pal.bad, bold: true });
+      // torque arrow
+      const ax = X(Wd / 2) + 70;
+      if (ax + 40 < w) {
+        ctx.strokeStyle = pal.text; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(ax, Z(st.zg)); ctx.lineTo(ax, gz); ctx.stroke();
+        txt(ctx, "레버 " + F(st.zg - st.zc, 3) + " mm", ax + 6, (Z(st.zg) + gz) / 2, { size: 11.5, mono: true });
+      }
+      txt(ctx, "위", X(0), Z(-Ln / 2) - 6, { align: "center", size: 11 });
+    }, { aspect: 0.7, minHeight: 320, maxHeight: 460 });
+    upd();
+  })();
+
+  /* ============================================================ 12. 프레임 트레이드오프 */
+  (function () {
+    const M = {
+      al6: { n: "Al 6000계", rho: 2.70, E: 69e3, sy: 280, k: 170, cnc: 1.0, cost: 4, mp: "self" },
+      al7: { n: "Al 7000계", rho: 2.81, E: 71e3, sy: 480, k: 135, cnc: 1.15, cost: 6, mp: "self" },
+      ti: { n: "Ti Gr.5", rho: 4.43, E: 114e3, sy: 880, k: 7, cnc: 3.5, cost: 30, mp: "al" },
+      sus: { n: "스테인리스", rho: 7.9, E: 193e3, sy: 500, k: 16, cnc: 2.6, cost: 5, mp: "al" },
+      mg: { n: "마그네슘", rho: 1.80, E: 45e3, sy: 200, k: 80, cnc: 0.9, cost: 8, mp: "self" },
+      pc: { n: "GF-PC", rho: 1.43, E: 8e3, sy: 110, k: 0.3, cnc: 0, cost: 3, mp: "al" },
+    };
+    const AL = M.al7;
+    const mat = PB.seg("fr-mat", () => upd()), fin = PB.seg("fr-fin", () => upd());
+    const rw = PB.range("fr-w", (v) => v.toFixed(2) + " mm", () => upd());
+    const tt = PB.range("fr-t", (v) => v.toFixed(1) + " mm", () => upd());
+    function evalF(id, w, T, finish) {
+      const m = M[id], mp = m.mp === "self" ? m : AL;
+      const perim = 2 * (71.5 + 147) - 8 * 10.5 + 2 * Math.PI * 10.5; // ~ 418
+      const vr = perim * T * w / 1000, vm = 66 * 140 * 0.5 / 1000; // cm³
+      const mass = vr * m.rho + vm * mp.rho;
+      // EI (프레임만)
+      const Ls = [{ E: m.E, b: 2 * w, h: T, y: T / 2 }, { E: mp.E, b: 66, h: 0.5, y: 0.68 * T }];
+      let EA = 0, EAy = 0; Ls.forEach((l) => { EA += l.E * l.b * l.h; EAy += l.E * l.b * l.h * l.y; }); const yb = EAy / EA;
+      let EI = 0; Ls.forEach((l) => { EI += l.E * (l.b * l.h ** 3 / 12 + l.b * l.h * (l.y - yb) ** 2); });
+      const dent = m.sy * w;
+      const heat = mp.k * 0.5 * 66 + m.k * w * 2 * T * 0.3; // 상대 지표
+      const time = id === "pc" ? 1 + 12 * 1.15 : 30 * m.cnc * (0.6 + 0.4 * (w / 1.4)) + 12 * (mp === AL && id !== "al7" ? 1.15 : 0);
+      const finC = { anod: id.startsWith("al") ? 2 : id === "mg" ? 3 : 3.5, pvd: 4, blast: 1.2 }[finish];
+      const billet = (vr + vm) * 4 / 1000; // kg 대충(재료 이용률 ~25%)
+      const cost = billet * (m.cost * (vr / (vr + vm)) + (mp.cost) * (vm / (vr + vm))) + time * 0.45 + finC;
+      const ant = id === "pc" ? 100 : id === "ti" || id === "sus" ? 70 : 78;
+      return { mass, EI, dent, heat, time, cost, ant };
+    }
+    function upd() {
+      const id = mat(), w = rw(), T = tt(), f = fin();
+      const ids = Object.keys(M);
+      const cur = evalF(id, w, T, f);
+      // 정규화 기준: 모든 재료·(w 1.4)·(T 8) 및 현재 범위를 아우르는 최대/최소
+      const ref = ids.map((k) => evalF(k, 1.4, 8, f)).concat(ids.map((k) => evalF(k, 2.2, 9.5, f))).concat(ids.map((k) => evalF(k, 0.8, 7, f)));
+      const mx = (key) => Math.max(...ref.map((r) => r[key]), cur[key]);
+      const mn = (key) => Math.min(...ref.map((r) => r[key]), cur[key]);
+      const rows = [
+        ["프레임 무게", 100 * mn("mass") / cur.mass, F(cur.mass, 3) + " g"],
+        ["굽힘 강성", 100 * cur.EI / mx("EI"), F(cur.EI / 1e6, 3) + " N·m²"],
+        ["찍힘 저항", 100 * cur.dent / mx("dent"), F(cur.dent, 3) + ""],
+        ["열 확산", 100 * cur.heat / mx("heat"), F(cur.heat / 1000, 3) + ""],
+        ["가공 시간", 100 * mn("time") / cur.time, F(cur.time, 3) + " 분"],
+        ["원가(대략)", 100 * mn("cost") / cur.cost, "$" + F(cur.cost, 3)],
+        ["안테나 친화", cur.ant, cur.ant >= 100 ? "전파 투명" : "분할선 필요"],
+      ];
+      $("fr-bars").innerHTML = `<div style="font-size:13px;color:var(--text-dim);margin-bottom:2px"><b style="color:var(--text)">${M[id].n}</b> 레일 ${w.toFixed(2)} mm · 두께 ${T.toFixed(1)} mm${M[id].mp === "al" ? " · 미드플레이트 Al" : ""}</div>` +
+        rows.map(([lb, v, s]) => `<div class="row"><span class="lb">${lb}</span><span class="tr"><i style="width:${Math.max(2, Math.min(100, v)).toFixed(1)}%;background:${v > 66 ? "var(--ok)" : v > 33 ? "var(--accent)" : "var(--warn)"}"></i></span><span class="vv">${s}</span></div>`).join("");
+    }
+    upd();
+  })();
+})();
+</script>
+</body>
+</html>

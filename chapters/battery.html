@@ -1,0 +1,1519 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>배터리 · PhoneBook</title>
+<meta name="description" content="스마트폰 리튬이온 파우치 셀의 작동 원리와 구조, 용량과 에너지, OCV 곡선, 실리콘 음극과 에너지 밀도, CC-CV 고속 충전과 발열, 내부저항과 저온, 열화와 스웰링, 보호 회로, 사용 시간 계산, 셀 형상 설계를 시뮬레이터로 배운다.">
+<link rel="canonical" href="https://phonebook.euiyun.com/chapters/battery.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="PhoneBook">
+<meta property="og:title" content="배터리 · PhoneBook">
+<meta property="og:description" content="스마트폰 리튬이온 파우치 셀의 작동 원리와 구조, 용량과 에너지, OCV 곡선, 실리콘 음극과 에너지 밀도, CC-CV 고속 충전과 발열, 내부저항과 저온, 열화와 스웰링, 보호 회로, 사용 시간 계산, 셀 형상 설계를 시뮬레이터로 배운다.">
+<meta property="og:url" content="https://phonebook.euiyun.com/chapters/battery.html">
+<meta property="og:image" content="https://phonebook.euiyun.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"배터리","name":"배터리 · PhoneBook","url":"https://phonebook.euiyun.com/chapters/battery.html","mainEntityOfPage":"https://phonebook.euiyun.com/chapters/battery.html","inLanguage":"ko","isAccessibleForFree":true,"learningResourceType":"interactive textbook chapter","position":5,"image":"https://phonebook.euiyun.com/og.png","dateModified":"2026-10-03","isPartOf":{"@type":"Book","@id":"https://phonebook.euiyun.com/#book","name":"PhoneBook — 인터랙티브 스마트폰 해부 교과서","url":"https://phonebook.euiyun.com/"},"publisher":{"@type":"Organization","name":"PhoneBook","url":"https://phonebook.euiyun.com/"},"description":"스마트폰 리튬이온 파우치 셀의 작동 원리와 구조, 용량과 에너지, OCV 곡선, 실리콘 음극과 에너지 밀도, CC-CV 고속 충전과 발열, 내부저항과 저온, 열화와 스웰링, 보호 회로, 사용 시간 계산, 셀 형상 설계를 시뮬레이터로 배운다."},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"PhoneBook","item":"https://phonebook.euiyun.com/"},{"@type":"ListItem","position":2,"name":"05 배터리","item":"https://phonebook.euiyun.com/chapters/battery.html"}]}]}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  .bt-cath { fill: var(--accent-2); fill-opacity: .28; stroke: var(--accent-2); }
+  .bt-anod { fill: var(--text-dim); fill-opacity: .35; stroke: var(--text-dim); }
+  .bt-sep { fill: var(--surface); stroke: var(--text-faint); stroke-dasharray: 3 3; }
+  .bt-cu { fill: #b87333; }
+  .bt-al { fill: #a9b0bb; }
+  .bt-li { fill: var(--accent); }
+  .bt-warn { fill: var(--warn); fill-opacity: .2; stroke: var(--warn); }
+  .bt-bad { fill: var(--bad); fill-opacity: .18; stroke: var(--bad); }
+  .bt-ok { fill: var(--ok); fill-opacity: .16; stroke: var(--ok); }
+  .bt-lv { display: grid; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--border); background: var(--bg-elev); }
+  .bt-lv div { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--text-dim); }
+  .bt-lv b { min-width: 9.5em; color: var(--text); font-weight: 600; }
+  .bt-lv .pill { font-family: var(--mono); font-size: 12px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; }
+  .bt-lv .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .bt-lv .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .bt-lv .pill.bad { color: var(--bad); border-color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+  @media (max-width: 520px) { .bt-lv div { flex-wrap: wrap; } .bt-lv b { min-width: 0; width: 100%; } }
+</style>
+</head>
+<body data-chapter="battery">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 05</div>
+    <h1>배터리</h1>
+    <p class="lead">스마트폰 안에서 가장 크고 무거운 부품은 칩도 화면도 아닌 <b>배터리</b>다. 두께 5 mm 남짓한 알루미늄 파우치 안에 수십 장의 전극이 겹쳐 있고, 충전할 때마다 리튬 이온 수 × 10<sup>22</sup>개가 분리막을 건너 흑연 사이로 숨어 들어간다. 이 장에서는 그 이온의 여행을 따라가며 용량과 에너지, 충전 곡선, 열과 열화, 그리고 폰 설계자가 배터리를 놓고 하는 줄다리기를 직접 만져 본다.</p>
+    <ul class="objectives">
+      <li>리튬이온 셀의 양극·음극·분리막·전해질 역할과 충·방전 시 Li⁺와 전자의 경로를 설명한다.</li>
+      <li>mAh와 Wh를 구분하고, OCV–SOC 곡선에서 공칭 전압과 에너지를 계산한다.</li>
+      <li>CC-CV 충전 곡선이 왜 그런 모양인지, 고속 충전이 열과 수명에 어떤 대가를 치르는지 시뮬레이션한다.</li>
+      <li>내부저항·저온·노화가 사용 가능 용량을 깎는 원리와, 80% 충전 제한이 수명을 늘리는 이유를 이해한다.</li>
+      <li>스웰링·열폭주와 다단 보호(충전 IC·연료 게이지·PCM)를 알고, 사용 시간과 셀 형상을 설계 관점에서 계산한다.</li>
+    </ul>
+  </header>
+
+  <!-- =============================================================== 1 -->
+  <section id="location">
+    <h2>폰 안의 위치: 가장 큰 단일 부품</h2>
+    <p>폰을 뒤에서 열면 가운데를 넓게 차지한 은회색 직사각형이 보인다. 이것이 <span class="term">리튬이온 폴리머 파우치 셀</span><span class="en">(Li-ion polymer pouch cell)</span>이다. 대표적인 6.1~6.7인치 폰에서 셀은 대략 폭 55~70 mm, 길이 70~95 mm, 두께 4.5~6 mm이고, 무게는 45~75 g으로 폰 전체(170~230 g)의 <b>약 1/4~1/3</b>을 차지한다. 내부 부피로 따지면 1/3 이상이다.</p>
+    <p>배터리 위(화면 쪽)에는 디스플레이와 방열 시트가, 아래(후면 쪽)에는 무선 충전 코일이 붙고, 위쪽 끝에는 메인보드 샌드위치가, 아래쪽 끝에는 USB-C 서브보드와 스피커가 있다. 즉 배터리는 사방이 다른 부품으로 둘러싸인 "남는 자리 전부"이고, 폰 설계는 결국 <b>보드를 얼마나 작게 만들어 배터리에 자리를 내주느냐</b>의 싸움이기도 하다(<a href="board.html">4장</a>의 샌드위치 보드가 바로 그 결과).</p>
+
+    <div class="sim" id="sim-phone">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>폰 안의 배터리</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-phone"><div class="part-card" id="phone-card" hidden></div><span class="hint">드래그: 회전 · 클릭: 부품 정보</span></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>분해 정도 <output id="ph-ex-out"></output></span><input type="range" id="ph-ex" min="0" max="1" step="0.01" value="0.6"></label>
+          <div class="ctrl"><span>보기</span><div class="seg" id="ph-view"><button data-value="iso" class="on">비스듬히</button><button data-value="back">후면</button><button data-value="side">측면</button></div></div>
+          <label class="check"><input type="checkbox" id="ph-xray"> X-ray (다른 부품 투명)</label>
+          <label class="check"><input type="checkbox" id="ph-lab"> 모든 부품 이름</label>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: 분해 정도를 0으로 내리고 측면 보기로 바꿔 보라. 배터리 두께가 폰 두께(~8 mm)의 대부분을 차지한다는 것을 알 수 있다. 다른 부품을 클릭하면 그 부품의 정보와 해당 장 링크가 뜬다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 2 -->
+  <section id="principle">
+    <h2>리튬이온 셀은 어떻게 작동하나</h2>
+    <p>리튬이온 셀은 리튬 이온(Li⁺)이 들어갈 수 있는 층상 구조의 두 전극 사이를 이온이 오가는 <span class="term">흔들의자</span><span class="en">(rocking-chair)</span> 전지다. 금속 리튬은 어디에도 없고, 리튬은 항상 이온 형태로 호스트 결정 <b>사이</b>에 끼어 있다(<span class="term">인터칼레이션</span><span class="en">(intercalation)</span>).</p>
+    <ul>
+      <li><b>음극</b><span class="en">(anode, 방전 기준)</span>: 구리 박(Cu, 4.5~8 µm) 위에 흑연(graphite)을 바른 층. 충전되면 흑연층 사이에 Li가 들어가 LiC₆가 된다. 최근에는 흑연에 실리콘·산화실리콘을 섞은 <b>Si-C 복합 음극</b>을 쓴다.</li>
+      <li><b>양극</b><span class="en">(cathode)</span>: 알루미늄 박(Al, 8~12 µm) 위에 리튬코발트산화물(LiCoO₂, LCO)을 바른 층. 폰은 부피당 에너지가 가장 높은 <b>고전압 LCO</b>(4.45~4.5 V 충전)를 거의 표준으로 쓴다.</li>
+      <li><b>분리막</b><span class="en">(separator)</span>: 5~12 µm 두께의 다공성 PE/PP 필름(보통 세라믹 코팅). 전자는 막고 이온만 통과시킨다. 이것이 찢어지면 내부 단락이다.</li>
+      <li><b>전해질</b><span class="en">(electrolyte)</span>: LiPF₆ 염을 녹인 카보네이트계 유기 용매(EC/EMC/DMC 등). "폴리머" 셀은 이것을 고분자로 젤화하거나 접착층을 둔 것이다.</li>
+    </ul>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 330" role="img" aria-label="리튬이온 셀 단면과 충방전 반응">
+        <defs>
+          <marker id="bt-a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker>
+          <marker id="bt-a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--blue)"/></marker>
+        </defs>
+        <rect x="70" y="90" width="18" height="190" class="bt-cu"/>
+        <rect x="88" y="90" width="190" height="190" class="bt-anod"/>
+        <g class="s-line" opacity=".7">
+          <path d="M96 115H270M96 140H270M96 165H270M96 190H270M96 215H270M96 240H270M96 265H270"/>
+        </g>
+        <rect x="278" y="90" width="44" height="190" class="bt-sep"/>
+        <rect x="322" y="90" width="190" height="190" class="bt-cath"/>
+        <g stroke="var(--accent-2)" stroke-width="1.2" opacity=".7">
+          <path d="M330 112H504M330 137H504M330 162H504M330 187H504M330 212H504M330 237H504M330 262H504"/>
+        </g>
+        <rect x="512" y="90" width="18" height="190" class="bt-al"/>
+        <g class="bt-li">
+          <circle cx="120" cy="127" r="5"/><circle cx="160" cy="152" r="5"/><circle cx="210" cy="127" r="5"/><circle cx="140" cy="202" r="5"/><circle cx="240" cy="177" r="5"/><circle cx="190" cy="227" r="5"/><circle cx="230" cy="252" r="5"/>
+          <circle cx="370" cy="124" r="5"/><circle cx="450" cy="199" r="5"/><circle cx="410" cy="249" r="5"/>
+        </g>
+        <path d="M262 160 Q300 140 340 160" class="s-acc" marker-end="url(#bt-a1)"/>
+        <text x="300" y="132" class="t-acc" text-anchor="middle">Li⁺</text>
+        <path d="M79 88 V40 H521 V88" fill="none" stroke="var(--blue)" stroke-width="2" marker-end="url(#bt-a2)"/>
+        <rect x="262" y="26" width="76" height="28" rx="6" class="f-elev"/><text x="300" y="45" class="t" text-anchor="middle">부하</text>
+        <text x="170" y="34" class="t-mono" text-anchor="middle">e⁻ →</text>
+        <text x="79" y="304" class="t-mono" text-anchor="middle">Cu</text>
+        <text x="183" y="304" class="t" text-anchor="middle">음극 (흑연 / Si-C)</text>
+        <text x="300" y="304" class="t-dim" text-anchor="middle">분리막</text>
+        <text x="417" y="304" class="t" text-anchor="middle">양극 (LiCoO₂)</text>
+        <text x="521" y="304" class="t-mono" text-anchor="middle">Al</text>
+        <text x="300" y="80" class="t-dim" text-anchor="middle">(방전 시)</text>
+        <text x="560" y="110" class="t">방전 반응</text>
+        <text x="560" y="134" class="t-mono">음극: LiC₆ → C₆ + Li⁺ + e⁻</text>
+        <text x="560" y="156" class="t-mono">양극: Li₁₋ₓCoO₂ + xLi⁺ + xe⁻</text>
+        <text x="560" y="174" class="t-mono">        → LiCoO₂</text>
+        <text x="560" y="210" class="t">충전은 정확히 반대</text>
+        <text x="560" y="234" class="t-dim">외부 전원이 전자를 음극으로</text>
+        <text x="560" y="254" class="t-dim">밀어 넣고, Li⁺가 따라 들어간다</text>
+      </svg>
+      <figcaption><b>그림 5-1.</b> 셀 단면. 방전 시 Li⁺는 전해질을 통해 분리막을 건너 양극으로, 전자는 외부 회로(폰의 회로)를 통해 양극으로 간다. 두 흐름은 항상 짝을 이루므로 이온 하나가 건너갈 때마다 전자 하나가 회로에 일을 해 준다.</figcaption>
+    </figure>
+
+    <p>셀 전압은 두 전극의 리튬 화학 퍼텐셜 차이다. 흑연은 Li/Li⁺ 기준 약 0.1 V, 충전된 LCO는 약 4.0~4.5 V이므로 셀은 대략 3.0~4.45 V 사이에서 움직인다. 전극 하나가 감당할 수 있는 리튬의 양(비용량)은 다음과 같다.</p>
+    <div class="formula">$$q_{\text{theo}} = \frac{n F}{3.6\, M}\ \ [\text{mAh/g}] \qquad \text{흑연 } \mathrm{LiC_6}: \frac{96485}{3.6 \times 72.06} \approx 372\ \text{mAh/g}$$
+      <div class="where">여기서 \(n\)은 화학식당 전자 수, \(F\)는 패러데이 상수(96,485 C/mol), \(M\)은 호스트 몰질량(g/mol). LCO는 이론상 274 mAh/g이지만 구조가 무너지지 않도록 4.45~4.5 V까지만 충전해 실제로 185~200 mAh/g 정도만 쓴다. 실리콘(Li₁₅Si₄)은 약 3,600 mAh/g로 흑연의 10배에 가깝다.</div>
+    </div>
+
+    <div class="sim" id="sim-ion">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>Li⁺의 왕복: 충전과 방전</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-ion"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>동작</span><div class="seg" id="ion-mode"><button data-value="chg" class="on">충전</button><button data-value="dis">방전</button></div></div>
+          <label class="ctrl"><span>전류 (C-rate) <output id="ion-c-out"></output></span><input type="range" id="ion-c" min="0.2" max="3" step="0.1" value="1"></label>
+          <div class="ctrl"><span>음극</span><div class="seg" id="ion-an"><button data-value="gr" class="on">흑연</button><button data-value="si">Si-C</button></div></div>
+          <button class="btn" id="ion-reset">SOC 리셋</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">SOC</span><span class="v" id="ion-soc">—</span></div>
+        <div class="stat"><span class="k">단자 전압</span><span class="v" id="ion-v">—</span></div>
+        <div class="stat"><span class="k">음극 두께 변화</span><span class="v" id="ion-sw">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 충전 중에는 Li⁺(청록 점)가 양극의 층 사이에서 빠져나와 음극의 흑연층 사이로 들어가고, 외부 도선의 전자(파란 점)도 같은 방향(양극→음극)으로 밀려간다. Si-C로 바꾸면 같은 수의 이온을 더 얇은 음극에 담지만, 충전될수록 음극이 크게 부푼다. 애니메이션은 이해를 위한 것으로 속도와 개수는 실제 비율이 아니다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 3 -->
+  <section id="structure">
+    <h2>파우치 셀의 구조: 적층과 젤리롤</h2>
+    <p>앞의 그림은 셀의 "한 층"일 뿐이다. 실제 셀은 양극(양면 코팅)–분리막–음극(양면 코팅)–분리막을 <b>수십 번 반복</b>해 전극 면적을 넓힌다. 4,500 mAh 셀의 총 전극 면적은 대략 0.1~0.15 m², 즉 A4 용지 두 장 정도가 5 mm 두께 안에 접혀 들어가 있다. 이것을 넣는 방법이 두 가지다.</p>
+    <div class="table-wrap"><table>
+      <tr><th>방식</th><th>만드는 법</th><th>장점</th><th>단점</th></tr>
+      <tr><td><b>와인딩 (젤리롤)</b></td><td>긴 양극·분리막·음극 띠를 겹쳐 납작한 타원으로 감는다</td><td>공정이 빠르고 싸다, 탭이 1쌍</td><td>모서리 곡률부 낭비, 감긴 안쪽과 바깥쪽 응력 차, 두꺼워질수록 변형</td></tr>
+      <tr><td><b>적층 (스택 / Z-폴딩)</b></td><td>잘린 전극 시트를 분리막과 번갈아 쌓는다</td><td>각진 모서리까지 활용(부피 효율↑), 균일한 압력, L자·계단형 셀 가능</td><td>공정이 느리고 정렬이 어렵다, 탭 용접 수가 많다</td></tr>
+    </table></div>
+    <p>전극 끝에는 집전체를 그대로 남겨 둔 <b>탭</b>이 있다. 양극 탭은 알루미늄, 음극 탭은 니켈(또는 니켈 도금 구리)이며, 파우치 실링부를 지나는 곳에는 <b>탭 필름</b>(실란트)을 둘러 밀봉한다. 파우치는 바깥 나일론/PET, 가운데 알루미늄 박(수분·산소 차단), 안쪽 PP 접착층으로 된 <b>알루미늄 라미네이트 필름</b>(약 60~120 µm)이다. 탭 위에는 보호 회로 기판(PCM)이 붙어 배터리 커넥터로 이어진다.</p>
+
+    <div class="sim" id="sim-cell3d">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>파우치 셀 분해: 적층 vs 젤리롤</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-cell"><span class="hint">드래그: 회전 · 휠: 확대</span></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>내부 구조</span><div class="seg" id="c3-mode"><button data-value="stack" class="on">적층</button><button data-value="wind">와인딩</button></div></div>
+          <label class="ctrl"><span>분해 <output id="c3-ex-out"></output></span><input type="range" id="c3-ex" min="0" max="1" step="0.01" value="0.55"></label>
+          <label class="check"><input type="checkbox" id="c3-pouch" checked> 파우치 표시</label>
+          <label class="check"><input type="checkbox" id="c3-lab" checked> 라벨</label>
+          <div class="ctrl" style="font-size:13px;color:var(--text-dim);line-height:1.6">
+            <span style="display:block"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#c9773a;margin-right:6px"></i>양극(LCO, Al 박)</span>
+            <span style="display:block"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#30343c;margin-right:6px"></i>음극(흑연, Cu 박)</span>
+            <span style="display:block"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e8ecf2;border:1px solid var(--border);margin-right:6px"></i>분리막</span>
+          </div>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: 분해를 0으로 하면 파우치 안에 꽉 찬 전극 더미가, 1로 하면 층별 순서(음극–분리막–양극–분리막–음극…)가 보인다. 와인딩으로 바꾸고 단면 쪽(탭 반대편)에서 보면 감긴 띠가 납작한 나선을 이룬다. 두께는 이해를 위해 과장되었다(실제 한 층 ~0.15 mm).</div>
+    </div>
+
+    <div class="callout deep"><strong>음극이 양극보다 조금 큰 이유</strong>
+      <p>음극 시트는 양극보다 가장자리가 0.5~1 mm 더 크고, 용량도 5~10% 더 많게(N/P 비 ≈ 1.05~1.1) 만든다. 양극 가장자리에서 나온 Li⁺가 받아 줄 음극이 없으면 그 자리에 금속 리튬이 석출(<span class="term">리튬 플레이팅</span>)되어 덴드라이트가 자라고, 분리막을 뚫으면 내부 단락으로 이어진다. 적층 정렬 정밀도가 셀 안전의 핵심인 이유다.</p>
+    </div>
+  </section>
+
+  <!-- =============================================================== 4 -->
+  <section id="capacity">
+    <h2>용량(mAh)과 에너지(Wh), 그리고 OCV 곡선</h2>
+    <p>배터리 사양서의 "5,000 mAh"는 <b>전하량</b>이다. 1 mAh = 3.6 C이므로 5,000 mAh는 18,000 C, 즉 약 1.1 × 10<sup>23</sup>개의 전자(=Li⁺)다. 그러나 폰이 실제로 쓰는 것은 <b>에너지</b>이고, 에너지는 전하에 전압을 곱해 적분해야 한다.</p>
+    <div class="formula">$$E = \int_0^{Q} V_{\text{OCV}}(q)\, dq \;\approx\; Q \cdot V_{\text{nom}} \qquad 5{,}000\ \text{mAh} \times 3.87\ \text{V} \approx 19.4\ \text{Wh}$$
+      <div class="where">\(V_{\text{nom}}\)(공칭 전압)은 OCV 곡선의 평균값이다. 고전압 LCO/흑연 셀은 3.85~3.91 V, 실리콘 비중이 높은 셀은 조금 낮고, LFP 셀은 약 3.2 V다. 그래서 같은 mAh라도 화학계가 다르면 Wh가 다르다. 항공 운송 규정(예비 배터리 100 Wh 이하)과 EU 라벨은 Wh로 표기한다.</div>
+    </div>
+    <p><span class="term">OCV</span><span class="en">(Open-Circuit Voltage, 개방 전압)</span>는 전류를 흘리지 않고 충분히 쉬었을 때의 전압으로, <span class="term">SOC</span><span class="en">(State of Charge, 충전 상태)</span>의 함수다. LCO/흑연 셀의 OCV 곡선은 0% 부근에서 급격히 떨어지고, 중간은 완만하며, 위로 갈수록 다시 가팔라진다. 폰의 <b>연료 게이지</b><span class="en">(fuel gauge)</span> IC는 이 곡선과 전류 적산(쿨롱 카운팅)을 섞어 배터리 %를 계산한다. 곡선이 평평한 LFP는 전압만으로 SOC를 알기 어렵다.</p>
+    <p>또 한 가지: 셀 라벨에는 <b>정격 용량</b>(rated, 최소 보증값)과 <b>표준 용량</b>(typical, 평균값)이 따로 있어 보통 2~3% 차이가 난다. 마케팅에는 대개 표준 용량을 쓴다.</p>
+
+    <div class="sim" id="sim-ocv">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>OCV–SOC 곡선과 에너지</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-ocv"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>화학계</span><div class="seg" id="ocv-chem"><button data-value="lco" class="on">LCO/흑연 4.45 V</button><button data-value="si">LCO/Si-C 4.48 V</button><button data-value="lfp">LFP</button></div></div>
+          <label class="ctrl"><span>용량 <output id="ocv-q-out"></output></span><input type="range" id="ocv-q" min="3000" max="7000" step="100" value="5000"></label>
+          <label class="ctrl"><span>현재 SOC <output id="ocv-s-out"></output></span><input type="range" id="ocv-s" min="0" max="100" step="1" value="60"></label>
+          <label class="check"><input type="checkbox" id="ocv-2s"> 2셀 직렬로 표시</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">공칭(평균) 전압</span><span class="v" id="ocv-vn">—</span></div>
+        <div class="stat"><span class="k">총 에너지</span><span class="v" id="ocv-e">—</span></div>
+        <div class="stat"><span class="k">현재 OCV</span><span class="v" id="ocv-v">—</span></div>
+        <div class="stat"><span class="k">남은 에너지</span><span class="v" id="ocv-er">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 칠해진 면적이 남은 에너지다. 같은 5,000 mAh라도 LFP로 바꾸면 에너지가 약 17% 줄어든다. SOC 50%에서 남은 에너지는 정확히 절반이 아니다. 위쪽 절반이 전압이 높아 에너지가 조금 더 많기 때문이다. 2셀 직렬은 mAh는 그대로, 전압과 Wh가 두 배인 것처럼 보이지만 같은 부피라면 각 셀은 절반 크기라 총 Wh는 같다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 5 -->
+  <section id="density">
+    <h2>에너지 밀도와 실리콘 음극</h2>
+    <p>폰은 무게보다 <b>부피</b>가 귀하다. 그래서 폰 배터리의 핵심 지표는 <span class="term">체적 에너지 밀도</span><span class="en">(Wh/L)</span>다. 2020년대 플래그십 셀은 대략 <b>700~800 Wh/L, 260~300 Wh/kg</b> 수준이고, 실리콘 비중을 높인 최신 셀은 800 Wh/L를 넘기도 한다(전기차용 셀은 대개 600~700 Wh/L 이하). 셀 바깥 치수 기준 수치이므로, 실링 테두리와 파우치·탭·PCM 같은 <b>비활성 부피</b>를 줄이는 것도 활물질 개선만큼 중요하다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 250" role="img" aria-label="셀 부피 구성">
+        <text x="20" y="28" class="t">셀 부피는 어디에 쓰이나 (대표적 적층 셀, 대략값)</text>
+        <g>
+          <rect x="20" y="50" width="281" height="56" class="bt-cath"/>
+          <rect x="301" y="50" width="220" height="56" class="bt-anod"/>
+          <rect x="521" y="50" width="45" height="56" class="bt-sep" style="stroke-dasharray:none"/>
+          <rect x="566" y="50" width="37" height="56" class="bt-al"/>
+          <rect x="603" y="50" width="22" height="56" class="bt-cu"/>
+          <rect x="625" y="50" width="115" height="56" class="f-surface"/>
+        </g>
+        <text x="160" y="83" class="t" text-anchor="middle">양극 코팅 ~38%</text>
+        <text x="411" y="83" class="t" text-anchor="middle">음극 코팅 ~30%</text>
+        <text x="682" y="83" class="t" text-anchor="middle">포장 ~15%</text>
+        <path d="M543 110V140M584 110V160M614 110V180" class="s-line"/>
+        <text x="543" y="154" class="t-mono" text-anchor="middle">분리막 ~6%</text>
+        <text x="584" y="174" class="t-mono" text-anchor="middle">Al 박 ~5%</text>
+        <text x="634" y="194" class="t-mono" text-anchor="start">Cu 박 ~3%</text>
+        <text x="682" y="124" class="t-dim" text-anchor="middle">파우치·실링·탭</text>
+        <text x="20" y="226" class="t-dim">활물질만 에너지를 저장한다. 집전체를 얇게(Cu 4.5 µm, Al 8 µm), 분리막을 얇게(5~7 µm), 실링 폭을 좁게 하는 것이 모두 Wh/L 개선이다.</text>
+      </svg>
+      <figcaption><b>그림 5-2.</b> 셀 부피 구성(대략). 코팅층 안에도 전해질이 채워진 기공(20~30%)과 도전재·바인더가 있어 실제 활물질 비율은 더 낮다.</figcaption>
+    </figure>
+
+    <p>양극(LCO)은 이미 한계 가까이 와 있다. 충전 전압을 4.35 → 4.40 → 4.45 → 4.48 V로 올리며 용량을 짜내 왔는데, 더 올리면 결정 구조 붕괴와 산소 방출, 전해질 산화가 급증한다. 그래서 최근의 개선은 <b>음극</b>에서 온다. 실리콘은 흑연보다 비용량이 약 10배 크므로 같은 용량을 훨씬 얇은 음극에 담을 수 있다. 문제는 리튬을 받으면 <b>부피가 3~4배</b>로 부푼다는 것이다. 매 사이클 입자가 부풀고 줄며 깨지고, 새로 드러난 표면에 SEI 막이 계속 자라 리튬과 전해질을 소모한다. 그래서 실제 셀은 산화실리콘(SiOₓ)이나 탄소 매트릭스 속 나노 실리콘(Si-C)을 흑연에 수 %~십수 % 섞는 방식으로 타협한다.</p>
+
+    <div class="sim" id="sim-si">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>실리콘 함량 → 전극 두께와 에너지 밀도</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-si"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>음극 Si(-C) 함량 <output id="si-x-out"></output></span><input type="range" id="si-x" min="0" max="25" step="1" value="10"></label>
+          <label class="ctrl"><span>양극 면적 용량 <output id="si-qa-out"></output></span><input type="range" id="si-qa" min="3" max="5.5" step="0.1" value="4.2"></label>
+          <label class="ctrl"><span>분리막 두께 <output id="si-sep-out"></output></span><input type="range" id="si-sep" min="5" max="14" step="1" value="7"></label>
+          <label class="check"><input type="checkbox" id="si-chg"> 만충 상태(음극 팽창) 보기</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">반복 단위 두께</span><span class="v" id="si-t">—</span></div>
+        <div class="stat"><span class="k">셀 에너지 밀도</span><span class="v" id="si-wl">—</span></div>
+        <div class="stat"><span class="k">중량 밀도</span><span class="v" id="si-wk">—</span></div>
+        <div class="stat"><span class="k">충전 시 셀 두께 증가</span><span class="v" id="si-sw">—</span></div>
+      </div>
+      <div class="sim-note">모델: 음극 용량을 양극의 1.08배(N/P)로 맞추고 흑연 350 mAh/g, Si-C 복합재 1,600 mAh/g로 가정, 셀 포장 효율 80%. 해볼 것: Si 10%면 음극이 약 1/4 얇아지고 Wh/L가 10% 이상 오르지만, 충전 때 셀이 숨쉬듯 부푸는 양도 커진다. 면적 용량(코팅 두께)을 올리면 집전체·분리막 비중이 줄어 밀도는 오르지만, 이온 이동 거리가 늘어 고속 충전이 어려워진다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 6 -->
+  <section id="charging">
+    <h2>CC-CV 충전과 고속 충전</h2>
+    <p>리튬이온 셀은 <span class="term">CC-CV</span><span class="en">(Constant Current – Constant Voltage)</span>로 충전한다. 처음에는 정해진 전류로 밀어 넣다가(CC), 단자 전압이 상한(예: 4.45 V)에 닿으면 전압을 고정하고(CV) 전류가 저절로 줄어들게 둔다. 전류가 종료 전류(보통 0.02~0.05 C)까지 떨어지면 끝이다. 왜 이런 모양이 될까? 셀을 <b>OCV 전원 + 내부저항</b>으로 보면 바로 보인다.</p>
+    <div class="formula">$$V_{\text{term}} = V_{\text{OCV}}(\text{SOC}) + I \cdot R_{\text{eff}} \quad\Rightarrow\quad I_{\text{CV}} = \frac{V_{\max} - V_{\text{OCV}}(\text{SOC})}{R_{\text{eff}}}$$
+      <div class="where">충전 전류가 클수록 \(I R\) 만큼 단자 전압이 OCV보다 높아져 상한에 일찍 닿는다. CV 구간에서는 OCV가 상한에 가까워질수록 전류가 줄어든다. \(R_{\text{eff}}\)는 옴 저항 + 전하 이동 + 확산 분극을 뭉뚱그린 값(폰 셀 수십 mΩ). C-rate는 용량 대비 전류로, 5,000 mAh 셀의 1 C = 5 A, 2 C = 10 A다.</div>
+    </div>
+
+    <div class="sim" id="sim-cccv">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>CC-CV 충전 곡선</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-cccv"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>CC 전류</span><div class="seg" id="cc-c"><button data-value="0.5">0.5C</button><button data-value="1" class="on">1C</button><button data-value="1.5">1.5C</button><button data-value="2">2C</button><button data-value="3">3C</button></div></div>
+          <div class="ctrl"><span>충전 방식</span><div class="seg" id="cc-step"><button data-value="1" class="on">단일 CC</button><button data-value="ms">다단 CC</button></div></div>
+          <label class="ctrl"><span>등가 저항 R(eff) <output id="cc-r-out"></output></span><input type="range" id="cc-r" min="20" max="100" step="5" value="40"></label>
+          <div class="ctrl"><span>충전 상한</span><div class="seg" id="cc-lim"><button data-value="100" class="on">100%</button><button data-value="80">80% 제한</button></div></div>
+        </div>
+      </div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>단자 전압</span><span><i style="background:var(--accent-2)"></i>전류</span><span><i style="background:var(--ok)"></i>SOC</span><span><i style="background:var(--warn)"></i>발열 I²R</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">0→50%</span><span class="v" id="cc-t50">—</span></div>
+        <div class="stat"><span class="k">0→80%</span><span class="v" id="cc-t80">—</span></div>
+        <div class="stat"><span class="k">완료</span><span class="v" id="cc-tf">—</span></div>
+        <div class="stat"><span class="k">CV 진입 SOC</span><span class="v" id="cc-cv">—</span></div>
+        <div class="stat"><span class="k">최대 셀 발열</span><span class="v" id="cc-q">—</span></div>
+      </div>
+      <div class="sim-note">5,000 mAh 셀, 상한 4.45 V, 종료 0.05 C. 해볼 것: 1C → 2C로 올리면 50%까지는 거의 절반 시간이지만 <b>완료 시간은 별로 줄지 않는다</b>. 큰 IR 때문에 CV에 일찍 들어가 긴 꼬리가 남기 때문이다. 3C 단일 CC는 SOC 20%대에서 이미 CV에 들어간다. "다단 CC"는 실제 고속 충전처럼 SOC에 따라 전류를 계단식으로 낮춰 상한에 닿지 않게 한다. 저항을 키우면(노화·저온) 같은 전류에서도 충전이 느려진다.</div>
+    </div>
+
+    <p>"30분에 50%" 같은 광고 문구는 거의 항상 <b>앞쪽 절반</b>을 말한다. 위쪽 20%는 어떤 고속 충전기로도 오래 걸리고, 그 구간에서 셀에 가장 큰 스트레스(높은 전압 + 높은 전류)가 걸린다. 그래서 폰은 밤새 충전할 때 80%에서 멈췄다가 기상 직전에 채우는 <b>적응형 충전</b>을 쓰기도 한다.</p>
+
+    <h3>고속 충전의 대가: 열(I²R)과 2셀 직렬</h3>
+    <p>충전 전력을 올리면 전류가 오르고, 저항에서 나는 열은 <b>전류의 제곱</b>으로 오른다. 셀 하나(공칭 3.9 V)에 45 W를 넣으려면 약 11.5 A가 필요하고, 40 mΩ에서만 5 W가 넘는 열이 난다. 셀 내부뿐 아니라 보호 회로 FET, 배터리 커넥터, 보드 배선(수 mΩ씩)도 모두 I²R로 데워진다. 그래서 65~120 W급 폰은 셀을 둘로 나눠 <b>직렬 2셀(2S)</b>로 구성하기도 한다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 260" role="img" aria-label="1셀과 2셀 직렬 비교">
+        <defs><marker id="bt-a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--text-dim)"/></marker></defs>
+        <text x="190" y="26" class="t-acc" text-anchor="middle">1S: 셀 1개 (5,000 mAh)</text>
+        <rect x="20" y="70" width="110" height="60" rx="8" class="f-elev"/><text x="75" y="96" class="t" text-anchor="middle">충전기</text><text x="75" y="116" class="t-mono" text-anchor="middle">~9 V · 5 A</text>
+        <rect x="160" y="70" width="90" height="60" rx="8" class="f-acc-soft"/><text x="205" y="96" class="t" text-anchor="middle">2:1 CP</text><text x="205" y="116" class="t-mono" text-anchor="middle">×2 전류</text>
+        <rect x="285" y="60" width="80" height="80" rx="6" class="bt-cath"/><text x="325" y="96" class="t" text-anchor="middle">3.9 V</text><text x="325" y="116" class="t-mono" text-anchor="middle">11.5 A</text>
+        <path d="M130 100H158M250 100H283" class="s-line" marker-end="url(#bt-a3)"/>
+        <text x="190" y="170" class="t-dim" text-anchor="middle">셀·FET·커넥터에 11.5 A</text>
+        <text x="190" y="190" class="t-dim" text-anchor="middle">경로 I²R 손실 큼</text>
+        <line x1="390" y1="20" x2="390" y2="240" class="s-axis" stroke-dasharray="4 4"/>
+        <text x="575" y="26" class="t-acc" text-anchor="middle">2S: 셀 2개 직렬 (2,500 mAh × 2)</text>
+        <rect x="405" y="70" width="110" height="60" rx="8" class="f-elev"/><text x="460" y="96" class="t" text-anchor="middle">충전기</text><text x="460" y="116" class="t-mono" text-anchor="middle">~10–20 V</text>
+        <rect x="545" y="70" width="70" height="60" rx="8" class="f-acc-soft"/><text x="580" y="96" class="t" text-anchor="middle">CP</text><text x="580" y="116" class="t-mono" text-anchor="middle">7.8 V</text>
+        <rect x="640" y="40" width="80" height="50" rx="6" class="bt-cath"/><text x="680" y="70" class="t" text-anchor="middle">3.9 V</text>
+        <rect x="640" y="110" width="80" height="50" rx="6" class="bt-cath"/><text x="680" y="140" class="t" text-anchor="middle">3.9 V</text>
+        <path d="M680 90V108" class="s-line"/>
+        <path d="M515 100H543M615 100H638" class="s-line" marker-end="url(#bt-a3)"/>
+        <text x="680" y="186" class="t-mono" text-anchor="middle">5.8 A</text>
+        <text x="575" y="214" class="t-dim" text-anchor="middle">경로 전류 절반 → 경로 손실 1/4</text>
+        <text x="575" y="234" class="t-dim" text-anchor="middle">대신 셀 밸런싱 + 사용 중 강압 변환 필요</text>
+      </svg>
+      <figcaption><b>그림 5-3.</b> 같은 45 W, 같은 총 용량을 1S와 2S로 구성한 경우. 2S는 경로 전류를 절반으로 줄이지만 셀 하나하나의 C-rate는 같다(각 셀이 절반 크기). 시스템(3.x V 레일)에 전원을 줄 때는 2:1 강압이 한 단계 더 필요하다.</figcaption>
+    </figure>
+
+    <div class="sim" id="sim-heat">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>충전 전력 → 폰 안의 열</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-heat"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>충전 전력 <output id="ht-p-out"></output></span><input type="range" id="ht-p" min="10" max="120" step="5" value="45"></label>
+          <div class="ctrl"><span>배터리 구성</span><div class="seg" id="ht-cfg"><button data-value="1" class="on">1S</button><button data-value="2">2S</button></div></div>
+          <label class="ctrl"><span>셀 R (1S 기준) <output id="ht-rc-out"></output></span><input type="range" id="ht-rc" min="20" max="80" step="2" value="40"></label>
+          <label class="ctrl"><span>경로 R (FET·커넥터·배선) <output id="ht-rp-out"></output></span><input type="range" id="ht-rp" min="5" max="40" step="1" value="15"></label>
+          <label class="ctrl"><span>변환기 효율 <output id="ht-eta-out"></output></span><input type="range" id="ht-eta" min="90" max="99" step="0.5" value="97.5"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">배터리 전류</span><span class="v" id="ht-i">—</span></div>
+        <div class="stat"><span class="k">폰 내부 발열</span><span class="v" id="ht-q">—</span></div>
+        <div class="stat"><span class="k">표면 온도 상승(정상)</span><span class="v" id="ht-dt">—</span></div>
+        <div class="stat"><span class="k">셀 C-rate</span><span class="v" id="ht-cr">—</span></div>
+      </div>
+      <div class="sim-note">총 5,000 mAh 기준, 폰 전체 열저항을 약 3.5 °C/W로 가정한 거친 추정. 해볼 것: 1S에서 전력을 2배로 올리면 경로 손실은 4배가 된다. 2S로 바꾸면 경로 손실이 1/4로 줄지만 셀 발열은 그대로다. 폰 표면 온도는 보통 40~45 °C를 넘지 않게 관리하므로, 실제 폰은 최대 전력을 몇 분만 유지하고 온도에 따라 전력을 줄인다(써멀 스로틀링).</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 7 -->
+  <section id="resistance">
+    <h2>내부저항, 전압 강하, 저온 성능</h2>
+    <p>배터리가 "20% 남았는데 꺼지는" 현상은 대부분 내부저항 때문이다. 폰의 부하는 일정하지 않다. 카메라 플래시, 5G 송신 버스트, AP 부스트가 겹치면 순간 전류가 4~6 A까지 튄다. 이때 단자 전압은 \(V = V_{\text{OCV}} - I R\) 로 떨어지고, 이 순간값이 시스템의 <span class="term">저전압 차단</span><span class="en">(UVLO, 보통 3.0~3.4 V)</span> 아래로 내려가면 SOC가 남아 있어도 폰이 꺼진다.</p>
+    <p>내부저항은 온도에 강하게 의존한다. 전해질 이온 전도도와 전극 계면의 전하 이동 반응이 모두 열 활성화 과정이라, 대략 아레니우스 식을 따른다.</p>
+    <div class="formula">$$R(T) \approx R_{25}\,\exp\!\left[B\left(\frac{1}{T} - \frac{1}{298\ \text{K}}\right)\right], \quad B \approx 3000\ \text{K}$$
+      <div class="where">이 값이면 0 °C에서 약 2.3배, −10 °C에서 약 4배, −20 °C에서 약 6배가 된다(셀마다 다르다). 노화된 셀은 \(R_{25}\) 자체가 1.5~2배 커진다. 그래서 "오래된 폰이 추운 날 갑자기 꺼지는" 일이 생기고, 운영체제는 피크 전력을 제한(성능 관리)해 이를 막는다.</div>
+    </div>
+
+    <div class="sim" id="sim-cold">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>펄스 부하와 사용 가능 용량</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-cold"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>온도 <output id="cd-t-out"></output></span><input type="range" id="cd-t" min="-20" max="45" step="1" value="25"></label>
+          <label class="ctrl"><span>피크 전류 <output id="cd-i-out"></output></span><input type="range" id="cd-i" min="0.5" max="6" step="0.1" value="4"></label>
+          <label class="ctrl"><span>노화 (저항 배수) <output id="cd-a-out"></output></span><input type="range" id="cd-a" min="1" max="2.5" step="0.05" value="1"></label>
+          <div class="ctrl"><span>시스템 차단 전압</span><div class="seg" id="cd-uv"><button data-value="3.0">3.0 V</button><button data-value="3.2" class="on">3.2 V</button><button data-value="3.4">3.4 V</button></div></div>
+        </div>
+      </div>
+      <div class="legend"><span><i style="background:var(--text-dim)"></i>OCV</span><span><i style="background:var(--accent)"></i>피크 부하 시 단자 전압</span><span><i style="background:var(--bad)"></i>차단 전압</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">총 저항 (셀+경로)</span><span class="v" id="cd-r">—</span></div>
+        <div class="stat"><span class="k">피크 전압 강하</span><span class="v" id="cd-dv">—</span></div>
+        <div class="stat"><span class="k">꺼지는 SOC</span><span class="v" id="cd-off">—</span></div>
+        <div class="stat"><span class="k">쓸 수 있는 에너지</span><span class="v" id="cd-use">—</span></div>
+      </div>
+      <div class="sim-note">셀+보호회로+배선 저항 R<sub>25</sub> = 60 mΩ 가정. 해볼 것: 온도를 −10 °C로 내리고 피크 전류 4 A를 유지해 보라. 청록 곡선이 빨간 선에 훨씬 일찍 닿아 표시 SOC가 한참 남았는데 꺼진다. 노화 배수를 2로 올리면 상온에서도 같은 일이 생긴다. 저온에서는 이 외에도 확산이 느려 실제로 꺼낼 수 있는 용량 자체가 줄고, 충전은 리튬 석출 위험 때문에 더 엄격히 제한된다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 8 -->
+  <section id="aging">
+    <h2>열화: 사이클과 시간이 용량을 갉아먹는다</h2>
+    <p>배터리 용량은 쓰지 않아도(<b>캘린더 열화</b>), 쓸수록(<b>사이클 열화</b>) 줄어든다. 폰 배터리 사양은 흔히 "500~1,000 사이클 후 초기 용량의 80%"로 표기되고, 최근에는 1,000~2,000 사이클을 내세우는 제품도 있다. 운영체제의 "배터리 성능 상태(SOH)"가 80% 근처가 되면 교체를 권한다. 주요 메커니즘은 다음과 같다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 270" role="img" aria-label="열화 메커니즘">
+        <rect x="20" y="40" width="230" height="200" rx="10" class="f-surface"/>
+        <text x="135" y="64" class="t-acc" text-anchor="middle">음극 쪽</text>
+        <rect x="40" y="80" width="190" height="34" rx="6" class="f-elev"/><text x="135" y="102" class="t" text-anchor="middle">SEI 막 성장 (Li 소모)</text>
+        <rect x="40" y="122" width="190" height="34" rx="6" class="f-elev"/><text x="135" y="144" class="t" text-anchor="middle">리튬 플레이팅 (저온·고속)</text>
+        <rect x="40" y="164" width="190" height="34" rx="6" class="f-elev"/><text x="135" y="186" class="t" text-anchor="middle">Si 입자 균열 (팽창)</text>
+        <text x="135" y="224" class="t-dim" text-anchor="middle">→ 활성 리튬 손실 (LLI)</text>
+        <rect x="265" y="40" width="230" height="200" rx="10" class="f-surface"/>
+        <text x="380" y="64" class="t-acc" text-anchor="middle">양극 쪽</text>
+        <rect x="285" y="80" width="190" height="34" rx="6" class="f-elev"/><text x="380" y="102" class="t" text-anchor="middle">상전이·미세 균열 (고전압)</text>
+        <rect x="285" y="122" width="190" height="34" rx="6" class="f-elev"/><text x="380" y="144" class="t" text-anchor="middle">Co 용출 → 음극에 석출</text>
+        <rect x="285" y="164" width="190" height="34" rx="6" class="f-elev"/><text x="380" y="186" class="t" text-anchor="middle">CEI·산소 방출</text>
+        <text x="380" y="224" class="t-dim" text-anchor="middle">→ 활물질 손실 (LAM)</text>
+        <rect x="510" y="40" width="230" height="200" rx="10" class="f-surface"/>
+        <text x="625" y="64" class="t-acc" text-anchor="middle">가속 요인</text>
+        <text x="530" y="98" class="t">고온 (특히 만충 + 고온)</text>
+        <text x="530" y="124" class="t">높은 충전 상한 전압</text>
+        <text x="530" y="150" class="t">깊은 방전 범위 (DoD)</text>
+        <text x="530" y="176" class="t">고속 충전 (특히 저온)</text>
+        <text x="530" y="202" class="t">높은 Si 함량</text>
+        <text x="625" y="228" class="t-dim" text-anchor="middle">+ 전해질 분해 → 가스 → 스웰링</text>
+      </svg>
+      <figcaption><b>그림 5-4.</b> 열화 메커니즘. 용량 감소는 주로 "왕복할 수 있는 리튬이 줄어드는 것(LLI)"과 "리튬을 받을 수 있는 활물질이 줄어드는 것(LAM)"이고, 저항 증가는 SEI·CEI가 두꺼워지고 접촉이 끊기며 생긴다.</figcaption>
+    </figure>
+
+    <p>캘린더 열화는 대략 \(\sqrt{t}\)로 진행되고(SEI 성장이 확산 지배), 온도 10 °C 상승마다 1.5~2배 빨라지며, 만충(높은 전압) 상태로 둘 때 가장 크다. 그래서 "100%로 충전한 채 뜨거운 차 안에 두는 것"이 최악이다. 사이클 열화는 방전 깊이(DoD)에 비선형적이라, 100%↔0% 한 번보다 80%↔30% 두 번이 덜 상한다.</p>
+
+    <div class="sim" id="sim-aging">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>사이클 수 vs 용량 유지율</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-aging"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>평균 셀 온도 <output id="ag-t-out"></output></span><input type="range" id="ag-t" min="10" max="45" step="1" value="25"></label>
+          <div class="ctrl"><span>충전 상한</span><div class="seg" id="ag-up"><button data-value="100" class="on">100%</button><button data-value="90">90%</button><button data-value="85">85%</button><button data-value="80">80%</button></div></div>
+          <label class="ctrl"><span>방전 하한 <output id="ag-lo-out"></output></span><input type="range" id="ag-lo" min="0" max="40" step="5" value="0"></label>
+          <label class="ctrl"><span>충전 C-rate <output id="ag-c-out"></output></span><input type="range" id="ag-c" min="0.5" max="3" step="0.1" value="1"></label>
+        </div>
+      </div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>건강도(SOH)</span><span><i style="background:var(--accent-2)"></i>한 사이클에 실제 쓰는 용량</span><span><i style="background:var(--text-faint)"></i>기준(25 °C, 100→0%, 1C)</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">SOH 80% 도달</span><span class="v" id="ag-n80">—</span></div>
+        <div class="stat"><span class="k">500 사이클 SOH</span><span class="v" id="ag-500">—</span></div>
+        <div class="stat"><span class="k">1,000 사이클 SOH</span><span class="v" id="ag-1000">—</span></div>
+        <div class="stat"><span class="k">총 누적 에너지 (2,000회)</span><span class="v" id="ag-tot">—</span></div>
+      </div>
+      <div class="sim-note">하루 1사이클, 캘린더 + 사이클 열화를 합친 <b>경험적 교육용 모델</b>(실제 수치는 셀마다 크게 다르다). 해볼 것: 상한을 80%로 하면 SOH 곡선(청록)은 훨씬 천천히 내려가지만, 처음부터 매일 쓰는 용량(주황)은 80%에서 출발한다. 두 주황 곡선이 만나는 지점 이후부터 80% 제한이 이득이다. 온도를 35 °C로만 올려도 수명이 크게 준다. 저온(15 °C 이하)에서 C-rate를 올리면 리튬 플레이팅 항이 커진다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 9 -->
+  <section id="safety">
+    <h2>스웰링과 안전: 열폭주와 보호 회로</h2>
+    <p><span class="term">스웰링</span><span class="en">(swelling)</span>은 셀 안에서 생긴 가스와 전극 팽창으로 파우치가 부푸는 현상이다. 고전압·고온에서 전해질이 산화·환원 분해되면 CO₂, CO, 탄화수소 가스가 나온다. 각형 금속 캔과 달리 파우치는 부드러워 가스를 그대로 부피로 드러낸다. 폰에서는 후면 글라스가 들뜨거나 화면이 밀려 나오는 것으로 나타나며, 그 자체로 <b>열화가 심하다는 신호</b>이므로 사용을 멈추고 교체해야 한다. 설계 단계에서는 셀 주위에 수명 말기 팽창분(두께의 5~10%)을 위한 여유 공간(스웰링 갭)을 남긴다.</p>
+    <p>더 위험한 것은 <span class="term">열폭주</span><span class="en">(thermal runaway)</span>다. 셀 내부 온도가 어느 선을 넘으면 발열 반응이 스스로 온도를 올려 연쇄적으로 진행된다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 240" role="img" aria-label="열폭주 단계">
+        <defs><linearGradient id="bt-heat" x1="0" x2="1"><stop offset="0" stop-color="var(--ok)" stop-opacity=".35"/><stop offset=".45" stop-color="var(--warn)" stop-opacity=".4"/><stop offset="1" stop-color="var(--bad)" stop-opacity=".55"/></linearGradient></defs>
+        <rect x="40" y="70" width="680" height="26" rx="6" fill="url(#bt-heat)"/>
+        <g class="t-mono" text-anchor="middle"><text x="40" y="116">25</text><text x="145" y="116">60</text><text x="235" y="116">90</text><text x="325" y="116">130</text><text x="445" y="116">180</text><text x="560" y="116">250</text><text x="720" y="116">600+ °C</text></g>
+        <g class="s-line"><path d="M145 96V140M235 96V160M325 96V140M445 96V160M560 96V140"/></g>
+        <text x="145" y="156" class="t" text-anchor="middle">충전 금지</text><text x="145" y="174" class="t-dim" text-anchor="middle">(보통 45~60 °C)</text>
+        <text x="235" y="178" class="t" text-anchor="middle">SEI 분해 시작</text><text x="235" y="196" class="t-dim" text-anchor="middle">80~120 °C 발열</text>
+        <text x="325" y="156" class="t" text-anchor="middle">분리막 수축·용융</text><text x="325" y="174" class="t-dim" text-anchor="middle">PE ~130 °C → 내부 단락</text>
+        <text x="445" y="178" class="t" text-anchor="middle">양극 분해 · O₂ 방출</text><text x="445" y="196" class="t-dim" text-anchor="middle">충전된 LCO 150~200 °C</text>
+        <text x="560" y="156" class="t" text-anchor="middle">전해질 연소</text><text x="560" y="174" class="t-dim" text-anchor="middle">가스 분출·화염</text>
+        <text x="40" y="44" class="t">트리거: 내부 단락(이물·덴드라이트·찌그러짐), 과충전, 외부 가열, 외부 단락</text>
+        <text x="40" y="226" class="t-dim">세라믹 코팅 분리막은 고온에서도 형태를 유지해 단락 확대를 늦춘다. 만충(높은 SOC)일수록 저장 에너지와 반응성이 커 더 격렬하다.</text>
+      </svg>
+      <figcaption><b>그림 5-5.</b> 열폭주의 연쇄. 온도 값은 셀 화학과 SOC에 따라 수십 °C씩 달라지는 대표 범위다. 일단 분리막이 녹아 대면적 단락이 생기면 외부에서 멈출 방법이 거의 없으므로 "그 전 단계에서 끊는 것"이 보호 설계의 목표다.</figcaption>
+    </figure>
+
+    <p>그래서 폰 배터리는 여러 겹으로 지킨다. (1) <b>충전 IC</b>는 상한 전압·전류와 온도별 충전 조건(<span class="term">JEITA</span> 가이드라인)을 지킨다. (2) <b>연료 게이지/BMS</b> 소프트웨어는 SOC·SOH·온도를 보고 충전 전력과 상한을 조정한다. (3) 배터리 팩 위의 <b>PCM</b><span class="en">(Protection Circuit Module)</span>은 독립된 보호 IC와 직렬 MOSFET 2개로 과충전·과방전·과전류·단락 시 물리적으로 회로를 끊는다. 소프트웨어가 멈춰도 동작해야 하므로 하드웨어 문턱값으로 판단한다. (4) 셀 자체는 세라믹 코팅 분리막, 난연 첨가제, 가스 배출 경로로 마지막 방어선을 친다.</p>
+
+    <div class="sim" id="sim-prot">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>다단 보호: JEITA 충전 영역과 PCM</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-prot"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>셀 온도 <output id="pr-t-out"></output></span><input type="range" id="pr-t" min="-20" max="80" step="1" value="25"></label>
+          <label class="ctrl"><span>셀 전압 <output id="pr-v-out"></output></span><input type="range" id="pr-v" min="2.3" max="4.7" step="0.01" value="3.9"></label>
+          <label class="ctrl"><span>전류 (+충전 / −방전) <output id="pr-i-out"></output></span><input type="range" id="pr-i" min="-14" max="14" step="0.5" value="3"></label>
+        </div>
+      </div>
+      <div class="bt-lv" id="pr-levels"></div>
+      <div class="sim-note">문턱값은 대표적인 예(제품마다 다르다). 해볼 것: 온도를 5 °C로 내리면 충전 전류가 줄고, 50 °C로 올리면 상한 전압이 낮아지며, 60 °C를 넘으면 충전이 멈춘다. 전압을 4.6 V로 올리면 충전 IC가 이미 실패했다고 보고 PCM이 마지막으로 회로를 끊는다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 10 -->
+  <section id="runtime">
+    <h2>배터리 사용 시간 계산하기</h2>
+    <p>사용 시간은 단순한 나눗셈이다. 문제는 분모, 즉 <b>평균 소비 전력</b>을 아는 것이다.</p>
+    <div class="formula">$$t_{\text{use}} = \frac{E_{\text{bat}} \cdot \eta_{\text{usable}}}{P_{\text{display}} + P_{\text{AP}} + P_{\text{modem}} + P_{\text{etc}}}$$
+      <div class="where">\(\eta_{\text{usable}}\)는 차단 전압·전력 변환 손실 등으로 실제로 꺼내 쓰는 비율(~0.85~0.9). 화면을 켠 상태에서는 디스플레이가 가장 큰 단일 항목인 경우가 많고, 게임에서는 AP·GPU가, 약전계에서는 모뎀·PA가 압도한다.</div>
+    </div>
+
+    <div class="sim" id="sim-run">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>사용 시간 계산기</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-run"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>배터리 용량 <output id="rn-q-out"></output></span><input type="range" id="rn-q" min="3000" max="7000" step="100" value="5000"></label>
+          <label class="ctrl"><span>화면 밝기 <output id="rn-b-out"></output></span><input type="range" id="rn-b" min="20" max="1200" step="10" value="250"></label>
+          <div class="ctrl"><span>주사율</span><div class="seg" id="rn-hz"><button data-value="ltpo" class="on">LTPO 가변</button><button data-value="60">60 Hz</button><button data-value="120">120 Hz 고정</button></div></div>
+          <div class="ctrl"><span>작업 (AP)</span><div class="seg" id="rn-ap"><button data-value="read">읽기</button><button data-value="web" class="on">웹·SNS</button><button data-value="video">동영상</button><button data-value="cam">카메라</button><button data-value="game">3D 게임</button></div></div>
+          <div class="ctrl"><span>통신</span><div class="seg" id="rn-mo"><button data-value="wifi" class="on">Wi-Fi</button><button data-value="lte">LTE</button><button data-value="nr">5G 양호</button><button data-value="weak">5G 약전계</button></div></div>
+          <label class="check"><input type="checkbox" id="rn-gps"> GPS 내비게이션</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">배터리 에너지</span><span class="v" id="rn-e">—</span></div>
+        <div class="stat"><span class="k">평균 소비 전력</span><span class="v" id="rn-p">—</span></div>
+        <div class="stat"><span class="k">예상 사용 시간</span><span class="v" id="rn-h">—</span></div>
+        <div class="stat"><span class="k">평균 방전율</span><span class="v" id="rn-c">—</span></div>
+      </div>
+      <div class="sim-note">6.7인치급 OLED, 대표적 수치에 기반한 대략적 모델(콘텐츠 밝기 평균 ~50%). 해볼 것: 웹·Wi-Fi에서 5G 약전계로만 바꿔도 사용 시간이 크게 준다. 야외(1,000 nit 이상)에서는 화면이 혼자 2 W 가까이 먹는다. 3D 게임은 0.3 C 넘는 방전율로 셀이 따뜻해진다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 11 -->
+  <section id="shape">
+    <h2>셀 형상과 폰 내부 부피 활용</h2>
+    <p>배터리 용량은 결국 <b>부피 × 에너지 밀도</b>다. 같은 셀 기술이라면 폰 안에서 배터리가 차지하는 부피를 늘리는 것이 용량을 늘리는 가장 확실한 방법이다. 직사각형 셀은 만들기 쉽지만, 메인보드와 카메라가 차지하는 위쪽 영역 옆이나, 두께가 남는 영역을 버리게 된다. 그래서 적층 공정을 활용해 셀을 폰 내부에 맞추는 변형이 등장했다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 250" role="img" aria-label="셀 형상 비교">
+        <text x="110" y="24" class="t-acc" text-anchor="middle">직사각형</text>
+        <rect x="40" y="40" width="140" height="190" rx="14" class="f-surface"/>
+        <rect x="52" y="52" width="116" height="62" rx="4" fill="var(--green)" fill-opacity=".3" stroke="var(--green)"/>
+        <text x="110" y="88" class="t-dim" text-anchor="middle">보드</text>
+        <rect x="52" y="122" width="116" height="80" rx="3" class="bt-cath"/>
+        <text x="110" y="166" class="t" text-anchor="middle">셀</text>
+        <text x="370" y="24" class="t-acc" text-anchor="middle">L자 셀</text>
+        <rect x="300" y="40" width="140" height="190" rx="14" class="f-surface"/>
+        <rect x="312" y="52" width="70" height="62" rx="4" fill="var(--green)" fill-opacity=".3" stroke="var(--green)"/>
+        <text x="347" y="88" class="t-dim" text-anchor="middle">보드</text>
+        <path d="M390 54H428V202H312V122H390Z" class="bt-cath"/>
+        <text x="380" y="166" class="t" text-anchor="middle">셀</text>
+        <text x="630" y="24" class="t-acc" text-anchor="middle">계단형(단차) 셀 — 측면</text>
+        <path d="M520 150H740" class="s-axis"/>
+        <path d="M530 150V110H620V90H730V150Z" class="bt-cath"/>
+        <rect x="530" y="60" width="90" height="40" class="f-acc2-soft"/>
+        <text x="575" y="84" class="t-dim" text-anchor="middle">부품·카메라</text>
+        <text x="630" y="180" class="t-dim" text-anchor="middle">위에 다른 부품이 있는 곳만 얇게,</text>
+        <text x="630" y="200" class="t-dim" text-anchor="middle">빈 곳은 두껍게: 적층 매수가 다름</text>
+      </svg>
+      <figcaption><b>그림 5-6.</b> 셀 형상. L자 셀은 보드 옆 빈 공간까지 채우고(노트북·폰에 사용), 계단형 셀은 두께 방향 단차로 부품 아래의 남는 높이를 쓴다. 대신 안쪽 모서리 실링과 탭 배치가 까다롭고, 응력이 모이는 모서리가 생긴다. 접이식 폰은 힌지 양쪽에 셀을 나눠 병렬로 연결한다.</figcaption>
+    </figure>
+
+    <div class="sim" id="sim-shape">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>보드 크기와 셀 형상 → 용량</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-shape"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>보드 길이 <output id="sh-h-out"></output></span><input type="range" id="sh-h" min="30" max="70" step="1" value="50"></label>
+          <label class="ctrl"><span>보드 폭 <output id="sh-w-out"></output></span><input type="range" id="sh-w" min="24" max="64" step="1" value="40"></label>
+          <label class="ctrl"><span>셀 두께 <output id="sh-t-out"></output></span><input type="range" id="sh-t" min="3.5" max="6.5" step="0.1" value="5.2"></label>
+          <label class="ctrl"><span>셀 에너지 밀도 <output id="sh-d-out"></output></span><input type="range" id="sh-d" min="600" max="900" step="10" value="760"></label>
+          <div class="ctrl"><span>형상</span><div class="seg" id="sh-mode"><button data-value="rect" class="on">직사각형</button><button data-value="L">L자</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">셀 부피</span><span class="v" id="sh-vol">—</span></div>
+        <div class="stat"><span class="k">에너지</span><span class="v" id="sh-e">—</span></div>
+        <div class="stat"><span class="k">용량 (3.87 V)</span><span class="v" id="sh-q">—</span></div>
+        <div class="stat"><span class="k">L자 대비 이득</span><span class="v" id="sh-g">—</span></div>
+      </div>
+      <div class="sim-note">폰 내부 66 × 140 mm, 하단 모듈 18 mm, 측면 플렉스 통로 4 mm, 실링·여유 테두리 1.5 mm 가정. 해볼 것: 보드를 10 mm 짧게 만들면 몇 mAh가 생기는가? 보드 폭이 좁을 때 L자 셀이 얼마나 이득인지 보라. 두께 0.5 mm가 수백 mAh에 해당한다는 것도 기억하자. 폰 두께 경쟁이 곧 배터리 경쟁인 이유다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 12 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <p>배터리 사양은 "용량을 최대로"가 아니라 여러 목표 사이의 줄다리기로 정해진다. 셀 업체와 폰 업체는 보통 다음 항목을 놓고 1~2년에 걸쳐 셀을 함께 개발한다.</p>
+    <div class="table-wrap"><table>
+      <tr><th>지표</th><th>대표 범위</th><th>무엇과 부딪히나</th></tr>
+      <tr><td>부피·두께·무게</td><td>셀 4.5~6 mm, 45~75 g</td><td>폰 두께·무게 목표, 카메라 범프, 방열 공간, 스웰링 여유</td></tr>
+      <tr><td>에너지 밀도</td><td>700~850 Wh/L</td><td>충전 상한 전압↑·Si↑ → 수명·스웰링·안전 마진↓</td></tr>
+      <tr><td>사이클 수명</td><td>80% @ 500~2,000회</td><td>밀도·고속 충전과 반비례, 규제(EU) 요구</td></tr>
+      <tr><td>충전 속도</td><td>0→50% 15~30분</td><td>얇은 전극(밀도↓), 발열, 리튬 플레이팅, 수명</td></tr>
+      <tr><td>내부저항·저온</td><td>수십 mΩ</td><td>피크 전력(카메라·5G), 저온 꺼짐, 노화 후 성능 제한</td></tr>
+      <tr><td>안전·인증</td><td>IEC 62133-2, UL 2054/1642, UN 38.3 등</td><td>못 관통·압착·과충전·열 시험, 운송 규정, 보호 회로 이중화</td></tr>
+      <tr><td>교체성·수리</td><td>당김 탭 접착제, 커넥터</td><td>방수(IP68), 무게·두께, EU 규제</td></tr>
+    </table></div>
+
+    <p>특히 <b>충전 속도 vs 열화</b>는 하나의 손잡이로 엮여 있다. 고속 충전을 위해 전극을 얇게(면적 용량↓) 만들면 분리막·집전체 비중이 늘어 밀도가 떨어진다. 같은 셀로 전류만 올리면 음극 표면 전위가 0 V(Li/Li⁺) 아래로 내려가 리튬이 석출된다. 아래 시뮬레이터로 세 손잡이(충전 상한 전압, Si 함량, 최대 충전 전류)를 함께 돌려 보자.</p>
+
+    <div class="sim" id="sim-trade">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>셀 설계 트레이드오프</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-trade"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>충전 상한 전압 <output id="td-v-out"></output></span><input type="range" id="td-v" min="4.35" max="4.52" step="0.01" value="4.45"></label>
+          <label class="ctrl"><span>음극 Si 함량 <output id="td-si-out"></output></span><input type="range" id="td-si" min="0" max="20" step="1" value="5"></label>
+          <label class="ctrl"><span>최대 충전 C-rate <output id="td-c-out"></output></span><input type="range" id="td-c" min="0.7" max="3" step="0.1" value="1.5"></label>
+          <label class="ctrl"><span>셀 부피 <output id="td-vol-out"></output></span><input type="range" id="td-vol" min="18" max="30" step="0.5" value="24"></label>
+        </div>
+      </div>
+      <div class="sim-note">경험적 상대 모델(교육용). 기준: 4.40 V, Si 0%, 1C → 100 (수명은 기준 1,400회로 가정). 해볼 것: 상한 전압 0.05 V는 에너지 수 %를 주지만 수명과 스웰링 위험을 눈에 띄게 키운다. Si를 늘리면 에너지가 오르지만 팽창 때문에 스웰링 여유를 더 남겨야 한다. 고속 충전은 시간을 줄이지만 수명을 깎는다. 셋 다 최대로 하면 무슨 일이 생기는가?</div>
+    </div>
+
+    <h3>폰의 다른 부품과의 상호작용</h3>
+    <ul>
+      <li><b>두께·기구</b>: 셀 두께 공차(±0.1~0.2 mm)와 수명 말기 팽창분을 기구 설계가 흡수해야 한다. 스웰링 갭이 부족하면 후면 글라스가 들뜨거나 디스플레이가 눌려 얼룩이 생긴다.</li>
+      <li><b>열</b>: 배터리는 열용량이 커 AP 열을 잠시 흡수하지만, 45 °C 이상이 오래 지속되면 열화가 급증한다. AP와 배터리 사이 방열 설계(<a href="power.html">6장</a> 충전 발열, 베이퍼 챔버)가 수명에 직결된다.</li>
+      <li><b>전력·RF</b>: 피크 전류 때 전압 강하가 PMIC와 RF PA 동작 전압 범위를 결정한다. 배터리 위를 지나는 플렉스는 안테나 급전선과 고속 신호를 함께 지나므로 배터리 금속 파우치가 안테나 근처 접지 역할도 한다.</li>
+      <li><b>무선 충전</b>: 코일이 배터리 바로 뒤에 붙어 코일 발열(수 W)이 셀로 직접 전해진다. 무선 충전 중 셀 온도가 유선보다 높아지기 쉬운 이유다.</li>
+      <li><b>원가·공급</b>: 코발트 가격과 공급망, 셀 업체별 인증 비용. Si 음극과 고전압 전해질 첨가제는 원가를 올린다.</li>
+    </ul>
+
+    <h3>규제: 교체성과 내구성</h3>
+    <p>EU는 배터리 수명과 교체성을 규제로 끌어올리고 있다. 스마트폰 에코디자인 규정(2025년 6월부터 적용)은 대표적으로 <b>800회 충방전 후 80% 이상 용량 유지</b>, 배터리를 포함한 예비 부품의 장기 공급, 배터리 정보 표시 등을 요구하고, 사용자 교체가 어려운 설계라면 더 높은 내구성(예: 1,000회 후 80%)과 방수 등급을 조건으로 예외를 둔다. 별도의 EU 배터리 규정은 2027년부터 휴대 기기 배터리를 최종 사용자가 제거·교체할 수 있게 하는 원칙을 담고 있다(세부 예외와 해석은 계속 다듬어지는 중). 이는 접착 방식(당김 탭, 전기 분리형 접착제), 나사 고정, 커넥터 설계, 그리고 셀 수명 목표를 모두 바꾸는 설계 조건이다.</p>
+
+    <div class="callout warn"><strong>흔한 실패 사례</strong>
+      <p>· 스웰링 갭 부족 → 2년 차에 후면 들뜸·화면 눌림 불량 급증. · 저온 피크 전류 미검증 → 겨울철 갑작스런 꺼짐(특히 노화 셀). · 고속 충전 프로파일을 셀 온도 대신 보드 온도로 제어 → 셀 과열. · 배터리 근처 날카로운 나사·브래킷 → 낙하 시 파우치 손상·내부 단락. · 연료 게이지 학습 부족 → % 표시가 갑자기 떨어짐.</p>
+    </div>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>리튬이온 셀은 Li⁺가 흑연(음극)과 LCO(양극) 사이를 전해질·분리막을 통해 오가고, 전자는 외부 회로로 짝을 지어 흐르는 흔들의자 전지다.</li>
+      <li>mAh는 전하, Wh는 에너지다. \(E = \int V\,dq \approx Q V_{\text{nom}}\), 폰 셀의 공칭 전압은 3.85~3.9 V이고 5,000 mAh ≈ 19 Wh다.</li>
+      <li>폰 셀은 체적 밀도 700~850 Wh/L의 적층/젤리롤 파우치 셀이며, 개선은 고전압 LCO와 Si-C 음극에서 오지만 둘 다 수명·팽창과 맞바꾼다.</li>
+      <li>CC-CV에서 CC 구간 길이는 \(I R\) 강하로 결정된다. 고속 충전은 앞쪽 절반을 빠르게 하지만 위쪽 20%는 느리고, 발열은 \(I^2R\)로 커진다. 2S는 경로 손실을 줄인다.</li>
+      <li>내부저항은 저온·노화로 수 배 커져 피크 부하에서 전압이 UVLO 아래로 떨어지고, SOC가 남아도 꺼진다.</li>
+      <li>열화는 고온·고전압(높은 SOC)·깊은 DoD·고속 충전에서 빨라진다. 80% 충전 제한은 초기 사용 용량을 내주고 수명을 산다.</li>
+      <li>스웰링은 가스·팽창의 신호이고, 열폭주는 SEI→분리막→양극→전해질의 연쇄다. 충전 IC·연료 게이지·PCM·셀 소재가 다단으로 막는다.</li>
+      <li>사용 시간 = 에너지 / 평균 전력. 셀 형상(L자·계단형)과 보드 소형화가 용량을, 열·규제(EU 교체성·내구성)가 설계 조건을 정한다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>1. 충전 중 리튬 이온과 전자의 이동 방향으로 옳은 것은?</p><div class="opts">
+        <button class="opt">Li⁺는 음극→양극, 전자는 외부 회로로 양극→음극</button>
+        <button class="opt" data-correct>Li⁺는 양극→음극(전해질 통과), 전자는 외부 회로로 양극→음극</button>
+        <button class="opt">Li⁺와 전자 모두 분리막을 통과해 양극으로</button>
+        <button class="opt">전자만 이동하고 Li⁺는 제자리에 있다</button>
+      </div><div class="quiz-exp">충전은 외부 전원이 전자를 음극으로 밀어 넣고, 전하 균형을 위해 Li⁺가 양극에서 빠져나와 전해질을 통해 음극 흑연층 사이로 들어간다. 분리막은 전자를 막는다.</div></div>
+
+      <div class="quiz-q"><p>2. 4,500 mAh, 공칭 3.88 V 셀의 에너지에 가장 가까운 것은?</p><div class="opts">
+        <button class="opt">4.5 Wh</button><button class="opt">11.6 Wh</button><button class="opt" data-correct>17.5 Wh</button><button class="opt">45 Wh</button>
+      </div><div class="quiz-exp">4.5 Ah × 3.88 V ≈ 17.5 Wh. mAh만으로는 에너지를 비교할 수 없고 전압을 곱해야 한다.</div></div>
+
+      <div class="quiz-q"><p>3. 같은 셀을 1C 대신 2C로 CC-CV 충전할 때 일반적으로 일어나는 일은?</p><div class="opts">
+        <button class="opt">완료 시간이 정확히 절반이 된다</button>
+        <button class="opt" data-correct>CV 진입이 더 낮은 SOC에서 일어나, 50%까지는 빨라지지만 완료 시간은 덜 줄어든다</button>
+        <button class="opt">IR 강하가 줄어 CV 구간이 없어진다</button>
+        <button class="opt">발열이 2배로 늘어난다</button>
+      </div><div class="quiz-exp">전류가 커지면 \(V = V_{OCV} + IR\)이 더 일찍 상한에 닿는다. 발열은 \(I^2R\)이라 약 4배가 된다.</div></div>
+
+      <div class="quiz-q"><p>4. 실리콘 음극의 가장 큰 장점과 단점의 짝은?</p><div class="opts">
+        <button class="opt">높은 전압 / 낮은 용량</button>
+        <button class="opt">낮은 원가 / 낮은 밀도</button>
+        <button class="opt" data-correct>흑연의 약 10배 비용량 / 리튬화 시 3~4배 부피 팽창</button>
+        <button class="opt">빠른 확산 / 높은 독성</button>
+      </div><div class="quiz-exp">Si는 ~3,600 mAh/g로 음극을 얇게 만들지만, 팽창·수축 반복으로 입자가 깨지고 SEI가 계속 자라 수명이 줄어든다. 그래서 흑연에 수~십수 %만 섞는다.</div></div>
+
+      <div class="quiz-q"><p>5. 오래된 폰이 추운 날 배터리 30%에서 갑자기 꺼지는 주된 이유는?</p><div class="opts">
+        <button class="opt">추위로 리튬이 모두 사라져서</button>
+        <button class="opt" data-correct>저온·노화로 내부저항이 커져, 피크 전류 때 단자 전압이 차단 전압 아래로 떨어져서</button>
+        <button class="opt">OCV가 0 V가 되어서</button>
+        <button class="opt">연료 게이지가 꺼져서</button>
+      </div><div class="quiz-exp">\(V = V_{OCV} - IR\). R이 4~6배 커지면 순간 강하가 수백 mV~1 V에 이르러 UVLO를 건드린다.</div></div>
+
+      <div class="quiz-q"><p>6. "80% 충전 제한"에 대한 설명으로 옳은 것은?</p><div class="opts">
+        <button class="opt">용량과 수명을 동시에 늘린다</button>
+        <button class="opt">수명에는 영향이 없고 충전 시간만 줄인다</button>
+        <button class="opt" data-correct>높은 전압 구간의 스트레스를 피해 열화를 늦추지만, 매일 쓰는 용량은 처음부터 줄어든다</button>
+        <button class="opt">셀의 공칭 전압을 높인다</button>
+      </div><div class="quiz-exp">상한 SOC를 낮추면 양극 고전압 열화와 캘린더 열화가 크게 줄어 SOH는 오래 유지되지만, 초기 사용 가능 용량을 희생한다. 일정 사이클 이후에는 실사용 용량도 역전된다.</div></div>
+
+      <div class="quiz-q"><p>7. 같은 총 용량·같은 충전 전력에서 1S 대신 2S(직렬 2셀)를 쓰는 주된 이점은?</p><div class="opts">
+        <button class="opt">각 셀의 C-rate가 절반이 된다</button>
+        <button class="opt" data-correct>배터리 경로 전류가 절반이 되어 FET·커넥터·배선의 I²R 손실이 1/4로 준다</button>
+        <button class="opt">셀 내부 발열이 1/4로 준다</button>
+        <button class="opt">시스템 전원 변환이 필요 없어진다</button>
+      </div><div class="quiz-exp">셀이 각각 절반 크기이므로 셀 C-rate와 셀 내부 발열 총량은 같다. 대신 사용 중에는 7~8 V를 시스템 전압으로 낮추는 변환 단계가 필요하다.</div></div>
+
+      <div class="quiz-q"><p>8. 배터리 팩의 PCM(보호 회로)이 소프트웨어와 독립된 하드웨어로 존재하는 이유는?</p><div class="opts">
+        <button class="opt">충전 속도를 높이기 위해</button>
+        <button class="opt">연료 게이지 정확도를 높이기 위해</button>
+        <button class="opt" data-correct>충전 IC나 소프트웨어가 실패해도 과충전·과방전·단락 시 회로를 물리적으로 끊는 마지막 방어선이 필요하므로</button>
+        <button class="opt">무선 충전을 위해</button>
+      </div><div class="quiz-exp">안전은 다단 방어(defense in depth)로 설계한다. PCM은 독립 IC와 MOSFET으로 고정된 문턱에서 동작한다.</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const fx = (x, d) => Number(x).toFixed(d);
+  const font = () => getComputedStyle(document.body).getPropertyValue("--font");
+  const mono = () => getComputedStyle(document.body).getPropertyValue("--mono");
+  const safe = (name, fn) => { try { fn(); } catch (e) { console.error(name, e); } };
+
+  /* ---------- 공통: OCV 표 ---------- */
+  const OCV = {
+    lco: [[0,3.0],[0.02,3.38],[0.05,3.55],[0.1,3.66],[0.15,3.70],[0.2,3.73],[0.3,3.77],[0.4,3.81],[0.5,3.86],[0.6,3.93],[0.7,4.01],[0.8,4.10],[0.9,4.21],[0.95,4.30],[1,4.42]],
+    si:  [[0,3.0],[0.02,3.30],[0.05,3.47],[0.1,3.60],[0.15,3.66],[0.2,3.70],[0.3,3.75],[0.4,3.79],[0.5,3.85],[0.6,3.92],[0.7,4.00],[0.8,4.10],[0.9,4.22],[0.95,4.32],[1,4.45]],
+    lfp: [[0,2.5],[0.02,2.95],[0.05,3.12],[0.1,3.20],[0.2,3.24],[0.3,3.26],[0.5,3.28],[0.7,3.31],[0.9,3.33],[0.95,3.36],[0.98,3.42],[1,3.55]],
+  };
+  function ocv(s, chem) {
+    const t = OCV[chem || "lco"];
+    s = PB.clamp(s, 0, 1);
+    for (let i = 1; i < t.length; i++) if (s <= t[i][0]) { const [a, va] = t[i - 1], [b, vb] = t[i]; return va + (vb - va) * (s - a) / (b - a); }
+    return t[t.length - 1][1];
+  }
+  function energyFrac(chem, s0, s1) { let e = 0; const n = 200; for (let i = 0; i < n; i++) { const s = s0 + (s1 - s0) * (i + 0.5) / n; e += ocv(s, chem); } return e / n * (s1 - s0); }
+
+  /* ---------- CC-CV 모델 (재사용) ---------- */
+  function simCharge(c, Rmohm, opt) {
+    opt = opt || {};
+    const Q = 5, R = Rmohm / 1000, Vmax = opt.vmax || 4.45, sEnd = opt.limit || 1;
+    let s = opt.s0 != null ? opt.s0 : 0.0, t = 0, dt = 4, mode = "cc", sCV = null;
+    const out = [];
+    const stepI = (s) => { if (opt.multi) { const lv = c * (s < 0.3 ? 1 : s < 0.5 ? 0.8 : s < 0.7 ? 0.6 : 0.45); return lv; } return c; };
+    while (t < 4 * 3600) {
+      let I;
+      const vo = ocv(s);
+      if (mode === "cc") {
+        I = stepI(s) * Q;
+        if (vo + I * R >= Vmax) { mode = "cv"; sCV = s; }
+      }
+      if (mode === "cv") I = Math.max(0, (Vmax - vo) / R);
+      if (I > stepI(s) * Q) I = stepI(s) * Q;
+      const V = vo + I * R;
+      out.push({ t: t / 60, I, V, s, q: I * I * R });
+      if ((mode === "cv" && I < 0.05 * Q) || s >= sEnd) break;
+      s += I * dt / 3600 / Q; t += dt;
+      if (s >= sEnd) s = sEnd;
+    }
+    return { data: out, sCV };
+  }
+  const timeTo = (d, s) => { const p = d.find((x) => x.s >= s - 1e-6); return p ? p.t : null; };
+
+  /* ================================================== 1. 폰 3D */
+  safe("phone", () => {
+    const el = $("v-phone");
+    const T = PB.three(el, { camera: [150, 120, 170], target: [0, 0, 0], fov: 35, minDistance: 90, maxDistance: 420 });
+    if (!T) return;
+    const P = PB.phone3d(T);
+    const card = $("phone-card");
+    let ex = 0.6;
+    const showLabels = () => { if ($("ph-lab").checked) P.setLabels(true); else { P.setLabels(false); } };
+    P.highlight("battery");
+    P.setExplode(ex);
+    PB.range("ph-ex", (v) => Math.round(v * 100) + "%", (v) => { P.setExplode(v); });
+    $("ph-xray").addEventListener("change", (e) => P.setXray(e.target.checked));
+    $("ph-lab").addEventListener("change", showLabels);
+    const views = { iso: [[150, 120, 170], [0, 0, 0]], back: [[0, -260, 1], [0, 0, 0]], side: [[260, 10, 0], [0, 0, 0]] };
+    PB.seg("ph-view", (v) => PB.flyTo(T, views[v][0], views[v][1], 1.1));
+    const open = (part) => {
+      card.innerHTML = PB.partCardHTML(part, "");
+      card.hidden = false;
+      card.querySelector(".x").addEventListener("click", () => { card.hidden = true; P.highlight("battery"); });
+    };
+    T.pick([P.group], (hit) => {
+      if (!hit) return;
+      const part = P.partAt(hit.object);
+      if (!part) return;
+      P.highlight(part.id);
+      open(part);
+    });
+    open(P.byId.battery);
+  });
+
+  /* ================================================== 2. Li+ 애니메이션 */
+  safe("ion", () => {
+    const N = 36;
+    const st = { soc: 0.15, mode: "chg", c: 1, an: "gr", ions: [], electrons: 0 };
+    let geo = null;
+    const getMode = PB.seg("ion-mode", (v) => { st.mode = v; });
+    const getAn = PB.seg("ion-an", (v) => { st.an = v; layout(); });
+    PB.range("ion-c", (v) => v.toFixed(1) + " C", (v) => { st.c = v; });
+    st.c = 1;
+    function layout(W, Hh) {
+      const w = W || cv.w, h = Hh || cv.h;
+      const top = Math.max(56, h * 0.2), bot = h - 30;
+      const cuW = 10, alW = 10;
+      const midX = w / 2, sepW = Math.max(18, w * 0.05);
+      const anW0 = (w * 0.36);
+      const anScale = st.an === "si" ? 0.72 : 1;
+      const anW = anW0 * anScale;
+      const cathR = midX + sepW / 2 + w * 0.32;
+      geo = { w, h, top, bot, cuX: midX - sepW / 2 - anW0 - cuW, cuW, anX0: midX - sepW / 2 - anW, anX1: midX - sepW / 2, sepX0: midX - sepW / 2, sepX1: midX + sepW / 2, caX0: midX + sepW / 2, caX1: cathR, alX: cathR, alW };
+      // 사이트: 음극 층(가로줄) 사이, 양극 층 사이
+      const rows = 6, cols = 8;
+      geo.anSites = []; geo.caSites = [];
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const y = top + 14 + (r + 0.5) * (bot - top - 28) / rows;
+        geo.anSites.push([geo.anX0 + (c + 0.5) * (geo.anX1 - geo.anX0) / cols, y]);
+        geo.caSites.push([geo.caX0 + (c + 0.5) * (geo.caX1 - geo.caX0) / cols, y]);
+      }
+      // 이온 재배치(현재 SOC 비율)
+      const nAn = Math.round(st.soc * N);
+      const pickA = shuffle(geo.anSites.map((_, i) => i)).slice(0, nAn);
+      const pickC = shuffle(geo.caSites.map((_, i) => i)).slice(0, N - nAn);
+      st.ions = [];
+      pickA.forEach((i) => st.ions.push({ where: "an", site: i, x: geo.anSites[i][0], y: geo.anSites[i][1], mv: null }));
+      pickC.forEach((i) => st.ions.push({ where: "ca", site: i, x: geo.caSites[i][0], y: geo.caSites[i][1], mv: null }));
+    }
+    function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+    const cv = PB.canvas($("cv-ion"), draw, { aspect: 0.56, minHeight: 280, maxHeight: 420 });
+    layout();
+    function freeSite(where) {
+      const used = new Set(st.ions.filter((o) => o.where === where || (o.mv && o.mv.to === where)).map((o) => o.mv && o.mv.to === where ? o.mv.site : o.site));
+      const sites = where === "an" ? geo.anSites : geo.caSites;
+      const free = sites.map((_, i) => i).filter((i) => !used.has(i));
+      return free.length ? free[Math.floor(Math.random() * free.length)] : null;
+    }
+    let spawnAcc = 0;
+    function step(dt) {
+      if (!geo || geo.w !== cv.w || geo.h !== cv.h) layout();
+      const from = st.mode === "chg" ? "ca" : "an", to = st.mode === "chg" ? "an" : "ca";
+      const full = st.mode === "chg" ? st.soc >= 0.999 : st.soc <= 0.001;
+      if (!full) {
+        st.soc = PB.clamp(st.soc + (st.mode === "chg" ? 1 : -1) * st.c * dt / 60, 0, 1);  // 1C → 60초에 완충(시연)
+        spawnAcc += st.c * dt * 0.6 * N / 60 * 2.2;
+        const target = Math.round(st.soc * N);
+        const inAn = st.ions.filter((o) => (o.where === "an" && !o.mv) || (o.mv && o.mv.to === "an")).length;
+        let need = st.mode === "chg" ? target - inAn : inAn - target;
+        while (need > 0 && spawnAcc >= 0) {
+          const cands = st.ions.filter((o) => o.where === from && !o.mv);
+          if (!cands.length) break;
+          cands.sort((a, b) => (from === "an" ? b.x - a.x : a.x - b.x));
+          const o = cands[Math.floor(Math.random() * Math.min(4, cands.length))];
+          const site = freeSite(to);
+          if (site == null) break;
+          const dst = (to === "an" ? geo.anSites : geo.caSites)[site];
+          o.mv = { to, site, x0: o.x, y0: o.y, x1: dst[0], y1: dst[1], p: 0, wob: Math.random() * 6.28 };
+          need--; spawnAcc -= 1;
+        }
+        st.electrons += dt * st.c * (st.mode === "chg" ? 1 : -1);
+      }
+      st.ions.forEach((o) => {
+        if (!o.mv) return;
+        o.mv.p += dt * (0.55 + st.c * 0.25);
+        const k = Math.min(1, o.mv.p);
+        o.x = PB.lerp(o.mv.x0, o.mv.x1, k);
+        o.y = PB.lerp(o.mv.y0, o.mv.y1, k) + Math.sin(k * 9 + o.mv.wob) * 6 * Math.sin(k * Math.PI);
+        if (k >= 1) { o.where = o.mv.to; o.site = o.mv.site; o.mv = null; }
+      });
+    }
+    function draw(ctx, w, h) {
+      if (!geo || geo.w !== w || geo.h !== h) { if (!st.ions) return; layout(w, h); }
+      const P = PB.palette();
+      const g = geo;
+      ctx.font = "12px " + font();
+      // 집전체
+      ctx.fillStyle = "#b87333"; ctx.fillRect(g.cuX, g.top, g.cuW, g.bot - g.top);
+      ctx.fillStyle = "#a9b0bb"; ctx.fillRect(g.alX, g.top, g.alW, g.bot - g.top);
+      // 음극 (원래 폭 영역 표시)
+      const sw = st.an === "si" ? 1 + 0.32 * st.soc : 1 + 0.08 * st.soc;
+      const anL = g.anX1 - (g.anX1 - g.anX0) * sw;
+      ctx.fillStyle = P.dim; ctx.globalAlpha = 0.18; ctx.fillRect(anL, g.top, g.anX1 - anL, g.bot - g.top); ctx.globalAlpha = 1;
+      ctx.strokeStyle = P.dim; ctx.lineWidth = 1.2;
+      for (let r = 0; r <= 6; r++) { const y = g.top + 14 + r * (g.bot - g.top - 28) / 6; ctx.beginPath(); ctx.moveTo(anL + 3, y); ctx.lineTo(g.anX1 - 3, y); ctx.stroke(); }
+      if (st.an === "si") { ctx.fillStyle = P.warn; ctx.globalAlpha = 0.5; for (let i = 0; i < 7; i++) { const x = anL + 10 + i * (g.anX1 - anL - 20) / 6, y = g.top + 22 + ((i * 37) % 100) / 100 * (g.bot - g.top - 44); ctx.beginPath(); ctx.arc(x, y, 3 + 4 * st.soc, 0, 6.28); ctx.fill(); } ctx.globalAlpha = 1; }
+      // 분리막
+      ctx.fillStyle = P.surface; ctx.fillRect(g.sepX0, g.top, g.sepX1 - g.sepX0, g.bot - g.top);
+      ctx.strokeStyle = P.faint; ctx.setLineDash([3, 3]); ctx.strokeRect(g.sepX0, g.top, g.sepX1 - g.sepX0, g.bot - g.top); ctx.setLineDash([]);
+      // 양극
+      ctx.fillStyle = P.accent2; ctx.globalAlpha = 0.16; ctx.fillRect(g.caX0, g.top, g.caX1 - g.caX0, g.bot - g.top); ctx.globalAlpha = 1;
+      ctx.strokeStyle = P.accent2; ctx.globalAlpha = 0.7;
+      for (let r = 0; r <= 6; r++) { const y = g.top + 14 + r * (g.bot - g.top - 28) / 6; ctx.beginPath(); ctx.moveTo(g.caX0 + 3, y); ctx.lineTo(g.caX1 - 3, y); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      // 외부 회로
+      const wy = Math.max(16, g.top - 34);
+      const xA = g.cuX + g.cuW / 2, xC = g.alX + g.alW / 2, xm = (xA + xC) / 2;
+      ctx.strokeStyle = P.blue; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(xA, g.top); ctx.lineTo(xA, wy); ctx.lineTo(xm - 38, wy); ctx.moveTo(xm + 38, wy); ctx.lineTo(xC, wy); ctx.lineTo(xC, g.top); ctx.stroke();
+      ctx.fillStyle = PB.color("bg-elev"); ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(xm - 38, wy - 13, 76, 26, 6) : ctx.rect(xm - 38, wy - 13, 76, 26); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = P.text; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(st.mode === "chg" ? "충전기" : "폰 회로", xm, wy);
+      // 전자 점
+      const pathLen = (wy < g.top ? (g.top - wy) * 2 : 0) + (xC - xA);
+      const pos = (u) => { const a = g.top - wy, L1 = a, L2 = a + (xC - xA); if (u < L1) return [xA, g.top - u]; if (u < L2) return [xA + (u - L1), wy]; return [xC, wy + (u - L2)]; };
+      ctx.fillStyle = P.blue;
+      const ne = 12;
+      for (let i = 0; i < ne; i++) {
+        let u = ((i / ne) * pathLen + st.electrons * 60) % pathLen; if (u < 0) u += pathLen;
+        u = pathLen - u; // 방전: 음극→양극 방향, 충전: 반대
+        if (st.mode === "chg") u = pathLen - u;
+        const [x, y] = pos(st.mode === "chg" ? pathLen - u : u);
+        if (Math.abs(x - xm) < 40 && Math.abs(y - wy) < 14) continue;
+        ctx.beginPath(); ctx.arc(x, y, 3, 0, 6.28); ctx.fill();
+      }
+      // 이온
+      st.ions.forEach((o) => { ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(o.x, o.y, o.mv ? 5 : 4.2, 0, 6.28); ctx.fill(); });
+      // 라벨
+      ctx.fillStyle = P.text; ctx.textBaseline = "top"; ctx.font = "12px " + font();
+      ctx.fillText(st.an === "si" ? "음극 Si-C" : "음극 흑연", (anL + g.anX1) / 2, g.bot + 8);
+      ctx.fillText("양극 LCO", (g.caX0 + g.caX1) / 2, g.bot + 8);
+      ctx.fillStyle = P.dim; ctx.fillText("분리막", (g.sepX0 + g.sepX1) / 2, g.bot + 8);
+      ctx.textAlign = "left"; ctx.fillStyle = P.blue; ctx.fillText("e⁻", xA + 6, wy + 8);
+      // 이동 화살표
+      ctx.fillStyle = P.accent; ctx.textAlign = "center"; ctx.font = "600 13px " + font();
+      ctx.fillText(st.mode === "chg" ? "← Li⁺" : "Li⁺ →", (g.sepX0 + g.sepX1) / 2, g.top + 2);
+    }
+    function readouts() {
+      const I = st.c * 5;
+      const vo = ocv(st.soc, st.an === "si" ? "si" : "lco");
+      const v = vo + (st.mode === "chg" ? 1 : -1) * I * 0.04;
+      PB.stat("ion-soc", Math.round(st.soc * 100) + "<small>%</small>");
+      PB.stat("ion-v", v.toFixed(2) + "<small>V</small>");
+      PB.stat("ion-sw", "+" + ((st.an === "si" ? 32 : 8) * st.soc).toFixed(0) + "<small>%</small>");
+    }
+    $("ion-reset").addEventListener("click", () => { st.soc = st.mode === "chg" ? 0.05 : 0.95; layout(); });
+    let rt = 0;
+    PB.loop($("cv-ion"), (dt) => { step(dt); cv.redraw(); rt += dt; if (rt > 0.15) { rt = 0; readouts(); } });
+    readouts();
+  });
+
+  /* ================================================== 3. 셀 3D */
+  safe("cell3d", () => {
+    const el = $("v-cell");
+    const T = PB.three(el, { camera: [100, 80, 125], target: [0, 0, -6], fov: 38, minDistance: 40, maxDistance: 260 });
+    if (!T) return;
+    const THREE = T.THREE;
+    const W = 56, L = 76;
+    const nC = 6, nA = nC + 1, nS = 2 * nC;
+    const tE = 0.55, tS = 0.18;
+    const mC = T.material(0xc9773a, { roughness: 0.6 });
+    const mA = T.material(0x30343c, { roughness: 0.8 });
+    const mS = T.material(0xe8ecf2, { roughness: 0.9, transparent: true, opacity: 0.35, depthWrite: false });
+    const mAl = T.material(0xc9ced6, { metalness: 0.8, roughness: 0.3 });
+    const mNi = T.material(0xb7b9bf, { metalness: 0.7, roughness: 0.35 });
+    const mCu = T.material(0xc07a45, { metalness: 0.6, roughness: 0.35 });
+    const boxE = new THREE.BoxGeometry(W, tE, L), boxS = new THREE.BoxGeometry(W + 1.2, tS, L + 1.2);
+    const tabG = new THREE.BoxGeometry(7, 0.12, 7);
+    const stack = new THREE.Group(); T.scene.add(stack);
+    const iC = new THREE.InstancedMesh(boxE, mC, nC), iA = new THREE.InstancedMesh(boxE, mA, nA), iS = new THREE.InstancedMesh(boxS, mS, nS);
+    const iTC = new THREE.InstancedMesh(tabG, mAl, nC), iTA = new THREE.InstancedMesh(tabG, mCu, nA);
+    [iC, iA, iS, iTC, iTA].forEach((m) => stack.add(m));
+    // 순서: A S C S A S C S ... A
+    const seq = [];
+    for (let i = 0; i < nC; i++) { seq.push("A", "S", "C", "S"); } seq.push("A");
+    const baseY = []; let y = 0;
+    seq.forEach((k) => { const t = k === "S" ? tS : tE; baseY.push(y + t / 2); y += t; });
+    const H = y; baseY.forEach((v, i) => (baseY[i] = v - H / 2));
+    const M4 = new THREE.Matrix4();
+    // 메인 탭
+    const tabAl = new THREE.Mesh(new THREE.BoxGeometry(8, 0.25, 16), mAl); tabAl.position.set(-14, 0, -L / 2 - 9);
+    const tabNi = new THREE.Mesh(new THREE.BoxGeometry(8, 0.25, 16), mNi); tabNi.position.set(14, 0, -L / 2 - 9);
+    stack.add(tabAl, tabNi);
+    // PCM
+    const pcm = new THREE.Group();
+    const pcb = new THREE.Mesh(new THREE.BoxGeometry(44, 1.0, 6), T.material(0x23704a));
+    pcm.add(pcb);
+    [[-6, 0], [2, 0], [10, 0]].forEach(([x], i) => { const c = new THREE.Mesh(new THREE.BoxGeometry(i === 0 ? 4 : 3, 0.9, 3), T.material(0x1b1e24)); c.position.set(x, 0.9, 0); pcm.add(c); });
+    const conn = new THREE.Mesh(new THREE.BoxGeometry(6, 1.2, 4), T.material(0x9aa0aa, { metalness: 0.6 })); conn.position.set(-16, 1, 0); pcm.add(conn);
+    pcm.position.set(0, 0, -L / 2 - 18); stack.add(pcm);
+    // 파우치(상·하)
+    const mP = T.material(0xb9bfc9, { metalness: 0.55, roughness: 0.35, transparent: true, opacity: 0.38, depthWrite: false });
+    const pW = W + 6, pL = L + 6;
+    const pouchTop = new THREE.Mesh(new THREE.BoxGeometry(pW, H / 2 + 0.6, pL), mP);
+    const pouchBot = new THREE.Mesh(new THREE.BoxGeometry(pW, H / 2 + 0.6, pL), mP);
+    const flange = new THREE.Mesh(new THREE.BoxGeometry(pW + 6, 0.2, pL + 6), mP);
+    const pouch = new THREE.Group(); pouch.add(pouchTop, pouchBot, flange); T.scene.add(pouch);
+    pouchTop.renderOrder = pouchBot.renderOrder = flange.renderOrder = 5;
+
+    // 와인딩(젤리롤)
+    const wind = new THREE.Group(); T.scene.add(wind);
+    function spiralRibbon(phase, thick) {
+      const a = 22, r0 = 0.6 + phase, pitch = 2 * (tE + tS) * 0.62, turns = 6.2;
+      const n = Math.round(turns * 90), pts = [];
+      for (let i = 0; i <= n; i++) {
+        const th = (i / n) * turns * Math.PI * 2;
+        const r = r0 + pitch * th / (Math.PI * 2);
+        pts.push(new THREE.Vector2(a * Math.tanh(3 * Math.cos(th)) / Math.tanh(3) + r * Math.cos(th), r * Math.sin(th)));
+      }
+      const outer = [], inner = [];
+      for (let i = 0; i < pts.length; i++) {
+        const p0 = pts[Math.max(0, i - 1)], p1 = pts[Math.min(pts.length - 1, i + 1)];
+        const tx = p1.x - p0.x, ty = p1.y - p0.y, l = Math.hypot(tx, ty) || 1;
+        const nx = -ty / l, ny = tx / l;
+        outer.push(new THREE.Vector2(pts[i].x + nx * thick / 2, pts[i].y + ny * thick / 2));
+        inner.push(new THREE.Vector2(pts[i].x - nx * thick / 2, pts[i].y - ny * thick / 2));
+      }
+      const shape = new THREE.Shape(outer.concat(inner.reverse()));
+      const g = new THREE.ExtrudeGeometry(shape, { depth: L, bevelEnabled: false, steps: 1, curveSegments: 1 });
+      g.translate(0, 0, -L / 2);
+      return g;
+    }
+    const pitchW = 2 * (tE + tS) * 0.62;
+    const wA = new THREE.Mesh(spiralRibbon(0, tE * 0.62), mA);
+    const wC = new THREE.Mesh(spiralRibbon(pitchW / 2, tE * 0.62), mC);
+    wind.add(wA, wC);
+    const wTabA = new THREE.Mesh(new THREE.BoxGeometry(8, 0.25, 16), mNi); wTabA.position.set(14, 0, -L / 2 - 7);
+    const wTabC = new THREE.Mesh(new THREE.BoxGeometry(8, 0.25, 16), mAl); wTabC.position.set(-14, 0, -L / 2 - 7);
+    wind.add(wTabA, wTabC);
+    const bbW = new THREE.Box3().setFromObject(wA);
+    const windH = bbW.max.y - bbW.min.y;
+
+    const labels = {
+      cath: T.label("양극 (LCO + Al 박)", [W / 2 + 2, 0, L / 2]),
+      an: T.label("음극 (흑연 + Cu 박)", [-W / 2 - 2, 0, L / 2]),
+      sep: T.label("분리막", [0, 0, L / 2 + 1]),
+      tAl: T.label("양극 탭 (Al)", [-14, 0, -L / 2 - 16]),
+      tNi: T.label("음극 탭 (Ni)", [14, 0, -L / 2 - 16]),
+      pcm: T.label("보호회로 PCM", [0, 3, -L / 2 - 24]),
+      pouch: T.label("알루미늄 파우치", [0, 0, 0]),
+    };
+    let mode = "stack", ex = 0.55;
+    function apply() {
+      const isStack = mode === "stack";
+      stack.visible = isStack; wind.visible = !isStack;
+      const sp = 1 + ex * 3.2;
+      let ic = 0, ia = 0, is = 0;
+      seq.forEach((k, i) => {
+        const yy = baseY[i] * sp;
+        if (k === "S") { M4.makeTranslation(0, yy, 0); iS.setMatrixAt(is++, M4); }
+        else if (k === "C") { M4.makeTranslation(0, yy, 0); iC.setMatrixAt(ic, M4); M4.makeTranslation(-14, yy, -L / 2 - 3.5); iTC.setMatrixAt(ic, M4); ic++; }
+        else { M4.makeTranslation(0, yy, 0); iA.setMatrixAt(ia, M4); M4.makeTranslation(14, yy, -L / 2 - 3.5); iTA.setMatrixAt(ia, M4); ia++; }
+      });
+      [iC, iA, iS, iTC, iTA].forEach((m) => (m.instanceMatrix.needsUpdate = true));
+      const Hn = isStack ? H * sp : windH;
+      const lift = ex * 30;
+      pouchTop.scale.set(1, 1, 1);
+      const ph = isStack ? H : windH;
+      pouchTop.scale.y = pouchBot.scale.y = (ph / 2 + 0.6) / (H / 2 + 0.6);
+      pouchTop.position.set(0, ph / 4 + 0.3 + (Hn - ph) / 2 + lift, 0);
+      pouchBot.position.set(0, -ph / 4 - 0.3 - (Hn - ph) / 2 - lift, 0);
+      flange.position.set(0, -(Hn - ph) / 2 - lift, 0);
+      pouch.visible = $("c3-pouch").checked;
+      // 라벨 위치
+      const iTopC = seq.lastIndexOf("C"), iTopS = seq.lastIndexOf("S");
+      if (isStack) {
+        labels.cath.pos.set(W / 2, baseY[iTopC] * sp, L / 2);
+        labels.an.pos.set(-W / 2, baseY[seq.length - 1] * sp, L / 2);
+        labels.sep.pos.set(0, baseY[iTopS] * sp, L / 2 + 1);
+        labels.tAl.pos.set(-14, 0, -L / 2 - 17); labels.tNi.pos.set(14, 0, -L / 2 - 17);
+      } else {
+        labels.cath.pos.set(W / 2 - 4, 0.3, L / 2); labels.an.pos.set(-W / 2 + 4, -0.6, L / 2);
+        labels.tAl.pos.set(-14, 0, -L / 2 - 15); labels.tNi.pos.set(14, 0, -L / 2 - 15);
+      }
+      labels.pouch.pos.set(0, Hn / 2 + lift + 1.5, 0);
+      const lab = $("c3-lab").checked;
+      labels.cath.setVisible(lab); labels.an.setVisible(lab); labels.sep.setVisible(lab && isStack);
+      labels.tAl.setVisible(lab); labels.tNi.setVisible(lab); labels.pcm.setVisible(lab && isStack); labels.pouch.setVisible(lab && pouch.visible);
+    }
+    PB.seg("c3-mode", (v) => { mode = v; apply(); if (v === "wind") PB.flyTo(T, [40, 26, 120], [0, 0, 0], 1); else PB.flyTo(T, [100, 80, 125], [0, 0, -6], 1); });
+    PB.range("c3-ex", (v) => Math.round(v * 100) + "%", (v) => { ex = v; apply(); });
+    $("c3-pouch").addEventListener("change", apply);
+    $("c3-lab").addEventListener("change", apply);
+    apply();
+  });
+
+  /* ================================================== 4. OCV */
+  safe("ocv", () => {
+    let chem = "lco";
+    const gq = PB.range("ocv-q", (v) => v.toLocaleString() + " mAh", () => cv.redraw());
+    const gs = PB.range("ocv-s", (v) => v + "%", () => cv.redraw());
+    PB.seg("ocv-chem", (v) => { chem = v; cv.redraw(); });
+    $("ocv-2s").addEventListener("change", () => cv.redraw());
+    const cv = PB.canvas($("cv-ocv"), (ctx, w, h) => {
+      const P = PB.palette();
+      const two = $("ocv-2s").checked ? 2 : 1;
+      const Q = gq() / 1000 / two, s = gs() / 100;
+      const data = []; for (let i = 0; i <= 200; i++) { const x = i / 200; data.push([x * 100, ocv(x, chem) * two]); }
+      const fill = data.filter((d) => d[0] <= s * 100 + 1e-9);
+      const y0 = (chem === "lfp" ? 2.4 : 2.9) * two, y1 = 4.6 * two;
+      const fillCol = P.accent.startsWith("#") ? P.accent + "33" : "rgba(11,138,124,.2)";
+      const C = PB.chart(ctx, null, { x: [0, 100], y: [y0, y1], xLabel: "SOC (%)", yLabel: "OCV (V)", series: [{ data: fill, color: P.accent, width: 0.01, fill: fillCol }, { data, color: P.accent, width: 2.4 }], points: [{ x: s * 100, y: ocv(s, chem) * two, color: P.accent2, r: 5, label: (ocv(s, chem) * two).toFixed(2) + " V" }], hlines: [{ y: energyFrac(chem, 0, 1) * two, label: "공칭 " + (energyFrac(chem, 0, 1) * two).toFixed(2) + " V", color: P.faint }] });
+      const vn = energyFrac(chem, 0, 1);
+      const E = Q * vn * two * (two === 2 ? 1 : 1);
+      PB.stat("ocv-vn", (vn * two).toFixed(2) + "<small>V</small>");
+      PB.stat("ocv-e", E.toFixed(1) + "<small>Wh</small>");
+      PB.stat("ocv-v", (ocv(s, chem) * two).toFixed(3) + "<small>V</small>");
+      PB.stat("ocv-er", (Q * energyFrac(chem, 0, s) * two).toFixed(1) + "<small>Wh (" + Math.round(energyFrac(chem, 0, s) / vn * 100) + "%)</small>");
+    }, { aspect: 0.55, minHeight: 260, maxHeight: 400 });
+  });
+
+  /* ================================================== 5. Si 함량 */
+  safe("si", () => {
+    const gx = PB.range("si-x", (v) => v + " wt%", () => cv.redraw());
+    const gqa = PB.range("si-qa", (v) => v.toFixed(1) + " mAh/cm²", () => cv.redraw());
+    const gsep = PB.range("si-sep", (v) => v + " µm", () => cv.redraw());
+    $("si-chg").addEventListener("change", () => cv.redraw());
+    function model(x, qa, sep) {
+      x = x / 100;
+      const catC = 190 * 0.96, catRho = 4.2 * 0.75; // mAh/g, g/cc effective
+      const tCat = qa / (catC * catRho) * 1e4; // µm per side
+      const anC = ((1 - x) * 350 + x * 1600) * 0.96, anRho = (2.2 * (1 - x) + 1.9 * x) * 0.72;
+      const qaA = qa * 1.08;
+      const tAn = qaA / (anC * anRho) * 1e4;
+      const tAl = 10, tCu = 6;
+      const unit = 2 * tCat + tAl + 2 * tAn + tCu + 2 * sep;
+      const vavg = 3.88 - 0.25 * x;
+      const eArea = 2 * qa * vavg; // mWh/cm2
+      const whl = eArea / (unit * 1e-4) * 0.8; // mWh/cm3 = Wh/L
+      const mass = 2 * qa / catC + 2 * qaA / anC * 1.0 + tAl * 1e-4 * 2.7 + tCu * 1e-4 * 8.96 + 2 * sep * 1e-4 * 0.5 + (2 * tCat * 0.25 + 2 * tAn * 0.28 + 2 * sep * 0.45) * 1e-4 * 1.2;
+      const whkg = eArea / mass * 0.8;
+      const anExp = 0.08 + 1.6 * x; // 음극 두께 팽창률
+      const cellSw = (2 * tAn * anExp) / unit;
+      return { tCat, tAn, tAl, tCu, sep, unit, whl, whkg, anExp, cellSw };
+    }
+    const cv = PB.canvas($("cv-si"), (ctx, w, h) => {
+      const P = PB.palette();
+      const m0 = model(0, gqa(), gsep()), m = model(gx(), gqa(), gsep());
+      const chg = $("si-chg").checked;
+      const maxU = 420;
+      const pad = 16, bw = w - pad * 2;
+      const sc = bw / maxU;
+      const drawBar = (mm, y, bh, title, expand) => {
+        const segs = [["양극", mm.tCat, P.accent2, 0.35], ["Al", mm.tAl, "#a9b0bb", 1], ["양극", mm.tCat, P.accent2, 0.35], ["분리막", mm.sep, P.faint, 0.35], ["음극", mm.tAn * (expand ? 1 + mm.anExp : 1), P.dim, 0.45], ["Cu", mm.tCu, "#b87333", 1], ["음극", mm.tAn * (expand ? 1 + mm.anExp : 1), P.dim, 0.45], ["분리막", mm.sep, P.faint, 0.35]];
+        let x = pad;
+        ctx.font = "11px " + font(); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        segs.forEach(([nm, t, col, a]) => {
+          const ww = t * sc;
+          ctx.globalAlpha = a; ctx.fillStyle = col; ctx.fillRect(x, y, ww, bh); ctx.globalAlpha = 1;
+          ctx.strokeStyle = P.border; ctx.strokeRect(x, y, ww, bh);
+          if (ww > 34) { ctx.fillStyle = P.text; ctx.fillText(nm, x + ww / 2, y + bh / 2 - 7); ctx.fillStyle = P.dim; ctx.fillText(Math.round(t) + " µm", x + ww / 2, y + bh / 2 + 8); }
+          x += ww;
+        });
+        ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.font = "12px " + font();
+        ctx.fillText(title, pad, y - 6);
+        return x;
+      };
+      const bh = Math.min(54, (h - 120) / 2);
+      const y1 = 34, y2 = y1 + bh + 52;
+      const xe0 = drawBar(m0, y1, bh, "흑연 100% (기준)", chg);
+      const xe1 = drawBar(m, y2, bh, "Si-C " + gx() + "%" + (chg ? " · 만충" : " · 방전"), chg);
+      ctx.fillStyle = P.dim; ctx.font = "11px " + mono(); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText(Math.round(m0.unit * (chg ? 1 + m0.cellSw : 1)) + " µm", Math.min(xe0 + 6, w - 60), y1 + bh / 2 - 6);
+      ctx.fillText(Math.round(m.unit * (chg ? 1 + m.cellSw : 1)) + " µm", Math.min(xe1 + 6, w - 60), y2 + bh / 2 - 6);
+      // 축
+      ctx.strokeStyle = P.axis; ctx.beginPath(); ctx.moveTo(pad, h - 34); ctx.lineTo(pad + bw, h - 34); ctx.stroke();
+      ctx.fillStyle = P.dim; ctx.textAlign = "center";
+      for (let u = 0; u <= maxU; u += 100) { const xx = pad + u * sc; ctx.beginPath(); ctx.moveTo(xx, h - 37); ctx.lineTo(xx, h - 31); ctx.stroke(); ctx.fillText(u + " µm", PB.clamp(xx, pad + 18, w - pad - 22), h - 28); }
+      PB.stat("si-t", Math.round(m.unit) + "<small>µm</small>");
+      PB.stat("si-wl", Math.round(m.whl) + "<small>Wh/L (" + (m.whl >= m0.whl ? "+" : "") + ((m.whl / m0.whl - 1) * 100).toFixed(0) + "%)</small>");
+      PB.stat("si-wk", Math.round(m.whkg) + "<small>Wh/kg</small>");
+      PB.stat("si-sw", "+" + (m.cellSw * 100).toFixed(1) + "<small>%</small>");
+    }, { aspect: 0.42, minHeight: 230, maxHeight: 300 });
+  });
+
+  /* ================================================== 6. CC-CV */
+  safe("cccv", () => {
+    const gC = PB.seg("cc-c", () => cv.redraw());
+    const gM = PB.seg("cc-step", () => cv.redraw());
+    const gL = PB.seg("cc-lim", () => cv.redraw());
+    const gR = PB.range("cc-r", (v) => v + " mΩ", () => cv.redraw());
+    const cv = PB.canvas($("cv-cccv"), (ctx, w, h) => {
+      const P = PB.palette();
+      const c = Number(gC()), lim = gL() === "80" ? 0.8 : 1;
+      const r = simCharge(c, gR(), { multi: gM() === "ms", limit: lim });
+      const d = r.data;
+      const tEnd = Math.max(30, Math.ceil(d[d.length - 1].t / 15) * 15);
+      const left = 54, right = 14, gap = 10;
+      const ph = (h - 16 - 40 - gap * 2) / 3;
+      const bx = (i) => ({ x: left, y: 12 + i * (ph + gap), w: w - left - right, h: ph });
+      const tf = (v) => String(Math.round(v));
+      const blank = () => "";
+      PB.chart(ctx, bx(0), { x: [0, tEnd], y: [3.0, 4.6], yLabel: "", xFmt: blank, yFmt: (v) => v.toFixed(1), series: [{ data: d.map((p) => [p.t, p.V]), color: P.accent, width: 2.2 }], hlines: [{ y: 4.45, label: "상한 4.45 V", color: P.faint }] });
+      const Imax = Math.max(...d.map((p) => p.I)), qmax = Math.max(...d.map((p) => p.q));
+      PB.chart(ctx, bx(1), { x: [0, tEnd], y: [0, Math.max(4, Math.ceil(Math.max(Imax, qmax) / 2) * 2 + 1)], xFmt: blank, series: [{ data: d.map((p) => [p.t, p.I]), color: P.accent2, width: 2.2 }, { data: d.map((p) => [p.t, p.q]), color: P.warn, width: 1.6, dash: [5, 4] }] });
+      PB.chart(ctx, bx(2), { x: [0, tEnd], y: [0, 100], xLabel: "시간 (분)", xFmt: tf, series: [{ data: d.map((p) => [p.t, p.s * 100]), color: P.ok, width: 2.2 }], hlines: [{ y: 80, color: P.faint }, { y: 50, color: P.faint }], vlines: r.sCV != null ? [{ x: d.find((p) => p.s >= r.sCV).t, label: "CV 진입", color: P.dim }] : [] });
+      ctx.save(); ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.textAlign = "center";
+      [["V", 0], ["A / W", 1], ["SOC %", 2]].forEach(([t, i]) => { const b = bx(i); ctx.save(); ctx.translate(13, b.y + b.h / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(t, 0, 0); ctx.restore(); });
+      ctx.restore();
+      const fm = (t) => t == null ? "—" : t.toFixed(0) + "<small>분</small>";
+      PB.stat("cc-t50", fm(timeTo(d, 0.5)));
+      PB.stat("cc-t80", fm(timeTo(d, 0.8)));
+      PB.stat("cc-tf", fm(d[d.length - 1].t));
+      PB.stat("cc-cv", r.sCV == null ? "없음" : Math.round(r.sCV * 100) + "<small>%</small>");
+      PB.stat("cc-q", qmax.toFixed(1) + "<small>W</small>");
+    }, { aspect: 0.62, minHeight: 360, maxHeight: 480 });
+  });
+
+  /* ================================================== 6b. 발열 */
+  safe("heat", () => {
+    const gp = PB.range("ht-p", (v) => v + " W", () => cv.redraw());
+    const gcfg = PB.seg("ht-cfg", () => cv.redraw());
+    const grc = PB.range("ht-rc", (v) => v + " mΩ", () => cv.redraw());
+    const grp = PB.range("ht-rp", (v) => v + " mΩ", () => cv.redraw());
+    const geta = PB.range("ht-eta", (v) => v.toFixed(1) + "%", () => cv.redraw());
+    function calc(P, s, rc, rp, eta) {
+      const Pin = P * eta;
+      const V = 3.9 * s, I = Pin / V;
+      const Rpack = rc / 1000 * (s === 2 ? 4 : 1);
+      return { I, cell: I * I * Rpack, path: I * I * rp / 1000, conv: P * (1 - eta) };
+    }
+    const cv = PB.canvas($("cv-heat"), (ctx, w, h) => {
+      const P = PB.palette();
+      const s = Number(gcfg()), eta = geta() / 100;
+      const pw = gp();
+      const a = calc(pw, 1, grc(), grp(), eta), b = calc(pw, 2, grc(), grp(), eta);
+      const cur = s === 1 ? a : b;
+      const maxQ = Math.max(6, Math.ceil(Math.max(a.cell + a.path + a.conv, b.cell + b.path + b.conv) / 2) * 2);
+      const pad = 20, labW = 50, x0 = pad + labW, bw = w - x0 - pad - 10;
+      const rows = [["1S", a], ["2S", b]];
+      ctx.font = "12px " + font(); ctx.textBaseline = "middle";
+      const bh = Math.min(46, (h - 110) / 2);
+      rows.forEach(([nm, r], i) => {
+        const y = 34 + i * (bh + 34);
+        ctx.fillStyle = (nm === (s === 1 ? "1S" : "2S")) ? P.accent : P.dim; ctx.textAlign = "right"; ctx.font = "700 13px " + font(); ctx.fillText(nm, x0 - 10, y + bh / 2);
+        let x = x0;
+        [[r.cell, P.accent2, "셀"], [r.path, P.warn, "경로"], [r.conv, P.blue, "변환기"]].forEach(([q, col, lb]) => {
+          const ww = q / maxQ * bw;
+          ctx.globalAlpha = nm === (s === 1 ? "1S" : "2S") ? 0.85 : 0.4; ctx.fillStyle = col; ctx.fillRect(x, y, ww, bh); ctx.globalAlpha = 1;
+          ctx.font = "600 12px " + font(); const lt = lb + " " + q.toFixed(1); if (ctx.measureText(lt).width + 8 < ww) { ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(lt, x + ww / 2, y + bh / 2); }
+          x += ww;
+        });
+        ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = "12px " + mono();
+        const tot = r.cell + r.path + r.conv;
+        ctx.fillText(tot.toFixed(1) + " W", Math.min(x + 6, w - 54), y + bh / 2);
+      });
+      const ay = 34 + 2 * (bh + 34) - 10;
+      ctx.strokeStyle = P.axis; ctx.beginPath(); ctx.moveTo(x0, ay); ctx.lineTo(x0 + bw, ay); ctx.stroke();
+      ctx.fillStyle = P.dim; ctx.textAlign = "center"; ctx.font = "11px " + mono(); ctx.textBaseline = "top";
+      for (let q = 0; q <= maxQ; q += maxQ > 12 ? 4 : 2) { const xx = x0 + q / maxQ * bw; ctx.fillText(q + "", xx, ay + 4); }
+      ctx.font = "12px " + font(); ctx.fillText("폰 내부 발열 (W)", x0 + bw / 2, ay + 20);
+      ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillStyle = P.dim;
+      ctx.fillText("■ 셀 I²R   ■ 경로 I²R   ■ 충전 변환기 손실", x0, 8);
+      const tot = cur.cell + cur.path + cur.conv;
+      PB.stat("ht-i", cur.I.toFixed(1) + "<small>A</small>");
+      PB.stat("ht-q", tot.toFixed(1) + "<small>W</small>");
+      PB.stat("ht-dt", "+" + (tot * 3.5).toFixed(0) + "<small>°C</small>");
+      PB.stat("ht-cr", (pw * eta / 3.9 / 5).toFixed(2) + "<small>C</small>");
+    }, { aspect: 0.42, minHeight: 230, maxHeight: 300 });
+  });
+
+  /* ================================================== 7. 저온 */
+  safe("cold", () => {
+    const gt = PB.range("cd-t", (v) => v + " °C", () => cv.redraw());
+    const gi = PB.range("cd-i", (v) => v.toFixed(1) + " A", () => cv.redraw());
+    const ga = PB.range("cd-a", (v) => "×" + v.toFixed(2), () => cv.redraw());
+    const guv = PB.seg("cd-uv", () => cv.redraw());
+    const cv = PB.canvas($("cv-cold"), (ctx, w, h) => {
+      const P = PB.palette();
+      const T = gt() + 273.15, I = gi(), uv = Number(guv());
+      const R = 0.06 * ga() * Math.exp(3000 * (1 / T - 1 / 298.15));
+      // 저온 확산 한계: 낮은 SOC에서 분극 증가
+      const Rs = (s) => R * (1 + 0.6 * Math.pow(1 - s, 4));
+      const ocvD = [], ld = [];
+      let sOff = 0;
+      for (let i = 200; i >= 0; i--) { const s = i / 200; ocvD.push([s * 100, ocv(s)]); const v = ocv(s) - I * Rs(s); ld.push([s * 100, v]); }
+      for (let i = 200; i >= 0; i--) { const s = i / 200; if (ocv(s) - I * Rs(s) < uv) { sOff = s; break; } }
+      PB.chart(ctx, null, { x: [0, 100], y: [2.0, 4.5], xLabel: "SOC (%)  ← 방전 진행 방향", yLabel: "전압 (V)", series: [{ data: ocvD, color: P.dim, width: 1.8 }, { data: ld, color: P.accent, width: 2.4 }], hlines: [{ y: uv, color: P.bad, label: "차단 " + uv.toFixed(1) + " V", dash: [] }], bands: sOff > 0 ? [{ x0: 0, x1: sOff * 100, color: PB.isDark() ? "rgba(255,107,107,.10)" : "rgba(214,69,69,.08)" }] : [], vlines: sOff > 0 ? [{ x: sOff * 100, color: P.bad, label: "여기서 꺼짐" }] : [] });
+      PB.stat("cd-r", (R * 1000).toFixed(0) + "<small>mΩ</small>");
+      PB.stat("cd-dv", (I * R).toFixed(2) + "<small>V</small>");
+      PB.stat("cd-off", sOff > 0 ? Math.round(sOff * 100) + "<small>%</small>" : "0<small>%</small>");
+      PB.stat("cd-use", Math.round((1 - energyFrac("lco", 0, sOff) / energyFrac("lco", 0, 1)) * 100) + "<small>%</small>");
+    }, { aspect: 0.55, minHeight: 260, maxHeight: 380 });
+  });
+
+  /* ================================================== 8. 열화 */
+  safe("aging", () => {
+    const gt = PB.range("ag-t", (v) => v + " °C", () => cv.redraw());
+    const gup = PB.seg("ag-up", () => cv.redraw());
+    const glo = PB.range("ag-lo", (v) => v + "%", () => cv.redraw());
+    const gc = PB.range("ag-c", (v) => v.toFixed(1) + " C", () => cv.redraw());
+    const fVmap = { 100: 1, 90: 0.62, 85: 0.5, 80: 0.4 }, fVcal = { 100: 1, 90: 0.75, 85: 0.66, 80: 0.58 };
+    function soh(N, T, up, lo, c) {
+      const dod = Math.max(0.05, (up - lo) / 100);
+      const fT = Math.exp(0.055 * (T - 25)) * (T < 15 ? 1 + (15 - T) * 0.12 * Math.max(0.5, c) : 1);
+      const fC = c > 1 ? 1 + 0.35 * Math.pow(c - 1, 1.3) : 0.9 + 0.1 * c;
+      const fD = Math.pow(dod, 1.4);
+      const a = 0.17 / Math.pow(800, 0.75);
+      const cyc = a * fVmap[up] * fD * fT * fC * Math.pow(N, 0.75) / Math.max(0.3, dod) * dod;
+      const cal = 0.02 * Math.exp(0.06 * (T - 25)) * fVcal[up] * Math.sqrt(N / 365);
+      let L = cyc + cal;
+      L += 2.5 * Math.pow(Math.max(0, L - 0.22), 1.6);
+      return Math.max(0, 1 - L);
+    }
+    const cv = PB.canvas($("cv-aging"), (ctx, w, h) => {
+      const P = PB.palette();
+      const T = gt(), up = Number(gup()), lo = glo(), c = gc();
+      const dod = (up - lo) / 100;
+      const s = [], u = [], b = [], bu = [];
+      let n80 = null, tot = 0, n80b = null;
+      for (let N = 0; N <= 2000; N += 10) {
+        const q = soh(N, T, up, lo, c), qb = soh(N, 25, 100, 0, 1);
+        s.push([N, q * 100]); u.push([N, q * dod * 100]); b.push([N, qb * 100]); bu.push([N, qb * 100]);
+        if (n80 == null && q < 0.8) n80 = N;
+        tot += q * dod * 10;
+      }
+      PB.chart(ctx, null, { x: [0, 2000], y: [0, 105], xLabel: "충방전 사이클 수 (≈ 일)", yLabel: "초기 용량 대비 (%)", series: [{ data: b, color: P.faint, width: 1.5, dash: [5, 4] }, { data: s, color: P.accent, width: 2.4 }, { data: u, color: P.accent2, width: 2.4 }], hlines: [{ y: 80, label: "80%", color: P.faint }] });
+      PB.stat("ag-n80", n80 == null ? "> 2,000<small>회</small>" : n80.toLocaleString() + "<small>회</small>");
+      PB.stat("ag-500", (soh(500, T, up, lo, c) * 100).toFixed(0) + "<small>%</small>");
+      PB.stat("ag-1000", (soh(1000, T, up, lo, c) * 100).toFixed(0) + "<small>%</small>");
+      PB.stat("ag-tot", Math.round(tot * 19.4).toLocaleString() + "<small>Wh</small>");
+    }, { aspect: 0.55, minHeight: 260, maxHeight: 400 });
+  });
+
+  /* ================================================== 9. 보호 */
+  safe("prot", () => {
+    const gt = PB.range("pr-t", (v) => v + " °C", () => upd());
+    const gv = PB.range("pr-v", (v) => v.toFixed(2) + " V", () => upd());
+    const gi = PB.range("pr-i", (v) => (v > 0 ? "+" : "") + v.toFixed(1) + " A", () => upd());
+    const lim = (T) => {
+      if (T < 0) return { c: 0, v: 0, z: "충전 금지(저온)" };
+      if (T < 10) return { c: 0.3, v: 4.45, z: "저온: 전류 제한" };
+      if (T < 45) return { c: 1, v: 4.45, z: "정상" };
+      if (T < 55) return { c: 0.5, v: 4.2, z: "고온: 전류·전압 제한" };
+      return { c: 0, v: 0, z: "충전 금지(고온)" };
+    };
+    const cv = PB.canvas($("cv-prot"), (ctx, w, h) => {
+      const P = PB.palette();
+      const T = gt();
+      const zc = [], zv = [];
+      for (let t = -20; t <= 80; t += 0.25) { const l = lim(t); zc.push([t, l.c * 100]); zv.push([t, l.v ? (l.v - 4.0) / 0.5 * 100 : null]); }
+      const bands = [{ x0: -20, x1: 0, color: PB.isDark() ? "rgba(91,140,255,.12)" : "rgba(47,111,224,.08)" }, { x0: 55, x1: 80, color: PB.isDark() ? "rgba(255,107,107,.12)" : "rgba(214,69,69,.08)" }];
+      const C = PB.chart(ctx, null, { x: [-20, 80], y: [0, 110], xLabel: "셀 온도 (°C)", yLabel: "허용 충전 전류 (%)", series: [{ data: zc, color: P.accent, width: 2.6 }], bands, vlines: [{ x: T, color: P.accent2, label: T + " °C", dash: [] }, { x: 60, color: P.bad, label: "방전도 경고 60", dash: [3, 3] }] });
+      ctx.save(); ctx.font = "11px " + font(); ctx.fillStyle = P.dim; ctx.textAlign = "center";
+      ctx.fillText("충전 금지", C.X(-10), C.Y(50)); ctx.fillText("0.3C", C.X(5), C.Y(36)); ctx.fillText("1C · 4.45 V", C.X(33), C.Y(90)); ctx.fillText("4.2 V", C.X(50), C.Y(56)); ctx.fillText("충전 금지", C.X(67), C.Y(50));
+      ctx.restore();
+    }, { aspect: 0.48, minHeight: 230, maxHeight: 340 });
+    function pill(cls, txt) { return `<span class="pill ${cls}">${txt}</span>`; }
+    function upd() {
+      cv.redraw();
+      const T = gt(), V = gv(), I = gi();
+      const l = lim(T);
+      const charging = I > 0;
+      let chg;
+      if (!charging) chg = pill("ok", "충전 안 함");
+      else if (l.c === 0) chg = pill("bad", "충전 정지") + " " + l.z;
+      else if (V >= l.v) chg = pill("warn", "CV/종료") + " 상한 " + l.v.toFixed(2) + " V 도달";
+      else if (I > l.c * 5 * 1.5) chg = pill("warn", "전류 감소") + " " + l.z + " → 최대 " + (l.c * 5 * 1.5).toFixed(1) + " A";
+      else chg = pill("ok", "정상") + " " + l.z;
+      let gauge;
+      if (T > 50 && charging) gauge = pill("warn", "충전 전력 축소") + " 셀 온도 높음, 사용자 알림";
+      else if (V < 3.3 && !charging) gauge = pill("warn", "저전압") + " 0% 표시 → 시스템 종료 요청";
+      else if (T < 0) gauge = pill("warn", "저온") + " 피크 전력 제한";
+      else gauge = pill("ok", "정상") + " SOC/SOH 추정";
+      let pcm;
+      if (V >= 4.55) pcm = pill("bad", "과충전 차단 OVP") + " 충전 FET 오프";
+      else if (V <= 2.6) pcm = pill("bad", "과방전 차단 UVP") + " 방전 FET 오프";
+      else if (I <= -12) pcm = pill("bad", "방전 과전류 OCP") + " 수 ms 내 차단";
+      else if (I >= 10) pcm = pill("bad", "충전 과전류") + " 충전 FET 오프";
+      else pcm = pill("ok", "통전") + " FET 2개 모두 온";
+      let cell;
+      if (T >= 130) cell = pill("bad", "분리막 셧다운");
+      else if (T >= 80) cell = pill("bad", "SEI 분해 시작") + " 열폭주 위험 영역";
+      else if (T >= 60) cell = pill("warn", "가속 열화·가스 발생");
+      else cell = pill("ok", "안정");
+      $("pr-levels").innerHTML = `<div><b>① 충전 IC (JEITA)</b>${chg}</div><div><b>② 연료 게이지·BMS</b>${gauge}</div><div><b>③ PCM 보호 IC</b>${pcm}</div><div><b>④ 셀 소재</b>${cell}</div>`;
+    }
+    upd();
+  });
+
+  /* ================================================== 10. 사용 시간 */
+  safe("run", () => {
+    const gq = PB.range("rn-q", (v) => v.toLocaleString() + " mAh", () => cv.redraw());
+    const gb = PB.range("rn-b", (v) => v + " nit", () => cv.redraw());
+    const ghz = PB.seg("rn-hz", () => cv.redraw());
+    const gap = PB.seg("rn-ap", () => cv.redraw());
+    const gmo = PB.seg("rn-mo", () => cv.redraw());
+    $("rn-gps").addEventListener("change", () => cv.redraw());
+    const AP = { read: 0.25, web: 0.6, video: 0.35, cam: 2.2, game: 3.6 };
+    const MO = { wifi: 0.12, lte: 0.35, nr: 0.55, weak: 1.6 };
+    const cv = PB.canvas($("cv-run"), (ctx, w, h) => {
+      const P = PB.palette();
+      const nit = gb();
+      const hz = ghz();
+      const disp = 0.12 + nit * 0.0016;
+      const refresh = hz === "120" ? 0.22 : hz === "60" ? 0.05 : (gap() === "read" ? 0.0 : 0.08);
+      const ap = gap(), mo = gmo();
+      const parts = [["디스플레이", disp + refresh, P.accent], ["AP·메모리", AP[ap], P.accent2], ["모뎀·RF", MO[mo], P.blue], ["기타(센서·오디오·누설)", 0.15 + ($("rn-gps").checked ? 0.15 : 0) + (ap === "video" ? 0.05 : 0), P.faint]];
+      const tot = parts.reduce((a, p) => a + p[1], 0);
+      const E = gq() / 1000 * 3.87;
+      const hrs = E * 0.88 / tot;
+      const pad = 18, bx = pad, bw = w - pad * 2;
+      const maxP = 7;
+      ctx.font = "12px " + font(); ctx.textBaseline = "middle";
+      // 막대
+      const y = 46, bh = 40;
+      let x = bx;
+      parts.forEach(([nm, p, col]) => {
+        const ww = p / maxP * bw;
+        ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.fillRect(x, y, ww, bh); ctx.globalAlpha = 1;
+        if (ww > 40) { ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = "600 12px " + mono(); ctx.fillText(p.toFixed(2), x + ww / 2, y + bh / 2); }
+        x += ww;
+      });
+      ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = "600 13px " + mono();
+      ctx.fillText(tot.toFixed(2) + " W", Math.min(x + 6, w - 64), y + bh / 2);
+      ctx.strokeStyle = P.axis; ctx.beginPath(); ctx.moveTo(bx, y + bh + 6); ctx.lineTo(bx + bw, y + bh + 6); ctx.stroke();
+      ctx.fillStyle = P.dim; ctx.font = "11px " + mono(); ctx.textAlign = "center"; ctx.textBaseline = "top";
+      for (let q = 0; q <= maxP; q++) ctx.fillText(q + " W", PB.clamp(bx + q / maxP * bw, bx + 12, bx + bw - 14), y + bh + 10);
+      ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.font = "12px " + font();
+      parts.forEach(([nm, p, col], i) => {
+        const cx = bx + (i % 2) * (bw / 2), cy = y + bh + 42 + Math.floor(i / 2) * 22;
+        ctx.fillStyle = col; ctx.fillRect(cx, cy - 5, 12, 10); ctx.fillStyle = P.dim; ctx.fillText(nm + " " + Math.round(p / tot * 100) + "%", cx + 18, cy);
+      });
+      // 시간 막대(배터리 아이콘)
+      const by = y + bh + 100, bwid = Math.min(bw - 20, 520), bht = 30;
+      if (by + bht < h - 4) {
+        ctx.strokeStyle = P.text; ctx.lineWidth = 2; ctx.strokeRect(bx, by, bwid, bht); ctx.fillStyle = P.text; ctx.fillRect(bx + bwid, by + 9, 5, 12);
+        const frac = PB.clamp(hrs / 24, 0, 1);
+        ctx.fillStyle = hrs < 5 ? P.bad : hrs < 10 ? P.warn : P.ok; ctx.fillRect(bx + 3, by + 3, (bwid - 6) * frac, bht - 6);
+        ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.textBaseline = "top"; ctx.fillText("막대 끝 = 24시간", bx, by + bht + 6);
+        ctx.lineWidth = 1;
+      }
+      PB.stat("rn-e", E.toFixed(1) + "<small>Wh</small>");
+      PB.stat("rn-p", tot.toFixed(2) + "<small>W</small>");
+      PB.stat("rn-h", hrs.toFixed(1) + "<small>시간</small>");
+      PB.stat("rn-c", (tot / 3.87 / (gq() / 1000)).toFixed(2) + "<small>C</small>");
+    }, { aspect: 0.45, minHeight: 250, maxHeight: 300 });
+  });
+
+  /* ================================================== 11. 셀 형상 */
+  safe("shape", () => {
+    const gh = PB.range("sh-h", (v) => v + " mm", () => cv.redraw());
+    const gw = PB.range("sh-w", (v) => v + " mm", () => cv.redraw());
+    const gt = PB.range("sh-t", (v) => v.toFixed(1) + " mm", () => cv.redraw());
+    const gd = PB.range("sh-d", (v) => v + " Wh/L", () => cv.redraw());
+    const gm = PB.seg("sh-mode", () => cv.redraw());
+    const IW = 66, IL = 140, BOT = 18, FLEX = 4, M = 1.5;
+    function vol(hb, wb, t, L) {
+      const top = hb + 2, bot = IL - BOT - 2;
+      const x0 = 0, x1 = IW - FLEX;
+      let A = (x1 - x0 - 2 * M) * (bot - top - 2 * M);
+      if (L && x1 - (wb + 2) > 8) { const ex = (x1 - (wb + 2) - 2 * M) * (hb + 2 - 8); A += Math.max(0, ex) - 2 * M * 8; }
+      return A * t / 1000; // cm3
+    }
+    const cv = PB.canvas($("cv-shape"), (ctx, w, h) => {
+      const P = PB.palette();
+      const hb = gh(), wb = Math.min(gw(), IW - FLEX), t = gt(), d = gd(), L = gm() === "L";
+      const sc = Math.min((h - 30) / IL, (w * 0.5) / IW);
+      const ox = 20, oy = 15;
+      const R = (x, y, ww, hh) => [ox + x * sc, oy + y * sc, ww * sc, hh * sc];
+      ctx.fillStyle = P.surface; ctx.strokeStyle = P.border; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(...R(-2, -2, IW + 4, IL + 4), 18) : ctx.rect(...R(-2, -2, IW + 4, IL + 4)); ctx.fill(); ctx.stroke();
+      // 보드
+      ctx.fillStyle = PB.isDark() ? "rgba(63,207,111,.25)" : "rgba(45,164,78,.22)"; ctx.strokeStyle = P.green;
+      ctx.fillRect(...R(0, 0, wb, hb)); ctx.strokeRect(...R(0, 0, wb, hb));
+      ctx.fillStyle = P.dim; ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(ox + Math.min(14, wb / 2) * sc, oy + 14 * sc, 9 * sc, 0, 6.28); ctx.fill(); ctx.globalAlpha = 1;
+      // 하단 모듈
+      ctx.fillStyle = PB.isDark() ? "rgba(142,107,216,.28)" : "rgba(142,107,216,.2)"; ctx.fillRect(...R(0, IL - BOT, IW, BOT));
+      // 플렉스
+      ctx.fillStyle = P.warn; ctx.globalAlpha = 0.45; ctx.fillRect(...R(IW - FLEX, hb, FLEX - 0.5, IL - BOT - hb)); ctx.globalAlpha = 1;
+      // 셀
+      const top = hb + 2, bot = IL - BOT - 2, x1 = IW - FLEX;
+      ctx.fillStyle = P.accent2; ctx.globalAlpha = 0.35; ctx.strokeStyle = P.accent2;
+      ctx.beginPath();
+      if (L && x1 - (wb + 2) > 8) {
+        const xa = wb + 2 + M;
+        ctx.moveTo(...R(xa, 8, 0, 0).slice(0, 2)); ctx.lineTo(...R(x1 - M, 8, 0, 0).slice(0, 2)); ctx.lineTo(...R(x1 - M, bot - M, 0, 0).slice(0, 2)); ctx.lineTo(...R(M, bot - M, 0, 0).slice(0, 2)); ctx.lineTo(...R(M, top + M, 0, 0).slice(0, 2)); ctx.lineTo(...R(xa, top + M, 0, 0).slice(0, 2)); ctx.closePath();
+      } else ctx.rect(...R(M, top + M, x1 - 2 * M, bot - top - 2 * M));
+      ctx.fill(); ctx.globalAlpha = 1; ctx.stroke();
+      // 텍스트
+      ctx.fillStyle = P.text; ctx.font = "12px " + font(); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("보드", ox + wb / 2 * sc, oy + (hb - 6) * sc);
+      ctx.fillText("배터리", ox + (IW - FLEX) / 2 * sc, oy + (top + bot) / 2 * sc);
+      ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.fillText("USB-C·스피커", ox + IW / 2 * sc, oy + (IL - BOT / 2) * sc);
+      // 오른쪽 비교 막대
+      const vr = vol(hb, wb, t, false), vl = vol(hb, wb, t, true);
+      const er = vr * d / 1000, el = vl * d / 1000;
+      const qx = ox + IW * sc + 36, qw = w - qx - 20;
+      if (qw > 80) {
+        const maxE = 30;
+        ctx.textAlign = "left"; ctx.font = "12px " + font();
+        [["직사각형", er, !L], ["L자", el, L]].forEach(([nm, e, on], i) => {
+          const yy = oy + 30 + i * 70;
+          ctx.fillStyle = on ? P.text : P.dim; ctx.fillText(nm, qx, yy - 12);
+          ctx.fillStyle = P.accent2; ctx.globalAlpha = on ? 0.85 : 0.35; ctx.fillRect(qx, yy, Math.min(qw, e / maxE * qw), 22); ctx.globalAlpha = 1;
+          ctx.fillStyle = P.text; ctx.font = "600 12px " + mono(); ctx.fillText(Math.round(e / 3.87 * 1000).toLocaleString() + " mAh", qx + 6, yy + 11 + 26); ctx.font = "12px " + font();
+        });
+      }
+      const v = L ? vl : vr, e = L ? el : er;
+      PB.stat("sh-vol", v.toFixed(1) + "<small>cm³</small>");
+      PB.stat("sh-e", e.toFixed(1) + "<small>Wh</small>");
+      PB.stat("sh-q", Math.round(e / 3.87 * 1000).toLocaleString() + "<small>mAh</small>");
+      PB.stat("sh-g", "+" + ((vl / vr - 1) * 100).toFixed(1) + "<small>%</small>");
+    }, { aspect: 0.62, minHeight: 300, maxHeight: 420 });
+  });
+
+  /* ================================================== 12. 트레이드오프 */
+  safe("trade", () => {
+    const gv = PB.range("td-v", (v) => v.toFixed(2) + " V", () => cv.redraw());
+    const gs = PB.range("td-si", (v) => v + "%", () => cv.redraw());
+    const gc = PB.range("td-c", (v) => v.toFixed(1) + " C", () => cv.redraw());
+    const gvol = PB.range("td-vol", (v) => v.toFixed(1) + " cm³", () => cv.redraw());
+    const cv = PB.canvas($("cv-trade"), (ctx, w, h) => {
+      const P = PB.palette();
+      const V = gv(), si = gs(), c = gc(), vol = gvol();
+      const fE = (1 + 0.9 * (V - 4.40)) * (1 + 0.012 * si) * (1 - 0.04 * Math.max(0, c - 1.5));   // 고속형 셀은 전극이 얇음
+      const E = vol * 0.74 * fE;
+      const r = simCharge(c, 40 * (1 - 0.06 * (c - 1)), { multi: true, vmax: V });
+      const t80 = timeTo(r.data, 0.8) || 0;
+      const r0 = simCharge(1, 40, { multi: true, vmax: 4.40 });
+      const t80b = timeTo(r0.data, 0.8) || 1;
+      const life = 1400 / (Math.exp((V - 4.40) * 8) * (1 + 0.06 * si) * (c > 1 ? 1 + 0.35 * Math.pow(c - 1, 1.3) : 1));
+      const swell = 100 * Math.exp((V - 4.40) * 6) * (1 + 0.05 * si);
+      const rows = [
+        ["에너지", E, E / (vol * 0.74) * 100, (x) => x.toFixed(1) + " Wh", P.accent, true],
+        ["0→80% 시간", t80, t80 / t80b * 100, (x) => Math.round(x) + " 분", P.accent2, false],
+        ["80% 수명", life, life / 1400 * 100, (x) => Math.round(x).toLocaleString() + " 회", P.ok, true],
+        ["스웰링 위험", swell, swell, (x) => Math.round(x) + "", P.bad, false],
+      ];
+      const pad = 16, lw = Math.min(110, w * 0.26), x0 = pad + lw, bw = w - x0 - pad - 80;
+      const bh = Math.min(30, (h - 40) / rows.length - 16);
+      const maxRel = 260;
+      ctx.font = "12px " + font(); ctx.textBaseline = "middle";
+      const bx100 = x0 + 100 / maxRel * bw;
+      rows.forEach(([nm, val, rel, f, col, good], i) => {
+        const y = 22 + i * (bh + 18);
+        ctx.fillStyle = P.text; ctx.textAlign = "right"; ctx.fillText(nm, x0 - 10, y + bh / 2);
+        ctx.fillStyle = col; ctx.globalAlpha = 0.8; ctx.fillRect(x0, y, Math.min(bw, rel / maxRel * bw), bh); ctx.globalAlpha = 1;
+        ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = "600 12px " + mono();
+        ctx.fillText(f(val), Math.min(x0 + rel / maxRel * bw, x0 + bw) + 6, y + bh / 2);
+        ctx.font = "12px " + font();
+      });
+      ctx.strokeStyle = P.faint; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(bx100, 14); ctx.lineTo(bx100, 22 + rows.length * (bh + 18) - 12); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = P.dim; ctx.textAlign = "center"; ctx.font = "11px " + mono(); ctx.fillText("기준 100", bx100, 8);
+    }, { aspect: 0.42, minHeight: 210, maxHeight: 280 });
+  });
+})();
+</script>
+</body>
+</html>

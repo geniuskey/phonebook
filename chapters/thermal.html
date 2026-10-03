@@ -1,0 +1,1308 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>열 관리 · PhoneBook</title>
+<meta name="description" content="스마트폰의 열원과 열 경로, 피부 온도 한계와 지속 전력, 열저항 네트워크, 2D 열 확산, 베이퍼 챔버와 그래파이트, 대류·복사 냉각, 스로틀링을 시뮬레이터로 배운다.">
+<link rel="canonical" href="https://phonebook.euiyun.com/chapters/thermal.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="PhoneBook">
+<meta property="og:title" content="열 관리 · PhoneBook">
+<meta property="og:description" content="스마트폰의 열원과 열 경로, 피부 온도 한계와 지속 전력, 열저항 네트워크, 2D 열 확산, 베이퍼 챔버와 그래파이트, 대류·복사 냉각, 스로틀링을 시뮬레이터로 배운다.">
+<meta property="og:url" content="https://phonebook.euiyun.com/chapters/thermal.html">
+<meta property="og:image" content="https://phonebook.euiyun.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"열 관리","name":"열 관리 · PhoneBook","url":"https://phonebook.euiyun.com/chapters/thermal.html","mainEntityOfPage":"https://phonebook.euiyun.com/chapters/thermal.html","inLanguage":"ko","isAccessibleForFree":true,"learningResourceType":"interactive textbook chapter","position":11,"image":"https://phonebook.euiyun.com/og.png","dateModified":"2026-10-03","isPartOf":{"@type":"Book","@id":"https://phonebook.euiyun.com/#book","name":"PhoneBook — 인터랙티브 스마트폰 해부 교과서","url":"https://phonebook.euiyun.com/"},"publisher":{"@type":"Organization","name":"PhoneBook","url":"https://phonebook.euiyun.com/"},"description":"스마트폰의 열원과 열 경로, 피부 온도 한계와 지속 전력, 열저항 네트워크, 2D 열 확산, 베이퍼 챔버와 그래파이트, 대류·복사 냉각, 스로틀링을 시뮬레이터로 배운다."},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"PhoneBook","item":"https://phonebook.euiyun.com/"},{"@type":"ListItem","position":2,"name":"11 열 관리","item":"https://phonebook.euiyun.com/chapters/thermal.html"}]}]}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  .fig-lg svg .t, .fig-lg svg .t-acc { font-size: 16px; }
+  .fig-lg svg .t-dim { font-size: 14px; }
+  .fig-lg svg .t-mono { font-size: 13px; }
+  .th-hot { fill: var(--bad); fill-opacity: .75; }
+  .th-warm { fill: var(--warn); fill-opacity: .6; }
+  .th-flow { stroke: var(--bad); stroke-width: 2.4; fill: none; opacity: .8; }
+  .th-flow2 { stroke: var(--warn); stroke-width: 2; fill: none; opacity: .8; stroke-dasharray: 5 4; }
+  .th-r { cursor: pointer; }
+  .th-r path { stroke: var(--text-dim); stroke-width: 2; fill: none; }
+  .th-r rect { fill: var(--canvas-bg); stroke: none; }
+  .th-r:hover path { stroke: var(--accent); }
+  .th-r.on path { stroke: var(--accent); stroke-width: 3.2; }
+  .th-r.on text { fill: var(--accent); font-weight: 700; }
+  .th-node { fill: var(--bg-elev); stroke: var(--text-dim); stroke-width: 1.5; }
+  .th-wick { fill: var(--accent-2); fill-opacity: .25; stroke: var(--accent-2); }
+  .th-cu { fill: #c98a52; opacity: .85; }
+  .th-small { font-size: 12.5px; color: var(--text-dim); }
+  .th-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  #cv-heat { touch-action: none; cursor: crosshair; }
+</style>
+</head>
+<body data-chapter="thermal">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 11</div>
+    <h1>열 관리</h1>
+    <p class="lead">스마트폰의 성능 상한을 정하는 것은 칩이 아니라 <b>손바닥</b>이다. AP는 순간적으로 10 W 넘게 쓸 수 있지만, 팬도 방열판도 없는 손바닥만 한 판이 공기 중으로 계속 내보낼 수 있는 열은 3~5 W 남짓이다. 그 이상은 결국 표면 온도를 끌어올리고, 폰은 스스로 속도를 낮춘다. 이 장에서는 열이 칩에서 손까지 가는 길을 따라가며, 그 길을 넓히는 베이퍼 챔버·그래파이트와 그 길의 끝에 있는 대류·복사, 그리고 시간을 사는 열용량을 직접 계산하고 시뮬레이션한다.</p>
+    <ul class="objectives">
+      <li>폰의 주요 열원과 상황별 발열량, 열이 표면까지 가는 경로를 설명한다.</li>
+      <li>피부 온도 한계(장시간 접촉 ~43 °C 수준)와 저온 화상의 개념으로 지속 전력 3~5 W를 유도한다.</li>
+      <li>열저항 네트워크로 접합 온도와 표면 온도를 계산하고, 어느 저항이 병목인지 찾는다.</li>
+      <li>2D 열 확산 시뮬레이터로 열원 위치·확산재·면적이 핫스팟을 어떻게 바꾸는지 체험한다.</li>
+      <li>베이퍼 챔버의 증발–응축–모세관 순환과 그래파이트의 이방성 열전도를 이해한다.</li>
+      <li>열용량이 만드는 시상수와 스로틀링, 충전·게임·케이스가 겹칠 때의 열 예산을 분석한다.</li>
+    </ul>
+  </header>
+
+  <!-- ============================================================ 1 -->
+  <section id="where">
+    <h2>폰 안의 위치: 베이퍼 챔버와 AP</h2>
+    <p>열 관리 부품은 눈에 잘 띄지 않는다. 전형적인 플래그십에서는 화면 바로 뒤, 프레임 미드플레이트에 붙은 얇은 구리판 <span class="term">베이퍼 챔버</span><span class="en">(VC, Vapor Chamber)</span>가 AP 위를 덮고, 메인보드의 AP(SoC)와 메모리는 열 전도 젤(TIM)과 차폐 캔을 거쳐 이 판에 닿는다. 배터리 뒤와 후면 유리 안쪽에는 <span class="term">그래파이트 시트</span>가 붙어 열을 넓게 편다. 아래 3D 모델에서 두 부품의 관계를 보자.</p>
+
+    <div class="sim" id="sim-3d">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>폰 안의 위치: VC와 메인보드(AP)</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v3d-th"><div class="part-card" id="th-card" hidden></div><div class="hint">드래그: 회전 · 클릭: 부품 정보</div></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>강조 부품</span><div class="seg" id="th-part"><button data-value="vc" class="on">베이퍼 챔버</button><button data-value="boardBottom">AP·메모리 보드</button></div></div>
+          <label class="ctrl"><span>분해 정도 <output id="th-ex-out"></output></span><input type="range" id="th-ex" min="0" max="1" step="0.01" value="0.7"></label>
+          <label class="check"><input type="checkbox" id="th-xray"> X-ray (나머지 투명)</label>
+          <label class="check"><input type="checkbox" id="th-lbl"> 모든 부품 이름</label>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: 두 부품을 번갈아 강조해 보자. AP가 있는 보드 영역 바로 위(화면 쪽)에 VC가 넓게 펼쳐져 있다. 분해를 0으로 내리면 VC가 화면과 보드 사이의 얇은 층이라는 것이 보인다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 2 -->
+  <section id="sources">
+    <h2>열원과 열 경로</h2>
+    <p>폰이 쓰는 전기는 결국 거의 전부 열이 된다(소리와 빛, 전파로 나가는 몫은 작다). 문제는 <b>어디서</b> 얼마나 나느냐다. 열원은 한곳에 몰려 있다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>열원</th><th>상황</th><th>대표 발열</th><th>메모</th></tr></thead>
+      <tbody>
+        <tr><td>AP(SoC)</td><td>게임·벤치마크</td><td>지속 3~5 W, 순간 8~12 W</td><td>수 cm² 면적에 집중. 가장 뜨거운 점</td></tr>
+        <tr><td>모뎀 + 파워앰프(PA)</td><td>5G 업로드, 약전계</td><td>1~3 W</td><td>PA 효율이 낮아 송신 출력이 클수록 급증(<a href="rf.html">7장</a>)</td></tr>
+        <tr><td>충전 IC + 배터리</td><td>유선 고속 / 무선 충전</td><td>1~3 W / 2~4 W</td><td>변환 손실 + 배터리 내부 저항의 \(I^2R\)(<a href="power.html">6장</a>)</td></tr>
+        <tr><td>디스플레이</td><td>고휘도 야외</td><td>0.5~2 W</td><td>면적이 넓어 핫스팟은 약함</td></tr>
+        <tr><td>카메라 + ISP</td><td>4K/8K 녹화</td><td>2~4 W(ISP 포함)</td><td>센서가 뜨거우면 잡음 증가(<a href="camera.html">8장</a>)</td></tr>
+      </tbody>
+    </table></div>
+
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 720 280" role="img" aria-label="폰 단면의 열 경로">
+        <defs><marker id="th-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--bad)"/></marker></defs>
+        <rect x="40" y="70" width="640" height="10" class="f-acc-soft"/><text x="690" y="66" class="t-mono" text-anchor="end">커버 글라스 + OLED (화면)</text>
+        <rect x="40" y="84" width="420" height="7" class="th-cu"/><text x="250" y="104" class="t-mono" text-anchor="middle" style="fill:var(--text)">베이퍼 챔버 (~0.4 mm)</text>
+        <rect x="40" y="110" width="640" height="10" class="f-surface"/><text x="600" y="132" class="t-mono">프레임 미드플레이트</text>
+        <rect x="80" y="140" width="300" height="10" fill="var(--ok)" opacity=".55"/><text x="230" y="168" class="t-mono" text-anchor="middle">메인보드</text>
+        <rect x="190" y="124" width="60" height="16" class="th-hot"/><text x="220" y="136" class="t-mono" text-anchor="middle" style="fill:#fff">AP</text>
+        <rect x="290" y="128" width="40" height="12" class="th-warm"/><text x="310" y="138" class="t-mono" text-anchor="middle">PA</text>
+        <rect x="420" y="140" width="240" height="40" rx="4" class="f-elev"/><text x="540" y="165" class="t" text-anchor="middle">배터리</text>
+        <rect x="40" y="196" width="640" height="5" fill="var(--text-faint)"/><text x="360" y="214" class="t-mono" text-anchor="middle">그래파이트 시트</text>
+        <rect x="40" y="222" width="640" height="10" class="f-acc2-soft"/><text x="690" y="250" class="t-mono" text-anchor="end">후면 유리</text>
+        <!-- flows -->
+        <path d="M220 124 V95" class="th-flow" marker-end="url(#th-ar)"/>
+        <path d="M220 88 H120 M220 88 H420" class="th-flow" marker-end="url(#th-ar)"/>
+        <path d="M120 82 V40" class="th-flow" marker-end="url(#th-ar)"/><path d="M380 82 V40" class="th-flow" marker-end="url(#th-ar)"/>
+        <path d="M220 150 V190" class="th-flow2" marker-end="url(#th-ar)"/><path d="M220 202 H90 M220 202 H600" class="th-flow2"/>
+        <path d="M120 235 V268" class="th-flow2" marker-end="url(#th-ar)"/><path d="M560 235 V268" class="th-flow2" marker-end="url(#th-ar)"/>
+        <text x="130" y="30" class="t-acc">화면 쪽으로 (주 경로)</text>
+        <text x="300" y="270" class="t-dim">후면 쪽으로 (보드 → 그래파이트)</text>
+      </svg>
+      <figcaption><b>그림 11-1.</b> 열의 경로(개념도). AP 열은 TIM과 차폐 캔을 거쳐 VC로 올라가 넓게 퍼진 뒤 화면과 프레임으로, 일부는 보드를 통해 아래로 내려가 그래파이트를 타고 후면 유리로 빠진다. 최종 출구는 언제나 <b>폰 표면 → 공기</b>다.</figcaption>
+    </figure>
+
+    <p>열은 칩 안에서 생겨 세 단계를 거친다. ① 작은 점에서 <b>뽑아내기</b>(칩 → 패키지 → TIM), ② 넓은 면으로 <b>퍼뜨리기</b>(VC, 그래파이트, 프레임), ③ 표면에서 공기로 <b>버리기</b>(대류·복사). 폰에서 가장 작은 고리는 ③이다. 버리는 능력은 표면적과 표면 온도로 정해지는데, 둘 다 사실상 고정이다. 그래서 열 설계의 대부분은 ②, 즉 표면 전체를 고르게 데워 "버리는 능력"을 최대한 쓰는 일이다.</p>
+
+    <div class="sim" id="sim-budget">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>상황별 열 예산: 지속 가능한가?</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-budget"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>사용 상황</span><div class="seg" id="bg-sc"><button data-value="video">동영상</button><button data-value="game" class="on">게임</button><button data-value="ul">5G 업로드</button><button data-value="rec">4K 녹화</button><button data-value="chg">충전+게임</button><button data-value="wl">무선 충전</button></div></div>
+          <label class="ctrl"><span>주변 온도 <output id="bg-ta-out"></output></span><input type="range" id="bg-ta" min="10" max="40" step="1" value="25"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">총 발열</span><span class="v" id="bg-o-tot">—</span></div>
+        <div class="stat"><span class="k">지속 가능 한계(표면 43 °C)</span><span class="v" id="bg-o-lim">—</span></div>
+        <div class="stat"><span class="k">판정</span><span class="v" id="bg-o-v">—</span></div>
+      </div>
+      <div class="sim-note">수치는 최근 스마트폰의 대표적인 범위를 단순화한 예다. 한계선은 아래 '대류·복사' 절의 모델(면적 245 cm², h ≈ 7 + 복사, 온도 균일도 0.75)로 계산한다. 해볼 것: 게임에 충전을 더하면 왜 폰이 충전 속도를 먼저 늦추는지, 여름 35 °C에서는 한계가 얼마나 줄어드는지 확인하자.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 3 -->
+  <section id="skin">
+    <h2>피부 온도 한계: 왜 43 °C인가</h2>
+    <p>칩은 100 °C 가까이 견디지만 손은 그렇지 않다. 사람 피부는 45 °C 근처부터 열 통증을 느끼기 시작하고, 이보다 낮은 온도라도 <b>오래 닿아 있으면</b> 화상을 입는다. 이것이 <span class="term">저온 화상</span>이다. 1940년대 Moritz와 Henriques의 실험 이후 알려진 경향은, 44 °C 부근에서는 수 시간 접촉해야 손상이 생기지만 1 °C 오를 때마다 그 시간이 대략 절반씩 줄어든다는 것이다. 자는 동안 충전 중인 폰을 베고 있는 상황이 위험한 이유다.</p>
+    <p>그래서 기기 안전 규격(예: IEC 62368-1)은 접촉 시간과 재질에 따라 표면 온도 한계를 둔다. 장시간(수 시간 이상) 손에 쥐는 표면은 대략 <b>43 °C 수준</b>이 기준이 되고, 짧게 닿는 표면은 재질(금속은 열을 빨리 전해 더 엄격)에 따라 조금 더 높게 허용된다. 제조사는 여기에 여유를 두고, 사용감까지 고려해 지속 사용 시 표면을 대략 <b>40~45 °C</b> 안에 두도록 제어한다.</p>
+
+    <div class="sim" id="sim-burn">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>접촉 온도 vs 화상까지 걸리는 시간(근사)</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-burn"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>표면 온도 <output id="bn-t-out"></output></span><input type="range" id="bn-t" min="40" max="60" step="0.5" value="45"></label>
+          <div class="ctrl"><span>표면 재질(느끼는 온도)</span><div class="seg" id="bn-m"><button data-value="glass" class="on">유리</button><button data-value="metal">금속</button><button data-value="plastic">플라스틱 케이스</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">손상까지(근사)</span><span class="v" id="bn-o-t">—</span></div>
+        <div class="stat"><span class="k">접촉 계면 온도(추정)</span><span class="v" id="bn-o-c">—</span></div>
+      </div>
+      <div class="sim-note">곡선은 교육용 근사다: 44 °C에서 약 6시간, 51 °C까지 1 °C마다 시간 절반, 그 이상은 더 가파르게. 개인차와 압력·혈류에 따라 크게 다르다. 재질 선택은 접촉 계면 온도를 바꾼다. 같은 50 °C라도 열 침투율(effusivity)이 큰 금속은 피부 쪽 계면을 더 뜨겁게 만든다.</div>
+    </div>
+
+    <p>이 한계가 곧 <b>지속 전력</b>을 정한다. 표면 온도 상승 \(\Delta T = T_s - T_a\)가 20 °C 남짓(25 °C 실내에서 43 °C)으로 묶이고, 표면적 \(A\)와 열전달 계수 \(h\)도 고정이니 버릴 수 있는 열 \(Q = hA\,\Delta T\)도 묶인다. 뒤에서 계산하겠지만 그 값이 대략 3~5 W다. AP의 순간 최대 전력이 이보다 2~3배 큰 이유는 짧은 순간에는 폰의 열용량이 열을 "빌려" 주기 때문이다.</p>
+  </section>
+
+  <!-- ============================================================ 4 -->
+  <section id="network">
+    <h2>열저항 네트워크: 열의 옴의 법칙</h2>
+    <p>정상 상태의 열전도는 전기 회로와 같은 꼴이다. 열 흐름 \(Q\)[W]가 전류, 온도차 \(\Delta T\)[K]가 전압, <span class="term">열저항</span> \(R_{th}\)[K/W]가 저항이다. 직렬은 더하고 병렬은 역수로 더한다.</p>
+    <div class="formula">$$\Delta T = Q\,R_{th},\qquad R_{\text{cond}} = \frac{L}{kA},\qquad R_{\text{conv}} = \frac{1}{hA}$$
+      <div class="where">\(L\): 두께, \(k\): 열전도도(W/m·K), \(A\): 면적, \(h\): 표면 열전달 계수. 예: 두께 0.1 mm, k = 3 W/m·K인 열 젤을 1 cm²에 바르면 R = 1e-4 / (3 × 1e-4) ≈ 0.33 K/W. 같은 젤이 0.3 mm로 두꺼우면 1 K/W가 된다.</div>
+    </div>
+    <p>아래 회로는 AP 접합부에서 공기까지의 경로를 단순화한 것이다. 저항을 눌러 선택하고 값을 바꿔 보자. 각 노드의 온도가 바로 계산된다.</p>
+
+    <div class="sim" id="sim-net">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>클릭하는 열저항 회로</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view" style="padding:10px">
+          <svg id="net-svg" viewBox="0 0 760 320" role="img" aria-label="AP에서 공기까지의 열저항 회로">
+            <g id="net-wires" stroke="var(--border)" stroke-width="2" fill="none">
+              <path d="M60 150 H190 M210 150 H330 M350 150 H470"/>
+              <path d="M490 150 L560 80 M490 150 L560 220"/>
+              <path d="M580 80 H700 V150 M580 220 H700 V150 M700 150 H730"/>
+              <path d="M50 160 V280 H480 V160"/>
+            </g>
+            <g class="t-mono" fill="var(--text-dim)"><line x1="730" y1="140" x2="730" y2="160" stroke="var(--text-dim)" stroke-width="3"/><text x="738" y="176" text-anchor="end">공기</text></g>
+            <g id="net-rs"></g>
+            <g id="net-nodes"></g>
+            <text x="20" y="22" class="t-dim">발열 → AP 접합부</text>
+          </svg>
+        </div>
+        <div class="sim-controls">
+          <label class="ctrl"><span id="net-sel-lbl">선택한 저항 <output id="net-r-out"></output></span><input type="range" id="net-r" min="0" max="1" step="0.001" value="0.5"></label>
+          <label class="ctrl"><span>AP 전력 <output id="net-p-out"></output></span><input type="range" id="net-p" min="0.5" max="10" step="0.1" value="4"></label>
+          <label class="ctrl"><span>주변 온도 <output id="net-ta-out"></output></span><input type="range" id="net-ta" min="10" max="40" step="1" value="25"></label>
+          <button class="btn" id="net-reset">기본값</button>
+          <p class="th-small" id="net-desc"></p>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">접합 온도 Tj</span><span class="v" id="net-o-tj">—</span></div>
+        <div class="stat"><span class="k">화면 표면</span><span class="v" id="net-o-f">—</span></div>
+        <div class="stat"><span class="k">후면 표면</span><span class="v" id="net-o-b">—</span></div>
+        <div class="stat"><span class="k">화면 쪽으로 가는 열</span><span class="v" id="net-o-share">—</span></div>
+      </div>
+      <div class="sim-note">값은 대표적인 크기 감각을 위한 예다. 이 모델은 표면이 균일한 온도라고 가정한다(실제 핫스팟은 더 뜨겁다 → 다음 절의 2D 시뮬레이터). 해볼 것: TIM을 0.5 → 2 K/W로 나쁘게 하면 Tj는 크게 오르지만 표면 온도는 거의 그대로다. 반대로 대류 저항을 키우면(케이스) 모든 노드가 함께 오른다. 무엇이 "칩 문제"이고 무엇이 "폰 문제"인지 구별해 보자.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 5 -->
+  <section id="spread">
+    <h2>2D 열 확산 시뮬레이터: 핫스팟을 없애라</h2>
+    <p>열저항 회로는 표면을 한 점으로 본다. 실제로는 AP 바로 위가 가장 뜨겁고 먼 곳은 미지근하다. 표면 한계는 <b>가장 뜨거운 점</b>에 걸리므로, 같은 열을 버려도 고르게 퍼뜨린 폰이 더 많은 전력을 쓸 수 있다. 폰을 얇은 판으로 보면 온도 \(T(x,y,t)\)는 다음 2D 열방정식을 따른다.</p>
+    <div class="formula">$$C_A\,\frac{\partial T}{\partial t} = \nabla\!\cdot\!\big((kt)\,\nabla T\big) + q''(x,y) - 2h\,(T-T_a)$$
+      <div class="where">\(C_A\): 면적당 열용량(폰 전체 ≈ 1.7×10⁴ J/m²K), \(kt\): 판의 <b>면내 열 컨덕턴스</b>(열전도도 × 두께, W/K), \(q''\): 열원 밀도, \(2h\): 앞·뒷면 두 면의 열전달(대류 + 복사). 확산재의 성능은 \(k\)가 아니라 \(kt\)로 정해진다. 그래서 얇은 그래파이트와 두꺼운 알루미늄이 비슷할 수 있고, VC가 압도적이다.</div>
+    </div>
+    <p>아래 시뮬레이터는 이 방정식을 2.5 mm 격자에서 유한차분(양해법)으로 실시간 적분한다. 폰은 가로로 눕혀 그렸다(왼쪽이 폰 위쪽, 카메라 쪽). <b>열원(원)을 드래그</b>해 옮기고, 확산재 재료·두께·면적을 바꿔 보자.</p>
+
+    <div class="sim" id="sim-heat">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>폰 평면 2D 열 확산 (실시간 유한차분)</h3></div>
+      <div class="sim-body">
+        <div class="sim-view"><canvas id="cv-heat"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>확산재</span><div class="seg" id="ht-mat"><button data-value="none">없음</button><button data-value="al">알루미늄</button><button data-value="cu">구리</button><button data-value="gr">그래파이트</button><button data-value="vc" class="on">VC</button></div></div>
+          <label class="ctrl"><span>확산재 두께 <output id="ht-t-out"></output></span><input type="range" id="ht-t" min="0.03" max="0.6" step="0.01" value="0.4"></label>
+          <label class="ctrl"><span>확산재 길이(면적) <output id="ht-len-out"></output></span><input type="range" id="ht-len" min="20" max="135" step="5" value="85"></label>
+          <label class="ctrl"><span>AP 전력 <output id="ht-p1-out"></output></span><input type="range" id="ht-p1" min="0" max="8" step="0.1" value="4"></label>
+          <label class="ctrl"><span>모뎀/PA 전력 <output id="ht-p2-out"></output></span><input type="range" id="ht-p2" min="0" max="3" step="0.1" value="0.8"></label>
+          <label class="ctrl"><span>충전 IC 전력 <output id="ht-p3-out"></output></span><input type="range" id="ht-p3" min="0" max="3" step="0.1" value="0"></label>
+          <label class="ctrl"><span>표면 h (한 면, 대류+복사) <output id="ht-h-out"></output></span><input type="range" id="ht-h" min="6" max="25" step="0.5" value="12"></label>
+          <div class="ctrl"><span>시간 배속</span><div class="seg" id="ht-spd"><button data-value="10">10×</button><button data-value="60">60×</button><button data-value="300" class="on">300×</button></div></div>
+          <div class="ctrl"><span>손 파지 영역</span><div class="seg" id="ht-grip"><button data-value="none" class="on">없음</button><button data-value="land">가로(게임)</button><button data-value="port">세로</button></div></div>
+          <div class="th-row"><button class="btn primary" id="ht-ss">정상 상태로</button><button class="btn" id="ht-reset">초기화</button><button class="btn" id="ht-pause">일시정지</button></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">최고 표면 온도</span><span class="v" id="ht-o-max">—</span></div>
+        <div class="stat"><span class="k">평균 표면 온도</span><span class="v" id="ht-o-avg">—</span></div>
+        <div class="stat"><span class="k">AP 접합(추정)</span><span class="v" id="ht-o-tj">—</span></div>
+        <div class="stat"><span class="k">손 닿는 곳 최고</span><span class="v" id="ht-o-grip">—</span></div>
+        <div class="stat"><span class="k">경과 시간</span><span class="v" id="ht-o-time">—</span></div>
+      </div>
+      <div class="sim-note">모델: 폰 71.5 × 147 mm를 하나의 얇은 판으로 보고, 기본 구조(유리·프레임 등)의 면내 컨덕턴스 0.02 W/K에 확산재(점선 영역)의 \(kt\)를 더한다. VC는 유효 열전도도 ~3,000 W/m·K로 가정. 주변 25 °C. 흰 윤곽선은 43 °C 등온선, ✕는 핫스팟. 해볼 것: ① '없음'과 'VC'를 비교하고 '정상 상태로'를 눌러 핫스팟 온도 차이를 보자. ② AP를 손이 닿는 곳(가로 파지)에서 멀리 옮겨 보자. ③ 열원 셋을 한데 모으면 어떻게 되는가?</div>
+    </div>
+
+    <p>시뮬레이터에서 얻을 수 있는 교훈은 셋이다. 첫째, 확산재가 없으면 AP 위 핫스팟이 평균보다 10 °C 이상 뜨겁고, 이 한 점 때문에 전체 전력을 낮춰야 한다. 둘째, 확산재의 효과는 \(kt\)에 비례해 커지다가, 판 전체가 거의 같은 온도가 되면 더는 좋아지지 않는다. 그 다음부터의 한계는 순수하게 \(2hA\,\Delta T\)다. 셋째, 시간 응답이 수 분~수십 분 단위다. 폰 전체의 시상수 \(\tau = C_A/2h\)는 10분 남짓이어서, 짧은 게임 한 판과 한 시간 게임은 전혀 다른 열 문제다.</p>
+  </section>
+
+  <!-- ============================================================ 6 -->
+  <section id="vc">
+    <h2>베이퍼 챔버: 물이 열을 나른다</h2>
+    <p>베이퍼 챔버는 납작한 히트 파이프다. 얇은 구리 판 두 장을 붙여 만든 진공에 가까운 공간에 소량의 물이 들어 있다. 내부 압력이 낮아 물은 30~40 °C에서도 끓는다.</p>
+    <ol>
+      <li><b>증발</b>: AP 위(증발부)에서 물이 기화하며 <span class="term">잠열</span>(물 ~2,400 kJ/kg)을 흡수한다.</li>
+      <li><b>증기 이동</b>: 증기가 압력이 낮은 차가운 쪽으로 빠르게 퍼진다.</li>
+      <li><b>응축</b>: 차가운 벽에서 다시 물이 되며 잠열을 내놓는다. 열이 넓은 면적에 퍼진다.</li>
+      <li><b>모세관 귀환</b>: 벽에 붙은 <span class="term">윅</span><span class="en">(Wick, 구리 분말 소결체·메시·미세 홈)</span>의 모세관 압력이 물을 다시 증발부로 끌고 온다. 펌프가 필요 없다.</li>
+    </ol>
+    <figure class="diagram">
+      <svg viewBox="0 0 720 210" role="img" aria-label="베이퍼 챔버 단면 원리">
+        <rect x="40" y="50" width="640" height="100" rx="10" class="th-cu"/>
+        <rect x="52" y="62" width="616" height="76" rx="6" fill="var(--canvas-bg)"/>
+        <rect x="52" y="62" width="616" height="12" class="th-wick"/><rect x="52" y="126" width="616" height="12" class="th-wick"/>
+        <rect x="300" y="152" width="120" height="22" class="th-hot"/><text x="360" y="168" class="t-mono" text-anchor="middle" style="fill:#fff">AP (열원)</text>
+        <path d="M360 120 C 300 100, 200 100, 110 92" class="th-flow" marker-end="url(#th-ar)"/>
+        <path d="M360 120 C 420 100, 520 100, 610 92" class="th-flow" marker-end="url(#th-ar)"/>
+        <path d="M90 132 H330" stroke="var(--accent-2)" stroke-width="2.4" fill="none" marker-end="url(#th-ar2)"/>
+        <path d="M630 132 H390" stroke="var(--accent-2)" stroke-width="2.4" fill="none" marker-end="url(#th-ar2)"/>
+        <defs><marker id="th-ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent-2)"/></marker></defs>
+        <text x="360" y="36" class="t" text-anchor="middle">응축 → 열 방출(넓은 면적)</text>
+        <text x="200" y="100" class="t-mono" text-anchor="middle">증기</text><text x="520" y="100" class="t-mono" text-anchor="middle">증기</text>
+        <text x="200" y="196" class="t-mono" text-anchor="middle">윅 속 액체 귀환(모세관력)</text>
+        <text x="560" y="196" class="t-mono" text-anchor="middle">두께 0.25~0.5 mm</text>
+      </svg>
+      <figcaption><b>그림 11-2.</b> 베이퍼 챔버 단면. 증기 공간의 두께가 0.1~0.2 mm에 불과해, 얇게 만들수록 증기 흐름 저항이 커지고 성능이 떨어진다.</figcaption>
+    </figure>
+    <p>잠열 덕분에 VC는 온도차를 거의 만들지 않고 열을 나른다. 유효 열전도도로 환산하면 수천 W/m·K로, 구리(~390)의 수 배에서 열 배 수준이다. 다만 한계가 있다. 증발량이 윅이 되돌려 줄 수 있는 양을 넘으면 증발부가 마르는 <span class="term">드라이아웃</span><span class="en">(Dry-out)</span>이 생기고, 그 순간 VC는 그냥 얇은 구리판이 된다. 이 <b>모세관 한계</b>는 다음 균형으로 정해진다.</p>
+    <div class="formula">$$\frac{2\sigma}{r_{\text{eff}}} \;\ge\; \Delta P_{\text{liquid}} + \Delta P_{\text{vapor}} + \rho_l\,g\,L\sin\varphi,\qquad \Delta P_{\text{liquid}} = \frac{\mu_l L_{\text{eff}}}{K A_w \rho_l h_{fg}}\,Q$$
+      <div class="where">\(\sigma\): 표면 장력, \(r_{\text{eff}}\): 윅의 유효 기공 반지름, \(K\): 윅의 투과율(대략 기공 크기의 제곱에 비례), \(A_w\): 윅 단면적, \(\varphi\): 기울기(증발부가 위에 있으면 중력이 방해). 기공을 작게 하면 모세관 압력은 커지지만 액체가 지나가기 어려워진다. 최적점이 있다.</div>
+    </div>
+
+    <div class="sim" id="sim-vc">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>베이퍼 챔버 순환과 모세관 한계</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-vc"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>입력 열 <output id="vc-q-out"></output></span><input type="range" id="vc-q" min="0" max="40" step="0.5" value="8"></label>
+          <label class="ctrl"><span>윅 기공 반지름 <output id="vc-r-out"></output></span><input type="range" id="vc-r" min="5" max="120" step="1" value="30"></label>
+          <label class="ctrl"><span>윅 두께 <output id="vc-w-out"></output></span><input type="range" id="vc-w" min="0.02" max="0.12" step="0.005" value="0.05"></label>
+          <div class="ctrl"><span>자세</span><div class="seg" id="vc-tilt"><button data-value="0" class="on">수평</button><button data-value="90">증발부 위로 세움</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">모세관 압력</span><span class="v" id="vc-o-p">—</span></div>
+        <div class="stat"><span class="k">최대 열 수송 Q_max</span><span class="v" id="vc-o-q">—</span></div>
+        <div class="stat"><span class="k">상태</span><span class="v" id="vc-o-s">—</span></div>
+      </div>
+      <div class="sim-note">입자: 붉은 점 = 증기, 파란 점 = 윅 속의 물. 모델: 물(~50 °C), 소결 분말 윅(공극률 0.5, Carman–Kozeny 투과율), 폭 30 mm, 유효 길이 50 mm, 증기 손실 보정 포함. 해볼 것: 기공 반지름을 5 µm부터 120 µm까지 움직여 Q_max가 어떻게 변하는지 보고, 세워서 중력이 방해하게 하면 최적 기공 크기가 생기는 것을 확인하자. 입력 열이 Q_max를 넘으면 드라이아웃이 일어난다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 7 -->
+  <section id="graphite">
+    <h2>그래파이트 시트: 옆으로만 잘 통하는 재료</h2>
+    <p>VC를 넣을 공간이 없거나 넓은 면을 싸게 덮어야 할 때는 <span class="term">인조 그래파이트 시트</span><span class="en">(PGS, Pyrolytic Graphite Sheet)</span>를 쓴다. 고분자 필름을 고온에서 탄화·흑연화해 만든 것으로, 탄소 원자층(그래핀)이 시트 면과 나란히 쌓여 있다. 원자층 안에서는 열이 아주 잘 흐르지만(면내 ~700~1,900 W/m·K) 층과 층 사이는 약한 결합이라 잘 흐르지 않는다(두께 방향 ~5~15 W/m·K). 이런 성질을 <span class="term">이방성</span>이라 한다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 720 190" role="img" aria-label="그래파이트 시트의 층 구조와 이방성">
+        <g stroke="var(--text-dim)" stroke-width="2.5">
+          <line x1="60" y1="60" x2="400" y2="60"/><line x1="60" y1="76" x2="400" y2="76"/><line x1="60" y1="92" x2="400" y2="92"/><line x1="60" y1="108" x2="400" y2="108"/><line x1="60" y1="124" x2="400" y2="124"/>
+        </g>
+        <path d="M230 92 H120" class="th-flow" marker-end="url(#th-ar)"/><path d="M230 92 H350" class="th-flow" marker-end="url(#th-ar)"/>
+        <path d="M230 130 V150" class="th-flow2" marker-end="url(#th-ar)"/>
+        <text x="230" y="44" class="t" text-anchor="middle">면내 k ≈ 1,500 W/m·K</text>
+        <text x="230" y="176" class="t-dim" text-anchor="middle">두께 방향 k ≈ 5~15 W/m·K</text>
+        <text x="450" y="70" class="t">두께 17~100 µm</text>
+        <text x="450" y="96" class="t-dim">· 구부러지고 가볍다(밀도 ~1–2 g/cm³)</text>
+        <text x="450" y="120" class="t-dim">· 전기 전도성 → 절연 필름 라미네이트</text>
+        <text x="450" y="144" class="t-dim">· 여러 장 겹쳐 kt를 늘린다</text>
+      </svg>
+      <figcaption><b>그림 11-3.</b> 그래파이트 시트의 층 구조. 열을 옆으로 퍼뜨리는 데는 탁월하지만, 두께 방향으로 열을 통과시키는 용도(TIM)로는 맞지 않는다.</figcaption>
+    </figure>
+
+    <div class="sim" id="sim-gr">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>단면 열 확산: 이방성 vs 등방성</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-gr"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>시트 재료</span><div class="seg" id="gr-m"><button data-value="gr" class="on">그래파이트</button><button data-value="cu">구리</button><button data-value="al">알루미늄</button><button data-value="pl">플라스틱</button></div></div>
+          <label class="ctrl"><span>두께 <output id="gr-t-out"></output></span><input type="range" id="gr-t" min="20" max="300" step="5" value="70"></label>
+          <label class="ctrl"><span>면내 k (그래파이트) <output id="gr-k-out"></output></span><input type="range" id="gr-k" min="500" max="1900" step="50" value="1500"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">면내 컨덕턴스 kt</span><span class="v" id="gr-o-kt">—</span></div>
+        <div class="stat"><span class="k">열원 위 최고 상승</span><span class="v" id="gr-o-dt">—</span></div>
+        <div class="stat"><span class="k">확산 길이 √(kt/h)</span><span class="v" id="gr-o-l">—</span></div>
+      </div>
+      <div class="sim-note">위: 시트 단면(두께 방향을 크게 과장). 아래쪽 가운데 10 mm에서 열이 들어오고, 윗면은 다음 층으로 열을 넘긴다(유효 h = 300 W/m²K). 아래 그래프: 윗면 온도 상승. 점선은 다른 재료(같은 두께). 해볼 것: 70 µm 그래파이트와 300 µm 구리를 비교해 보자. 두께 방향 k가 매우 낮아도 시트가 얇아 문제가 되지 않는다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 8 -->
+  <section id="cooling">
+    <h2>대류·복사 냉각: 버릴 수 있는 열의 상한</h2>
+    <p>표면에서 공기로 가는 길은 둘이다. 데워진 공기가 떠오르며 생기는 <span class="term">자연 대류</span>와, 표면이 적외선으로 내보내는 <span class="term">복사</span>다. 폰처럼 작은 판의 자연 대류 계수는 대략 \(h\) ≈ 5~10 W/m²K이고, 유리·도장 표면의 방사율 \(\varepsilon\)이 0.85~0.95로 높아 복사도 대류와 비슷한 크기의 열을 버린다.</p>
+    <div class="formula">$$Q_{\max} = \eta\,A\Big[h_{\text{conv}}(T_s-T_a) + \varepsilon\sigma\big(T_s^4 - T_a^4\big)\Big]$$
+      <div class="where">\(A\): 전체 표면적(앞·뒤 약 210 cm² + 옆면 약 35 cm²), \(\sigma\) = 5.67×10⁻⁸ W/m²K⁴, \(\eta\): 온도 균일도(평균 상승 ÷ 최고 상승, 0.6~0.85). 25 °C 실내에서 \(T_s\) = 43 °C, \(h\) = 7, \(\varepsilon\) = 0.9이면 대류 ~3.1 W + 복사 ~2.6 W, 균일도 0.75를 곱하면 ~4.3 W.</div>
+    </div>
+
+    <div class="sim" id="sim-conv">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>표면 온도 한계 → 최대 방열량</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-conv"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>표면적 <output id="cv-a-out"></output></span><input type="range" id="cv-a" min="120" max="320" step="5" value="245"></label>
+          <label class="ctrl"><span>대류 h <output id="cv-h-out"></output></span><input type="range" id="cv-h" min="2" max="25" step="0.5" value="7"></label>
+          <label class="ctrl"><span>방사율 ε <output id="cv-e-out"></output></span><input type="range" id="cv-e" min="0.05" max="0.95" step="0.01" value="0.9"></label>
+          <label class="ctrl"><span>주변 온도 <output id="cv-ta-out"></output></span><input type="range" id="cv-ta" min="5" max="40" step="1" value="25"></label>
+          <label class="ctrl"><span>표면 한계 <output id="cv-ts-out"></output></span><input type="range" id="cv-ts" min="38" max="48" step="0.5" value="43"></label>
+          <label class="ctrl"><span>온도 균일도 η <output id="cv-eta-out"></output></span><input type="range" id="cv-eta" min="0.4" max="1" step="0.01" value="0.75"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">대류</span><span class="v" id="cv-o-c">—</span></div>
+        <div class="stat"><span class="k">복사</span><span class="v" id="cv-o-r">—</span></div>
+        <div class="stat"><span class="k">지속 가능 전력 Q_max</span><span class="v" id="cv-o-q">—</span></div>
+        <div class="stat"><span class="k">복사 등가 h_rad</span><span class="v" id="cv-o-hr">—</span></div>
+      </div>
+      <div class="sim-note">h ≈ 2~3: 이불 속·주머니(공기 정체), 5~10: 책상 위 자연 대류, 15~25: 선풍기 바람 또는 클립형 냉각팬. 방사율 0.05~0.1은 광택 금속 표면. 해볼 것: 주변 온도를 35 °C로 올리면 Q_max가 거의 절반이 된다. 여름 야외 게임이 버거운 이유다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 9 -->
+  <section id="throttle">
+    <h2>열 스로틀링: 열용량이 사 주는 시간</h2>
+    <p>정상 상태 계산은 "결국 몇 W까지인가"를 알려 주지만, 사용자가 겪는 것은 <b>시간</b>이다. 폰의 각 부분에는 열용량 \(C\)[J/K]가 있고, 열저항과 곱해 시상수 \(\tau = RC\)를 만든다. 칩 주변(다이·패키지·TIM)은 열용량이 작아 수 초 만에 데워지고, 폰 몸체(배터리·프레임·유리, 약 170 J/K)는 수 분~십수 분에 걸쳐 데워진다.</p>
+    <div class="formula">$$C_j \frac{dT_j}{dt} = P - \frac{T_j - T_b}{R_{jb}},\qquad C_b \frac{dT_b}{dt} = \frac{T_j - T_b}{R_{jb}} + P_{\text{chg}} - \frac{T_b - T_a}{R_{ba}}$$
+      <div class="where">두 시상수가 두 종류의 스로틀링을 만든다. ① 접합 온도 한계(~95~105 °C)에 걸리는 <b>빠른 스로틀링</b>(초 단위, 벤치마크 첫 몇십 초), ② 표면 온도 한계(~43 °C)에 걸리는 <b>느린 스로틀링</b>(10~20분, 긴 게임). 운영체제의 열 관리자는 여러 온도 센서(서미스터)로 표면 온도를 추정해 CPU·GPU 클럭 상한, 화면 밝기, 충전 전류를 단계적으로 내린다.</div>
+    </div>
+
+    <div class="sim" id="sim-thr">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>30분 열 응답과 스로틀링</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-thr"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>시나리오</span><div class="seg" id="tr-sc"><button data-value="game" class="on">게임</button><button data-value="chg">게임+충전</button><button data-value="rec">4K 녹화</button><button data-value="bench">벤치마크</button></div></div>
+          <label class="ctrl"><span>요구 전력(AP 등) <output id="tr-p-out"></output></span><input type="range" id="tr-p" min="1" max="12" step="0.1" value="6"></label>
+          <label class="ctrl"><span>주변 온도 <output id="tr-ta-out"></output></span><input type="range" id="tr-ta" min="10" max="40" step="1" value="25"></label>
+          <label class="ctrl"><span>폰 열용량 <output id="tr-c-out"></output></span><input type="range" id="tr-c" min="100" max="260" step="5" value="170"></label>
+          <label class="check"><input type="checkbox" id="tr-case"> 케이스 씌움</label>
+          <label class="check"><input type="checkbox" id="tr-off"> 스로틀링 끄기(위험)</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">표면 한계 도달</span><span class="v" id="tr-o-t0">—</span></div>
+        <div class="stat"><span class="k">30분 후 전력</span><span class="v" id="tr-o-p">—</span></div>
+        <div class="stat"><span class="k">지속 성능(초기 대비)</span><span class="v" id="tr-o-perf">—</span></div>
+        <div class="stat"><span class="k">최고 Tj / 표면</span><span class="v" id="tr-o-max">—</span></div>
+      </div>
+      <div class="sim-note">3노드 모델: 칩(C ≈ 3 J/K) – 내부(VC·보드, ~25 J/K) – 몸체(조절 가능). 표면 핫스팟 = 몸체 + 0.35 × (내부 − 몸체). 성능은 전력의 약 0.4제곱에 비례한다고 근사(DVFS: \(P \propto fV^2\), \(V\)도 \(f\)와 함께 내려감). '게임+충전'에서는 배터리 온도가 오르면 충전 전류를 먼저 줄인다(아래 그래프의 주황 점선). 해볼 것: 케이스를 씌우고 30분 후 전력과 성능을 비교해 보자.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 10 -->
+  <section id="charging-case">
+    <h2>충전하며 게임하기, 그리고 케이스</h2>
+    <p><b>충전 + 게임</b>은 폰에게 최악의 열 시나리오다. 열원이 둘로 늘어나는데 출구는 그대로다. 유선 고속 충전에서 충전 IC(차지 펌프 등)의 변환 손실은 효율 95~98%라도 수십 W를 다루니 1 W 안팎이 되고, 배터리 내부 저항의 \(I^2R\)이 더해진다. 무선 충전은 코일 결합 손실 때문에 더 뜨겁다. 게다가 리튬이온 배터리는 뜨거울 때 빠르게 충전하면 열화가 가속되므로(<a href="battery.html">5장</a>), 대부분의 폰은 배터리가 대략 40 °C를 넘으면 충전 전류를 줄이고 45 °C 근처에서는 충전을 멈춘다. 그래서 게임하며 충전하면 "충전이 안 된다"는 느낌을 받는다. 일부 폰이 충전기 전력을 배터리를 거치지 않고 시스템에 바로 공급하는 <b>바이패스 충전</b>을 두는 이유다.</p>
+    <p><b>케이스</b>는 표면과 공기 사이에 단열층을 끼운다. 두께 1 mm, 열전도도 0.2 W/m·K인 TPU 케이스가 뒷면·옆면 약 140 cm²를 덮으면 그 열저항은 \(R = L/kA\) ≈ 0.001 / (0.2 × 0.014) ≈ 0.36 K/W다. 이 값보다 더 무서운 것이 케이스와 폰 사이의 <b>공기층</b>이다. 공기의 k는 0.026 W/m·K로 TPU의 1/8이라, 0.2 mm 틈만 있어도 저항이 두 배가 넘는다. 폰은 케이스 유무를 모르는 채 내부 센서로 표면 온도를 추정하므로, 케이스를 씌우면 내부가 더 뜨거워져 더 일찍, 더 깊게 스로틀링한다. 다만 얇고 밀착된 케이스라면 표면→공기 저항(뒷면 기준 ~6 K/W)에 비해 케이스 저항이 작아 지속 전력 손실은 수 % 수준이고, 두껍거나 틈이 큰 케이스에서 10~20%까지 커진다. 오히려 사용자가 느끼는 케이스 표면은 폰 표면보다 미지근해, 폰 내부가 얼마나 뜨거운지 알아채기 어렵다는 점이 함정이다.</p>
+
+    <div class="sim" id="sim-case">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>케이스 재질·두께·공기층 → 지속 전력</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-case"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>재질</span><div class="seg" id="cs-m"><button data-value="0.2" class="on">TPU</button><button data-value="0.25">실리콘</button><button data-value="0.17">가죽</button><button data-value="0.3">PC(하드)</button><button data-value="0.6">아라미드 복합</button></div></div>
+          <label class="ctrl"><span>두께 <output id="cs-t-out"></output></span><input type="range" id="cs-t" min="0.3" max="3" step="0.05" value="1"></label>
+          <label class="ctrl"><span>공기층 <output id="cs-g-out"></output></span><input type="range" id="cs-g" min="0" max="0.5" step="0.01" value="0.1"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">케이스 열저항(뒷면)</span><span class="v" id="cs-o-r">—</span></div>
+        <div class="stat"><span class="k">케이스 없음 Q_max</span><span class="v" id="cs-o-q0">—</span></div>
+        <div class="stat"><span class="k">케이스 있음 Q_max</span><span class="v" id="cs-o-q1">—</span></div>
+        <div class="stat"><span class="k">케이스 바깥 온도</span><span class="v" id="cs-o-ts">—</span></div>
+      </div>
+      <div class="sim-note">모델: 앞면(화면, 105 cm²)은 열린 채, 뒷면+옆면(140 cm²)에 케이스. 각 면 h = 12 W/m²K(대류+복사), 주변 25 °C, 폰 표면 한계 43 °C, 균일도 0.75. 재질 열전도도(W/m·K)는 대표값. 해볼 것: 두께보다 공기층이 더 큰 영향을 주는지 확인하자.</div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>시나리오</th><th>열원</th><th>먼저 줄이는 것</th></tr></thead>
+      <tbody>
+        <tr><td>게임(실내)</td><td>AP 4~6 W + 디스플레이</td><td>GPU/CPU 클럭 → 프레임률</td></tr>
+        <tr><td>게임 + 유선 충전</td><td>위 + 충전 1~3 W</td><td>충전 전류(배터리 온도) → 클럭</td></tr>
+        <tr><td>무선 충전(침대 위)</td><td>코일 손실 2~4 W</td><td>충전 전력. 이불이 h를 낮춰 특히 위험</td></tr>
+        <tr><td>4K/8K 장시간 녹화</td><td>ISP·센서·인코더</td><td>녹화 중단 경고, 해상도·프레임률</td></tr>
+        <tr><td>한여름 차량 거치 내비</td><td>AP + 모뎀 + 고휘도 + 직사광</td><td>화면 밝기 → 충전 정지 → 기능 제한</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============================================================ 11 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <h3>1. 열원을 흩어 놓고, 손에서 멀리</h3>
+    <p>AP·PA·충전 IC가 한곳에 모이면 핫스팟이 겹친다. 2D 시뮬레이터에서 셋을 모았을 때를 떠올리자. 그래서 충전 IC는 하단 서브보드나 배터리 반대편에, PA는 안테나 근처의 다른 모서리에 둔다. AP는 대개 폰 위쪽 1/3, 카메라 근처에 놓인다. 세로로 쥘 때 손바닥은 아래쪽 절반을 감싸고, 가로로 게임할 때는 양 끝을 쥔다. AP가 위쪽 가운데에 있으면 어느 자세에서도 손가락이 가장 뜨거운 곳을 피한다. 반대로 위쪽에는 카메라가 있어서, 카메라 센서가 AP 열을 함께 받는다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 720 230" role="img" aria-label="파지 자세와 AP 위치">
+        <rect x="40" y="40" width="80" height="164" rx="12" class="f-surface"/>
+        <rect x="58" y="62" width="44" height="34" rx="5" class="th-hot"/><text x="80" y="84" class="t-mono" text-anchor="middle" style="fill:#fff">AP</text>
+        <circle cx="56" cy="54" r="6" fill="var(--text-dim)" opacity=".6"/>
+        <path d="M30 130 Q20 190 60 214 L120 214 Q138 180 130 130" fill="var(--warn)" fill-opacity=".22" stroke="var(--warn)" stroke-dasharray="4 3"/>
+        <text x="80" y="226" class="t-mono" text-anchor="middle">세로: 손바닥이 아래 절반</text>
+        <rect x="240" y="78" width="200" height="98" rx="12" class="f-surface"/>
+        <rect x="262" y="104" width="40" height="46" rx="5" class="th-hot"/><text x="282" y="131" class="t-mono" text-anchor="middle" style="fill:#fff">AP</text>
+        <path d="M228 80 H276 V176 H228 Z" fill="var(--warn)" fill-opacity=".22" stroke="var(--warn)" stroke-dasharray="4 3"/>
+        <path d="M404 80 H452 V176 H404 Z" fill="var(--warn)" fill-opacity=".22" stroke="var(--warn)" stroke-dasharray="4 3"/>
+        <text x="340" y="206" class="t-mono" text-anchor="middle">가로 게임: 양 끝을 쥠 → AP가 손가락 아래로!</text>
+        <text x="500" y="70" class="t">AP 위치 선택의 딜레마</text>
+        <text x="500" y="98" class="t-dim">· 위쪽 가운데: 세로 파지에 유리</text>
+        <text x="500" y="122" class="t-dim">· 하지만 카메라 바로 옆 → 센서 가열</text>
+        <text x="500" y="146" class="t-dim">· 가로 파지 땐 왼손 쪽 끝에 가까움</text>
+        <text x="500" y="170" class="t-dim">· 해법: 넓은 VC로 손 쪽 온도 평준화</text>
+      </svg>
+      <figcaption><b>그림 11-4.</b> 손 파지 영역(주황 점선)과 AP 위치. 한 위치가 모든 자세에서 최선일 수는 없다. 2D 시뮬레이터의 '손 파지 영역'으로 직접 확인해 보자.</figcaption>
+    </figure>
+    <h3>2. VC 면적과 두께: 공간과의 거래</h3>
+    <p>VC 면적이 넓을수록 균일도 η가 올라가 지속 전력이 늘지만, 그만큼 무게와 원가가 늘고 배터리·카메라와 겹친다. 두께는 0.3~0.5 mm 남짓인데, 얇게 하면 증기 공간이 좁아져 유효 열전도도가 떨어진다. 화면 뒤에 VC를 붙이면 디스플레이에 열이 많이 가서 화면 쪽 표면이 먼저 한계에 닿는다. 프레임 재질도 중요하다. 티타늄 프레임은 열전도도(~7~20 W/m·K)가 알루미늄(~150~200)보다 훨씬 낮아, 같은 디자인이면 측면으로의 확산이 줄어든다(<a href="mechanical.html">12장</a>).</p>
+    <h3>3. 카메라 센서는 열에 민감하다</h3>
+    <p>이미지 센서의 <span class="term">암전류</span>(빛이 없어도 생기는 전자)는 대략 6~8 °C마다 두 배로 는다. 4K 녹화나 긴 노출의 야간 모드에서 센서가 뜨거우면 어두운 부분 잡음과 핫 픽셀이 늘어난다. 자세한 원리는 <a href="https://sensorbook.euiyun.com/chapters/noise.html">SensorBook 노이즈 장</a>을 참고하자.</p>
+
+    <div class="sim" id="sim-dark">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>센서 온도 → 암전류와 핫 픽셀</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-dark"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>센서 온도 <output id="dk-t-out"></output></span><input type="range" id="dk-t" min="25" max="80" step="1" value="45"></label>
+          <label class="ctrl"><span>노출 시간 <output id="dk-e-out"></output></span><input type="range" id="dk-e" min="0" max="1" step="0.01" value="0.4"></label>
+          <label class="ctrl"><span>두 배 온도 <output id="dk-d-out"></output></span><input type="range" id="dk-d" min="5" max="9" step="0.1" value="6.5"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">암전류</span><span class="v" id="dk-o-dc">—</span></div>
+        <div class="stat"><span class="k">암전류 산탄 잡음</span><span class="v" id="dk-o-n">—</span></div>
+        <div class="stat"><span class="k">읽기 잡음 대비</span><span class="v" id="dk-o-r">—</span></div>
+      </div>
+      <div class="sim-note">가정: 60 °C에서 암전류 8 e⁻/s/픽셀, 읽기 잡음 1.5 e⁻(대표적인 소형 픽셀 수준). 오른쪽은 이 조건으로 만든 가상의 '암흑 프레임'(대비 강조). 해볼 것: 노출 1 s 야간 모드에서 센서가 40 °C일 때와 70 °C일 때를 비교하자.</div>
+    </div>
+
+    <h3>4. 배터리 온도 한계</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>구간</th><th>대표 범위</th><th>폰의 대응</th></tr></thead>
+      <tbody>
+        <tr><td>충전 허용</td><td>~0(또는 10) ~ 45 °C</td><td>15 °C 아래·40 °C 위에서는 전류 축소, 범위 밖이면 충전 정지</td></tr>
+        <tr><td>방전 허용</td><td>~−20 ~ 60 °C</td><td>저온에서 내부 저항 ↑ → 전압 강하로 꺼짐 방지 위해 성능 제한</td></tr>
+        <tr><td>장기 열화</td><td>35 °C 이상 장시간 + 높은 SOC</td><td>최적화 충전(80%에서 대기), 고온 경고</td></tr>
+      </tbody>
+    </table></div>
+    <h3>5. 다른 부품과의 상호작용</h3>
+    <ul>
+      <li><b>두께·무게</b>: VC 0.4 mm, 그래파이트 여러 장, TIM 공간은 모두 두께 예산에서 나온다. 반대로 두꺼운 폰은 열용량과 표면적이 커서 유리하다.</li>
+      <li><b>안테나</b>: 금속 VC와 그래파이트(전도성)는 안테나 근처에 두면 효율을 깎는다. 확산재의 모양이 안테나 클리어런스에 맞춰 잘린다(<a href="rf.html">7장</a>).</li>
+      <li><b>디스플레이</b>: OLED는 뜨거우면 수명(번인)이 짧아지고 색이 변한다. VC 열이 화면으로 많이 갈수록 손해다.</li>
+      <li><b>신뢰성</b>: TIM의 펌프 아웃(열 사이클로 젤이 밀려남), VC의 미세 누설로 인한 성능 저하, 그래파이트 들뜸은 장기 불량 원인이다.</li>
+    </ul>
+    <div class="callout warn"><strong>흔한 실패 사례</strong>
+      <ul style="margin:6px 0 0">
+        <li>벤치마크 첫 1분 점수만 보고 설계 → 실사용 20분 뒤 성능이 절반으로.</li>
+        <li>AP와 충전 IC가 가까워 충전 중 핫스팟이 겹침 → 충전 속도 저하 민원.</li>
+        <li>TIM 두께 공차 관리 실패 → 개체마다 Tj가 10 °C 이상 차이.</li>
+        <li>케이스 사용을 고려하지 않은 열 검증 → 실제 사용자 환경에서 잦은 스로틀링.</li>
+        <li>카메라 모듈이 AP 열을 받아 장시간 녹화 중 화질 저하·녹화 중단.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>주요 열원은 AP(지속 3~5 W, 순간 8~12 W), 모뎀·PA, 충전 IC·배터리, 디스플레이, 카메라·ISP다. 열은 결국 폰 표면에서 공기로 나간다.</li>
+      <li>장시간 접촉 표면 한계(~43 °C 수준)와 저온 화상 때문에 표면 온도 상승이 ~20 °C로 묶이고, 이것이 지속 전력 3~5 W를 정한다.</li>
+      <li>열저항 네트워크(\(\Delta T = QR\))로 접합·표면 온도를 계산한다. TIM은 Tj를, 표면 대류는 모든 온도를 좌우한다.</li>
+      <li>표면 한계는 최고점에 걸리므로 핫스팟을 없애는 확산(\(kt\))이 핵심이다. VC ≫ 그래파이트 ≈ 구리판 > 알루미늄판 순.</li>
+      <li>VC는 증발–응축–모세관 귀환으로 열을 나르며, 모세관 한계를 넘으면 드라이아웃된다.</li>
+      <li>그래파이트는 면내 ~1,500, 두께 방향 ~5 W/m·K의 이방성 재료로, 얇은 시트로 열을 옆으로 퍼뜨린다.</li>
+      <li>\(Q_{\max} = \eta A[h\Delta T + \varepsilon\sigma(T_s^4-T_a^4)]\). 대류와 복사가 비슷한 몫을 맡는다.</li>
+      <li>열용량은 시간을 산다. 빠른(Tj) 스로틀링과 느린(표면) 스로틀링이 있고, 충전·케이스·더운 날씨는 모두 지속 성능을 깎는다.</li>
+      <li>설계: 열원 분산, AP는 손에서 먼 곳, VC 면적·두께와 공간의 거래, 카메라 센서·배터리·디스플레이의 온도 민감도를 함께 본다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>Q1. 스마트폰의 지속 전력이 대략 3~5 W로 제한되는 가장 근본적인 이유는?</p><div class="opts">
+        <button class="opt">AP의 최대 클럭이 제한되어 있어서</button><button class="opt">배터리가 그 이상 전류를 낼 수 없어서</button><button class="opt" data-correct>표면 온도 한계(~43 °C)와 고정된 표면적·열전달 계수가 버릴 수 있는 열을 묶기 때문</button><button class="opt">베이퍼 챔버의 최대 열 수송량이 3~5 W라서</button>
+      </div><div class="quiz-exp">\(Q = \eta A[h\Delta T + \text{복사}]\)에서 ΔT ≈ 18 °C, A ≈ 245 cm², h_eff ≈ 12 W/m²K이면 4 W 안팎이다. 칩과 배터리는 순간적으로 훨씬 더 낼 수 있다.</div></div>
+
+      <div class="quiz-q"><p>Q2. 열저항 회로에서 TIM의 열저항만 크게 나빠졌다. 정상 상태에서 가장 크게 변하는 것은?</p><div class="opts">
+        <button class="opt" data-correct>AP 접합 온도(Tj)</button><button class="opt">후면 표면 온도</button><button class="opt">폰이 버리는 총 열량</button><button class="opt">주변 공기 온도</button>
+      </div><div class="quiz-exp">같은 전력이 TIM을 지나므로 ΔT = Q·R_TIM만큼 Tj만 오른다. 표면에서 버리는 열은 같으므로 표면 온도는 거의 그대로다(경로 분배가 조금 바뀔 뿐).</div></div>
+
+      <div class="quiz-q"><p>Q3. 두께 0.1 mm 그래파이트(면내 1,500 W/m·K)와 두께 0.3 mm 구리(390 W/m·K) 중 면내 열 확산 능력(kt)이 큰 것은?</p><div class="opts">
+        <button class="opt" data-correct>그래파이트 (0.15 W/K vs 0.117 W/K)</button><button class="opt">구리 (두께가 3배라서)</button><button class="opt">같다</button><button class="opt">비교할 수 없다(이방성 때문에)</button>
+      </div><div class="quiz-exp">kt = 1,500 × 1e-4 = 0.15 W/K, 구리 390 × 3e-4 = 0.117 W/K. 그래파이트는 무게도 훨씬 가볍다.</div></div>
+
+      <div class="quiz-q"><p>Q4. 베이퍼 챔버에서 '드라이아웃'이 일어나는 조건은?</p><div class="opts">
+        <button class="opt">내부 물이 모두 얼었을 때</button><button class="opt" data-correct>필요한 액체 귀환량이 윅의 모세관 압력으로 끌어올 수 있는 양을 넘을 때</button><button class="opt">증기 온도가 100 °C에 못 미칠 때</button><button class="opt">구리판 두께가 0.5 mm를 넘을 때</button>
+      </div><div class="quiz-exp">모세관 압력 2σ/r이 액체·증기 흐름 손실과 중력의 합보다 작아지면 증발부로 물이 돌아오지 못해 마른다. 그 순간 VC는 얇은 구리판으로 전락한다.</div></div>
+
+      <div class="quiz-q"><p>Q5. 25 °C 실내에서 지속 가능하던 게임이 35 °C 야외에서는 크게 스로틀링되는 이유로 가장 알맞은 것은?</p><div class="opts">
+        <button class="opt">AP 누설 전류가 10배 늘어서</button><button class="opt" data-correct>표면 한계는 그대로인데 ΔT = T_s − T_a가 약 18 °C에서 8 °C로 줄어 방열량이 절반 이하로 줄기 때문</button><button class="opt">공기의 열전도도가 높아져서</button><button class="opt">디스플레이 전력이 줄어서</button>
+      </div><div class="quiz-exp">대류·복사 모두 대략 ΔT에 비례한다. 43 − 35 = 8 °C이면 방열 능력이 실내의 절반 이하가 된다.</div></div>
+
+      <div class="quiz-q"><p>Q6. 벤치마크를 돌리면 처음 수십 초는 최고 성능이 나오다가 곧 한 번 떨어지고, 15분쯤 뒤 또 떨어졌다. 두 단계의 원인을 바르게 짝지은 것은?</p><div class="opts">
+        <button class="opt">처음: 배터리 전압 강하 / 나중: 메모리 부족</button><button class="opt" data-correct>처음: 작은 열용량의 칩이 접합 온도 한계에 도달 / 나중: 큰 열용량의 몸체가 표면 온도 한계에 도달</button><button class="opt">처음: 표면 온도 한계 / 나중: 접합 온도 한계</button><button class="opt">둘 다 디스플레이 밝기 자동 조절 때문</button>
+      </div><div class="quiz-exp">칩 주변의 시상수는 초 단위, 몸체는 10분 단위다. 빠른 스로틀링은 Tj, 느린 스로틀링은 표면 온도가 원인이다.</div></div>
+
+      <div class="quiz-q"><p>Q7. 케이스 성능을 가장 크게 떨어뜨리는 요소로 알맞은 것은?</p><div class="opts">
+        <button class="opt">케이스 색상</button><button class="opt" data-correct>폰과 케이스 사이의 공기층(공기 k ≈ 0.026 W/m·K)</button><button class="opt">케이스의 방사율이 높은 것</button><button class="opt">카메라 구멍</button>
+      </div><div class="quiz-exp">공기는 TPU보다 열전도도가 약 8배 낮아, 0.1~0.2 mm 틈만으로도 케이스 재질 1 mm보다 큰 열저항이 된다.</div></div>
+
+      <div class="quiz-q"><p>Q8. 장시간 4K 녹화 중 영상의 어두운 부분 잡음이 점점 늘었다. 열과 관련한 가장 그럴듯한 원인은?</p><div class="opts">
+        <button class="opt">렌즈가 열팽창해 초점이 나가서</button><button class="opt">ISP 클럭이 올라가서</button><button class="opt" data-correct>센서 온도가 올라 암전류가 6~8 °C마다 두 배로 늘었기 때문</button><button class="opt">배터리 전압이 올라가서</button>
+      </div><div class="quiz-exp">암전류는 온도에 지수적으로 늘어 어두운 영역의 산탄 잡음과 핫 픽셀을 키운다. AP와 카메라가 가까울수록 심하다.</div></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const TAU = Math.PI * 2, SIG = 5.67e-8;
+  const font = () => getComputedStyle(document.body).getPropertyValue("--font");
+  const fmtT = (t) => t.toFixed(1) + "<small>°C</small>";
+  // 열 컬러맵 (25 → 60 °C): 남색 → 청록 → 노랑 → 주황 → 빨강 → 흰
+  const STOPS = [[0, [30, 40, 110]], [0.2, [30, 110, 190]], [0.4, [40, 180, 170]], [0.58, [230, 220, 70]], [0.75, [245, 140, 40]], [0.9, [215, 45, 40]], [1, [255, 235, 235]]];
+  function cmap(u) {
+    u = PB.clamp(u, 0, 1);
+    for (let i = 1; i < STOPS.length; i++) {
+      if (u <= STOPS[i][0]) {
+        const [a, ca] = STOPS[i - 1], [b, cb] = STOPS[i], t = (u - a) / (b - a);
+        return [ca[0] + (cb[0] - ca[0]) * t, ca[1] + (cb[1] - ca[1]) * t, ca[2] + (cb[2] - ca[2]) * t];
+      }
+    }
+    return STOPS[STOPS.length - 1][1];
+  }
+  const rgb = (c) => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+  // 공통 방열 모델
+  function qmax(o) {
+    const Ta = o.Ta + 273.15, Ts = o.Ts + 273.15;
+    const conv = o.A * o.h * (o.Ts - o.Ta), rad = o.A * o.eps * SIG * (Ts ** 4 - Ta ** 4);
+    return { conv, rad, tot: o.eta * (conv + rad) };
+  }
+
+  /* ---------------- 3D ---------------- */
+  (function () {
+    const el = $("v3d-th");
+    if (!el || !PB.phone3d) return;
+    const T = PB.three(el, { camera: [150, 170, 150], target: [0, 0, -10], fov: 35, minDistance: 80, maxDistance: 420 });
+    if (!T) return;
+    const P = PB.phone3d(T);
+    const card = $("th-card");
+    const showCard = (part) => { card.innerHTML = PB.partCardHTML(part, ""); card.hidden = false; card.querySelector(".x").onclick = () => (card.hidden = true); };
+    P.highlight("vc"); P.setExplode(0.7);
+    PB.range("th-ex", (v) => Math.round(v * 100) + "%", (v) => P.setExplode(v));
+    const seg = PB.seg("th-part", (v) => {
+      P.highlight(v); showCard(P.byId[v]);
+      const c = P.center(v);
+      PB.flyTo(T, [c.x + 140, c.y + 160, c.z + 130], [c.x, c.y, c.z], 1.0);
+    });
+    $("th-xray").addEventListener("change", (e) => P.setXray(e.target.checked));
+    $("th-lbl").addEventListener("change", (e) => P.setLabels(e.target.checked));
+    T.pick([P.group], (hit) => {
+      if (!hit) { card.hidden = true; return; }
+      const part = P.partAt(hit.object); if (!part) return;
+      P.highlight(part.id);
+      if (part.id === "vc" || part.id === "boardBottom") seg.set(part.id, false);
+      showCard(part);
+    });
+  })();
+
+  /* ---------------- 열 예산 ---------------- */
+  (function () {
+    const NAMES = ["AP", "모뎀·PA", "충전", "디스플레이", "카메라", "기타"];
+    const SC = {
+      video: ["동영상", [0.6, 0.3, 0, 0.8, 0, 0.3]], game: ["게임", [4.0, 0.4, 0, 1.2, 0, 0.4]],
+      ul: ["5G 업로드", [0.8, 2.5, 0, 0.4, 0, 0.3]], rec: ["4K 녹화", [2.4, 0.3, 0, 1.0, 1.2, 0.3]],
+      chg: ["충전+게임", [4.0, 0.4, 2.0, 1.2, 0, 0.4]], wl: ["무선 충전", [0.3, 0.1, 3.0, 0, 0, 0.2]],
+    };
+    const gS = PB.seg("bg-sc", () => cv.redraw());
+    const gT = PB.range("bg-ta", (v) => v + " °C", () => cv.redraw());
+    const cv = PB.canvas($("cv-budget"), (ctx, w, h) => {
+      const P = PB.palette(), Ta = gT(), cur = gS();
+      const lim = Ta >= 43 ? 0 : qmax({ A: 0.0245, h: 7, eps: 0.9, Ta, Ts: 43, eta: 0.75 }).tot;
+      const cols = [P.bad, P.warn, P.accent2, P.accent, P.ok, P.dim];
+      const keys = Object.keys(SC), lx = 78, rx = w - 16, top = 40, rowH = (h - top - 30) / keys.length;
+      const xmax = 9, X = (v) => lx + (v / xmax) * (rx - lx);
+      ctx.font = "11px " + font(); ctx.textBaseline = "middle";
+      // grid
+      ctx.strokeStyle = P.grid; ctx.fillStyle = P.dim; ctx.textAlign = "center";
+      for (let v = 0; v <= xmax; v++) { ctx.beginPath(); ctx.moveTo(X(v), top - 6); ctx.lineTo(X(v), h - 28); ctx.stroke(); ctx.fillText(v + " W", X(v), h - 16); }
+      keys.forEach((k, i) => {
+        const y = top + i * rowH + rowH * 0.18, bh = rowH * 0.64, on = k === cur;
+        ctx.globalAlpha = on ? 1 : 0.38;
+        let x = 0;
+        SC[k][1].forEach((v, j) => { if (!v) return; ctx.fillStyle = cols[j]; ctx.fillRect(X(x), y, X(x + v) - X(x) - 1, bh); x += v; });
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = on ? P.text : P.dim; ctx.textAlign = "right"; ctx.font = (on ? "bold " : "") + "12px " + font();
+        ctx.fillText(SC[k][0], lx - 8, y + bh / 2);
+        ctx.textAlign = "left"; ctx.font = "11px " + font();
+        ctx.fillText(x.toFixed(1), X(x) + 5, y + bh / 2);
+      });
+      // limit
+      ctx.strokeStyle = P.bad; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+      ctx.beginPath(); ctx.moveTo(X(lim), top - 10); ctx.lineTo(X(lim), h - 28); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = P.bad; ctx.textAlign = lim > xmax * 0.7 ? "right" : "left";
+      ctx.fillText("지속 한계 " + lim.toFixed(1) + " W", X(lim) + (lim > xmax * 0.7 ? -6 : 6), top - 14);
+      // legend
+      let lxp = lx; ctx.textAlign = "left";
+      NAMES.forEach((n, j) => { ctx.fillStyle = cols[j]; ctx.fillRect(lxp, 8, 10, 10); ctx.fillStyle = P.dim; ctx.fillText(n, lxp + 13, 13); lxp += ctx.measureText(n).width + 26; });
+      const tot = SC[cur][1].reduce((a, b) => a + b, 0);
+      PB.stat("bg-o-tot", tot.toFixed(1) + "<small>W</small>");
+      PB.stat("bg-o-lim", lim.toFixed(1) + "<small>W</small>");
+      PB.stat("bg-o-v", tot <= lim ? '<span style="color:var(--ok)">지속 가능</span>' : '<span style="color:var(--bad)">' + Math.round((1 - lim / tot) * 100) + "% 줄여야</span>");
+    }, { aspect: 0.55, minHeight: 280, maxHeight: 380 });
+  })();
+
+  /* ---------------- 화상 곡선 ---------------- */
+  (function () {
+    const gT = PB.range("bn-t", (v) => v.toFixed(1) + " °C", () => cv.redraw());
+    const gM = PB.seg("bn-m", () => cv.redraw());
+    const tBurn = (T) => { const m = T <= 51 ? 360 * Math.pow(2, -(T - 44)) : 360 / 128 * Math.pow(0.68, T - 51); return m * 60; }; // s
+    const EFF = { glass: 1400, metal: 22000, plastic: 450 }, ESK = 1100, TSK = 33;
+    const fmtTime = (s) => s >= 3600 ? (s / 3600).toFixed(1) + "<small>시간</small>" : s >= 60 ? (s / 60).toFixed(1) + "<small>분</small>" : s.toFixed(0) + "<small>초</small>";
+    const cv = PB.canvas($("cv-burn"), (ctx) => {
+      const P = PB.palette(), T = gT();
+      const d = []; for (let x = 40; x <= 62; x += 0.1) d.push([x, tBurn(x)]);
+      const e = EFF[gM()], Tc = (e * T + ESK * TSK) / (e + ESK);
+      PB.chart(ctx, null, {
+        x: [40, 62], y: [1, 1e5], logY: true, xLabel: "접촉 표면 온도 (°C)", yLabel: "손상까지 시간",
+        yFmt: (v) => ({ 1: "1 s", 10: "10 s", 100: "100 s", 1000: "17 min", 10000: "2.8 h", 100000: "28 h" })[v] || "",
+        bands: [{ x0: 40, x1: 43, color: PB.isDark() ? "rgba(80,200,120,0.10)" : "rgba(40,160,80,0.08)" }],
+        series: [{ data: d, color: P.warn, width: 2.6 }],
+        hlines: [{ y: 60, color: P.faint, label: "1분" }, { y: 3600, color: P.faint, label: "1시간" }, { y: 28800, color: P.faint, label: "8시간" }],
+        vlines: [{ x: 43, color: P.ok, label: "43 °C" }],
+        points: [{ x: T, y: tBurn(T), color: P.bad, r: 6 }],
+      });
+      PB.stat("bn-o-t", fmtTime(tBurn(T)));
+      PB.stat("bn-o-c", fmtT(Tc));
+    }, { aspect: 0.5, minHeight: 260, maxHeight: 360 });
+  })();
+
+  /* ---------------- 열저항 네트워크 ---------------- */
+  (function () {
+    const NS = "http://www.w3.org/2000/svg";
+    const DEF = { pkg: 1.2, tim: 0.6, vc: 0.3, pcb: 6, disp: 2.0, back: 3.0, cf: 7.9, cb: 5.9 };
+    const R = Object.assign({}, DEF);
+    const INFO = {
+      pkg: ["패키지(PoP)", 125, 150, 0, "다이 → 패키지 윗면. 위에 메모리가 얹힌 PoP 구조라 열이 메모리를 지나야 한다. ~0.5–2 K/W."],
+      tim: ["TIM", 270, 150, 0, "열 젤·패드(TIM) + 차폐 캔. 얇고 고르게 바를수록 낮다. 두께 공차가 개체 편차를 만든다. ~0.3–1.5 K/W."],
+      vc: ["VC 확산", 410, 150, 0, "VC가 열을 넓게 퍼뜨릴 때의 확산 저항. VC가 없으면 수 K/W로 커진다."],
+      pcb: ["보드 경로", 265, 280, 0, "AP 솔더볼 → 다층 PCB → 프레임으로 가는 병렬 경로. 구리층이 많을수록 낮다. ~4–10 K/W."],
+      disp: ["화면 적층", 525, 115, -45, "프레임/VC → OLED 패널 → 커버 글라스. 폼·접착층이 저항의 대부분."],
+      back: ["후면 경로", 525, 185, 45, "프레임 → 배터리·그래파이트 → 후면 유리. 공기 틈이 있으면 급증."],
+      cf: ["화면→공기", 640, 80, 0, "1/(hA), 앞면 105 cm², h ≈ 12 W/m²K(대류+복사) → ~7.9 K/W."],
+      cb: ["후면→공기", 640, 220, 0, "1/(hA), 뒷면+옆면 140 cm² → ~5.9 K/W. 케이스를 씌우면 커진다."],
+    };
+    let sel = "tim";
+    const gR = PB.range("net-r", (v) => fromV(v).toFixed(2) + " K/W", (v) => { R[sel] = fromV(v); calc(); });
+    const gP = PB.range("net-p", (v) => v.toFixed(1) + " W", calc);
+    const gTa = PB.range("net-ta", (v) => v + " °C", calc);
+    function fromV(v) { return 0.05 * Math.pow(400, v); }
+    function toV(r) { return Math.log(r / 0.05) / Math.log(400); }
+    const g = $("net-rs"), gn = $("net-nodes");
+    const zig = "M-28 0 H-18 l3 -7 l6 14 l6 -14 l6 14 l6 -14 l6 14 l3 -7 H28";
+    Object.keys(INFO).forEach((k) => {
+      const [name, x, y, rot] = INFO[k];
+      const el = document.createElementNS(NS, "g");
+      el.setAttribute("class", "th-r" + (k === sel ? " on" : ""));
+      el.setAttribute("transform", `translate(${x} ${y})`);
+      el.innerHTML = `<g transform="rotate(${rot})"><rect x="-30" y="-12" width="60" height="24"/><path d="${zig}"/></g><text class="t-mono" text-anchor="${rot ? "start" : "middle"}" x="${rot ? 20 : 0}" y="${rot ? -2 : -14}">${name}</text><text class="t-mono" id="nr-${k}" text-anchor="${rot ? "start" : "middle"}" x="${rot ? 20 : 0}" y="${rot ? 12 : 26}"></text>`;
+      el.dataset.k = k;
+      el.addEventListener("click", () => select(k));
+      g.appendChild(el);
+    });
+    const NODES = { J: [50, 150, "Tj"], P: [200, 150, ""], V: [340, 150, ""], F: [480, 150, "프레임"], Sf: [570, 80, "화면"], Sb: [570, 220, "후면"] };
+    Object.keys(NODES).forEach((k) => {
+      const [x, y, lab] = NODES[k];
+      const el = document.createElementNS(NS, "g");
+      el.innerHTML = `<circle cx="${x}" cy="${y}" r="7" class="th-node" id="nd-${k}"/><text x="${x}" y="${y + (k === "Sf" ? -16 : k === "Sb" ? 26 : -14)}" text-anchor="middle" class="t" id="nt-${k}" style="font-weight:700"></text>` + (lab ? `<text x="${x}" y="${y + (k === "Sb" ? 42 : k === "Sf" ? -32 : 26)}" text-anchor="middle" class="t-mono">${lab}</text>` : "");
+      gn.appendChild(el);
+    });
+    function select(k) {
+      sel = k;
+      g.querySelectorAll(".th-r").forEach((e) => e.classList.toggle("on", e.dataset.k === k));
+      $("net-sel-lbl").firstChild.textContent = INFO[k][0] + " ";
+      $("net-desc").textContent = INFO[k][4];
+      gR.el.value = toV(R[k]); gR.el.dispatchEvent(new Event("input"));
+    }
+    $("net-reset").addEventListener("click", () => { Object.assign(R, DEF); select(sel); calc(); });
+    function solve() {
+      // 미지수: J,P,V,F,Sf,Sb (기준: 주변 0)
+      const idx = { J: 0, P: 1, V: 2, F: 3, Sf: 4, Sb: 5 }, n = 6;
+      const A = Array.from({ length: n }, () => new Array(n + 1).fill(0));
+      const link = (a, b, r) => { const G = 1 / r, i = idx[a]; if (b === "A") { A[i][i] += G; return; } const j = idx[b]; A[i][i] += G; A[j][j] += G; A[i][j] -= G; A[j][i] -= G; };
+      link("J", "P", R.pkg); link("P", "V", R.tim); link("V", "F", R.vc); link("J", "F", R.pcb);
+      link("F", "Sf", R.disp); link("F", "Sb", R.back); link("Sf", "A", R.cf); link("Sb", "A", R.cb);
+      A[0][n] = gP();
+      for (let c = 0; c < n; c++) {
+        let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+        [A[c], A[p]] = [A[p], A[c]];
+        for (let r = 0; r < n; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let k = c; k <= n; k++) A[r][k] -= f * A[c][k]; }
+      }
+      const x = {}; Object.keys(idx).forEach((k) => (x[k] = A[idx[k]][n] / A[idx[k]][idx[k]]));
+      return x;
+    }
+    function calc() {
+      const x = solve(), Ta = gTa();
+      Object.keys(NODES).forEach((k) => {
+        const T = x[k] + Ta;
+        $("nt-" + k).textContent = T.toFixed(1) + "°";
+        $("nd-" + k).style.fill = rgb(cmap((T - 25) / 70));
+      });
+      Object.keys(INFO).forEach((k) => ($("nr-" + k).textContent = R[k].toFixed(2) + " K/W"));
+      const T = (k) => x[k] + Ta;
+      PB.stat("net-o-tj", fmtT(T("J")) + (T("J") > 95 ? ' <small style="color:var(--bad)">한계 초과</small>' : ""));
+      PB.stat("net-o-f", fmtT(T("Sf")));
+      PB.stat("net-o-b", fmtT(T("Sb")));
+      PB.stat("net-o-share", Math.round((x.Sf / R.cf) / gP() * 100) + "<small>%</small>");
+    }
+    select(sel);
+    calc();
+  })();
+
+  /* ---------------- 2D 열 확산 ---------------- */
+  (function () {
+    const DX = 2.5e-3, NX = 29, NZ = 59, N = NX * NZ, CA = 17000, CC = CA * DX * DX, TA = 25, BASE = 0.02, TMIN = 25, TMAX = 60, RJ = 4.5;
+    const MAT = { none: [0, "없음"], al: [200, "알루미늄"], cu: [390, "구리"], gr: [1500, "그래파이트"], vc: [3000, "VC"] };
+    const DEFT = { none: 0.4, al: 0.4, cu: 0.2, gr: 0.1, vc: 0.4 };
+    const src = [
+      { name: "AP", x: 36, z: 38, p: () => gP1() },
+      { name: "모뎀", x: 14, z: 22, p: () => gP2() },
+      { name: "충전IC", x: 52, z: 128, p: () => gP3() },
+    ];
+    let T = new Float64Array(N).fill(TA), Tn = new Float64Array(N);
+    let Gx = new Float64Array(N), Gz = new Float64Array(N), q = new Float64Array(N), L = 0, dt = 0.01, simT = 0, paused = false;
+    const gMat = PB.seg("ht-mat", (v) => { gTh.set(DEFT[v]); rebuild(); });
+    const gTh = PB.range("ht-t", (v) => v.toFixed(2) + " mm", rebuild);
+    const gLen = PB.range("ht-len", (v) => v + " mm", rebuild);
+    const gP1 = PB.range("ht-p1", (v) => v.toFixed(1) + " W", rebuildQ);
+    const gP2 = PB.range("ht-p2", (v) => v.toFixed(1) + " W", rebuildQ);
+    const gP3 = PB.range("ht-p3", (v) => v.toFixed(1) + " W", rebuildQ);
+    const gH = PB.range("ht-h", (v) => v.toFixed(1) + " W/m²K", rebuild);
+    const gSpd = PB.seg("ht-spd");
+    const gGrip = PB.seg("ht-grip", () => draw());
+    const id = (i, k) => k * NX + i;  // i: x(폭), k: z(길이)
+    const inSpread = (i, k) => { const x = (i + 0.5) * 2.5, z = (k + 0.5) * 2.5; return x > 3 && x < 69 && z > 4 && z < 4 + gLen(); };
+    function rebuild() {
+      const ktS = (MAT[gMat()][0] * gTh() * 1e-3) || 0;
+      const kt = new Float64Array(N);
+      for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) kt[id(i, k)] = BASE + (gMat() !== "none" && inSpread(i, k) ? ktS : 0);
+      let gmax = 0;
+      for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) {
+        const a = kt[id(i, k)];
+        Gx[id(i, k)] = i < NX - 1 ? (2 * a * kt[id(i + 1, k)]) / (a + kt[id(i + 1, k)]) : 0;
+        Gz[id(i, k)] = k < NZ - 1 ? (2 * a * kt[id(i, k + 1)]) / (a + kt[id(i, k + 1)]) : 0;
+        gmax = Math.max(gmax, a);
+      }
+      L = 2 * gH() * DX * DX;
+      dt = (0.9 * CC) / (4 * gmax + L);
+      rebuildQ();
+    }
+    function rebuildQ() {
+      q.fill(0);
+      src.forEach((s) => {
+        const P = s.p(); if (P <= 0) return;
+        let wsum = 0; const ws = [];
+        for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) {
+          const dx = (i + 0.5) * 2.5 - s.x, dz = (k + 0.5) * 2.5 - s.z, r2 = dx * dx + dz * dz;
+          if (r2 < 49) { const w = Math.exp(-r2 / 18); ws.push([id(i, k), w]); wsum += w; }
+        }
+        ws.forEach(([j, w]) => (q[j] += (P * w) / wsum));
+      });
+    }
+    function step() {
+      for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) {
+        const j = id(i, k), t = T[j];
+        let f = q[j] - L * (t - TA);
+        if (i > 0) f += Gx[j - 1] * (T[j - 1] - t);
+        if (i < NX - 1) f += Gx[j] * (T[j + 1] - t);
+        if (k > 0) f += Gz[j - NX] * (T[j - NX] - t);
+        if (k < NZ - 1) f += Gz[j] * (T[j + NX] - t);
+        Tn[j] = t + (dt / CC) * f;
+      }
+      const tmp = T; T = Tn; Tn = tmp;
+      simT += dt;
+    }
+    function steady() {
+      for (let it = 0; it < 6000; it++) {
+        let mx = 0;
+        for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) {
+          const j = id(i, k);
+          let num = q[j] + L * TA, den = L;
+          if (i > 0) { num += Gx[j - 1] * T[j - 1]; den += Gx[j - 1]; }
+          if (i < NX - 1) { num += Gx[j] * T[j + 1]; den += Gx[j]; }
+          if (k > 0) { num += Gz[j - NX] * T[j - NX]; den += Gz[j - NX]; }
+          if (k < NZ - 1) { num += Gz[j] * T[j + NX]; den += Gz[j]; }
+          const nv = T[j] + 1.93 * (num / den - T[j]);
+          mx = Math.max(mx, Math.abs(nv - T[j])); T[j] = nv;
+        }
+        if (mx < 1e-5) break;
+      }
+      simT = Infinity;
+    }
+    $("ht-ss").addEventListener("click", () => { steady(); draw(); });
+    $("ht-reset").addEventListener("click", () => { T.fill(TA); simT = 0; draw(); });
+    $("ht-pause").addEventListener("click", (e) => { paused = !paused; e.target.textContent = paused ? "계속" : "일시정지"; });
+    // 그리기
+    const off = document.createElement("canvas"); off.width = NZ; off.height = NX;
+    const octx = off.getContext("2d"), img = octx.createImageData(NZ, NX);
+    let geo = null;
+    function grip(i, k) {
+      const x = (i + 0.5) * 2.5, z = (k + 0.5) * 2.5, m = gGrip();
+      if (m === "land") return z < 32 || z > 115;
+      if (m === "port") return z > 80 && (x < 16 || x > 56);
+      return false;
+    }
+    const cvs = $("cv-heat");
+    const cv = PB.canvas(cvs, (ctx, w, h) => {
+      const P = PB.palette();
+      const cbW = w < 480 ? 0 : 64;
+      const s = Math.min((w - 24 - cbW) / 147.5, (h - (cbW ? 30 : 62)) / 72.5);
+      const pw = 147.5 * s, ph = 72.5 * s, ox = 12 + (w - 24 - cbW - pw) / 2, oy = cbW ? (h - ph) / 2 : 14;
+      geo = { s, ox, oy };
+      // 이미지
+      let mx = -1e9, mi = 0, sum = 0, gmax = -1e9;
+      for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) {
+        const t = T[id(i, k)], c = cmap((t - TMIN) / (TMAX - TMIN)), p = (i * NZ + k) * 4;
+        img.data[p] = c[0]; img.data[p + 1] = c[1]; img.data[p + 2] = c[2]; img.data[p + 3] = 255;
+        sum += t; if (t > mx) { mx = t; mi = id(i, k); }
+        if (grip(i, k)) gmax = Math.max(gmax, t);
+      }
+      octx.putImageData(img, 0, 0);
+      ctx.save();
+      const rr = 10 * s;
+      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(ox, oy, pw, ph, rr) : ctx.rect(ox, oy, pw, ph); ctx.clip();
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(off, ox, oy, pw, ph);
+      // 43 °C 등온선
+      ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 1.6; ctx.beginPath();
+      const cs = 2.5 * s;
+      for (let k = 0; k < NZ; k++) for (let i = 0; i < NX; i++) {
+        const a = T[id(i, k)] >= 43;
+        if (i < NX - 1 && a !== (T[id(i + 1, k)] >= 43)) { const y = oy + (i + 1) * cs; ctx.moveTo(ox + k * cs, y); ctx.lineTo(ox + (k + 1) * cs, y); }
+        if (k < NZ - 1 && a !== (T[id(i, k + 1)] >= 43)) { const x = ox + (k + 1) * cs; ctx.moveTo(x, oy + i * cs); ctx.lineTo(x, oy + (i + 1) * cs); }
+      }
+      ctx.stroke();
+      // 파지 영역
+      if (gGrip() !== "none") {
+        ctx.fillStyle = "rgba(255,255,255,0.22)"; ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+        const R = (z0, z1, x0, x1) => { ctx.fillRect(ox + z0 * s, oy + x0 * s, (z1 - z0) * s, (x1 - x0) * s); ctx.strokeRect(ox + z0 * s, oy + x0 * s, (z1 - z0) * s, (x1 - x0) * s); };
+        if (gGrip() === "land") { R(0, 32, 0, 72.5); R(115, 147.5, 0, 72.5); } else { R(80, 147.5, 0, 16); R(80, 147.5, 56, 72.5); }
+        ctx.setLineDash([]);
+      }
+      ctx.restore();
+      // 외곽, 확산재
+      ctx.strokeStyle = P.text; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(ox, oy, pw, ph, rr) : ctx.rect(ox, oy, pw, ph); ctx.stroke();
+      if (gMat() !== "none") { ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.setLineDash([6, 4]); ctx.lineWidth = 1.2; ctx.strokeRect(ox + 4 * s, oy + 3 * s, gLen() * s, 66 * s); ctx.setLineDash([]); ctx.fillStyle = "rgba(255,255,255,0.85)"; ctx.font = "11px " + font(); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText(MAT[gMat()][1] + " " + gTh().toFixed(2) + " mm", ox + 4 * s + 4, oy + ph - 3 * s - 15); }
+      // 카메라 표시(위쪽 = 왼쪽)
+      ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.arc(ox + 12 * s, oy + 12 * s, 5 * s, 0, TAU); ctx.fill();
+      // 열원
+      src.forEach((sr) => {
+        const cx = ox + sr.z * s, cy = oy + sr.x * s, on = sr.p() > 0;
+        ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.fillStyle = on ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.15)";
+        ctx.beginPath(); ctx.arc(cx, cy, 9, 0, TAU); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 11px " + font(); ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+        ctx.fillText(sr.name + " " + sr.p().toFixed(1) + "W", cx, cy - 11);
+      });
+      // 핫스팟
+      const hi = mi % NX, hk = Math.floor(mi / NX), hx = ox + (hk + 0.5) * cs, hy = oy + (hi + 0.5) * cs;
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(hx - 5, hy - 5); ctx.lineTo(hx + 5, hy + 5); ctx.moveTo(hx + 5, hy - 5); ctx.lineTo(hx - 5, hy + 5); ctx.stroke();
+      ctx.font = "bold 12px " + font(); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillStyle = "rgba(0,0,0,0.55)"; const tx = mx.toFixed(1) + " °C", tw = ctx.measureText(tx).width;
+      ctx.fillRect(hx + 7, hy + 4, tw + 6, 17); ctx.fillStyle = "#fff"; ctx.fillText(tx, hx + 10, hy + 6);
+      // 컬러바
+      ctx.font = "11px " + font(); ctx.fillStyle = P.dim;
+      if (cbW) {
+        const bx = w - 50, by = oy, bh = ph;
+        for (let y = 0; y < bh; y++) { ctx.fillStyle = rgb(cmap(1 - y / bh)); ctx.fillRect(bx, by + y, 14, 1.5); }
+        ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        [25, 35, 43, 50, 60].forEach((t) => { const y = by + bh * (1 - (t - TMIN) / (TMAX - TMIN)); ctx.fillText(t + "°", bx + 18, y); });
+      } else {
+        const by = oy + ph + 12, bw = w - 24;
+        for (let x = 0; x < bw; x++) { ctx.fillStyle = rgb(cmap(x / bw)); ctx.fillRect(12 + x, by, 1.5, 10); }
+        ctx.fillStyle = P.dim; ctx.textAlign = "center"; ctx.textBaseline = "top";
+        [25, 35, 43, 50, 60].forEach((t) => ctx.fillText(t + "°", 12 + bw * (t - TMIN) / (TMAX - TMIN), by + 13));
+      }
+      // 판독
+      const ap = src[0], apj = id(Math.min(NX - 1, Math.floor(ap.x / 2.5)), Math.min(NZ - 1, Math.floor(ap.z / 2.5)));
+      PB.stat("ht-o-max", fmtT(mx) + (mx > 43 ? ' <small style="color:var(--bad)">&gt;43</small>' : ""));
+      PB.stat("ht-o-avg", fmtT(sum / N));
+      PB.stat("ht-o-tj", fmtT(T[apj] + ap.p() * RJ));
+      PB.stat("ht-o-grip", gGrip() === "none" ? "—" : fmtT(gmax));
+      PB.stat("ht-o-time", isFinite(simT) ? (simT < 60 ? simT.toFixed(0) + "<small>s</small>" : (simT / 60).toFixed(1) + "<small>min</small>") : "정상 상태");
+    }, { aspect: 0.56, minHeight: 230, maxHeight: 460 });
+    function draw() { cv.redraw(); }
+    // 드래그
+    let drag = null;
+    function toPhone(ev) { const r = cvs.getBoundingClientRect(); const cx = ev.clientX - r.left, cy = ev.clientY - r.top; return { z: (cx - geo.ox) / geo.s, x: (cy - geo.oy) / geo.s, cx, cy }; }
+    cvs.addEventListener("pointerdown", (ev) => {
+      if (!geo) return; const p = toPhone(ev);
+      let best = null, bd = 22;
+      src.forEach((s) => { const d = Math.hypot(geo.ox + s.z * geo.s - p.cx, geo.oy + s.x * geo.s - p.cy); if (d < bd) { bd = d; best = s; } });
+      if (best) { drag = best; cvs.setPointerCapture(ev.pointerId); ev.preventDefault(); }
+    });
+    cvs.addEventListener("pointermove", (ev) => {
+      if (!drag) return; const p = toPhone(ev);
+      drag.x = PB.clamp(p.x, 6, 66.5); drag.z = PB.clamp(p.z, 6, 141.5); rebuildQ(); draw();
+    });
+    const end = () => (drag = null);
+    cvs.addEventListener("pointerup", end); cvs.addEventListener("pointercancel", end);
+    rebuild();
+    let frame = 0;
+    PB.loop(cvs, (fdt) => {
+      if (!paused) {
+        if (!isFinite(simT)) simT = 0;
+        const want = +gSpd() * fdt;
+        const n = Math.min(500, Math.ceil(want / dt));
+        const save = dt; dt = want / n > save ? save : want / n;
+        for (let i = 0; i < n; i++) step();
+        dt = save;
+      }
+      if (++frame % 2 === 0 || drag) draw();
+    });
+  })();
+
+  /* ---------------- 베이퍼 챔버 ---------------- */
+  (function () {
+    const gQ = PB.range("vc-q", (v) => v.toFixed(1) + " W");
+    const gR = PB.range("vc-r", (v) => v + " µm");
+    const gW = PB.range("vc-w", (v) => v.toFixed(3) + " mm");
+    const gTilt = PB.seg("vc-tilt");
+    const SIGW = 0.067, RHO = 988, MU = 5.5e-4, HFG = 2.38e6, EPS = 0.5, WID = 0.03, LEFF = 0.05;
+    const perm = (r) => { const rs = r / 0.41; return (rs * rs * EPS ** 3) / (37.5 * (1 - EPS) ** 2); };
+    const Rl = (r, tw) => (MU * LEFF) / (perm(r) * tw * WID * RHO * HFG);
+    const RV = Rl(30e-6, 0.05e-3);
+    function model() {
+      const r = gR() * 1e-6, tw = gW() * 1e-3;
+      const pc = (2 * SIGW) / r, pg = gTilt() === "90" ? RHO * 9.81 * 0.08 : 0;
+      const qm = Math.max(0, pc - pg) / (Rl(r, tw) + RV);
+      return { pc, pg, qm };
+    }
+    const parts = [];
+    let spawnAcc = 0, vgeo = null;
+    const cvs = $("cv-vc");
+    const cv = PB.canvas(cvs, (ctx, w, h) => {
+      const P = PB.palette(), m = model(), Q = gQ(), dry = Q > m.qm;
+      const x0 = 20, x1 = w - 20, y0 = h * 0.2, y1 = h * 0.72, cx = (x0 + x1) / 2;
+      // 외피
+      ctx.fillStyle = "#c98a52"; ctx.globalAlpha = 0.85; ctx.fillRect(x0, y0, x1 - x0, y1 - y0); ctx.globalAlpha = 1;
+      ctx.fillStyle = P.bg; ctx.fillRect(x0 + 6, y0 + 6, x1 - x0 - 12, y1 - y0 - 12);
+      const wk = 12;
+      // 윅
+      const wickY = [y0 + 6, y1 - 6 - wk];
+      wickY.forEach((wy) => {
+        ctx.fillStyle = PB.isDark() ? "rgba(90,150,255,0.25)" : "rgba(60,110,230,0.18)"; ctx.fillRect(x0 + 6, wy, x1 - x0 - 12, wk);
+      });
+      if (dry) {
+        const dw = Math.min(0.45, 0.12 + 0.25 * (Q / Math.max(m.qm, 0.1) - 1)) * (x1 - x0);
+        ctx.fillStyle = PB.isDark() ? "rgba(255,90,60,0.45)" : "rgba(230,70,40,0.35)";
+        ctx.fillRect(cx - dw / 2, y1 - 6 - wk, dw, wk); ctx.fillRect(cx - dw / 2, y0 + 6, dw, wk);
+        ctx.fillStyle = P.bad; ctx.font = "bold 13px " + font(); ctx.textAlign = "center"; ctx.fillText("드라이아웃: 증발부가 말랐다", cx, y0 - 10);
+      }
+      // 열원
+      ctx.fillStyle = P.bad; ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, Q / 20); ctx.fillRect(cx - 50, y1, 100, 16); ctx.globalAlpha = 1;
+      ctx.fillStyle = "#fff"; ctx.font = "11px " + font(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("AP " + Q.toFixed(1) + " W", cx, y1 + 8);
+      // 입자
+      parts.forEach((p) => {
+        ctx.fillStyle = p.liq ? (PB.isDark() ? "#6aa8ff" : "#2f6fe0") : (PB.isDark() ? "#ff8a6a" : "#e0502e");
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.liq ? 2.2 : 2.6, 0, TAU); ctx.fill();
+      });
+      // 응축 표시
+      ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.textBaseline = "alphabetic";
+      ctx.textAlign = "left"; ctx.fillText("응축부 ← 열 방출", x0, y0 - 8 + (dry ? -14 : 0) + 0);
+      ctx.textAlign = "right"; ctx.fillText("열 방출 → 응축부", x1, y0 - 8 + (dry ? -14 : 0));
+      // 온도 바
+      const Te = 40 + Math.min(Q, m.qm) * 0.25 + (dry ? (Q - m.qm) * 3 : 0);
+      const by = h - 18;
+      ctx.textAlign = "left"; ctx.fillStyle = P.dim; ctx.fillText("증발부 온도(추정)", x0, by - 10);
+      const bw = x1 - x0 - 130;
+      ctx.fillStyle = P.surface; ctx.fillRect(x0 + 120, by - 18, bw, 10);
+      ctx.fillStyle = rgb(cmap((Te - 25) / 60)); ctx.fillRect(x0 + 120, by - 18, bw * PB.clamp((Te - 25) / 75, 0, 1), 10);
+      ctx.fillStyle = dry ? P.bad : P.text; ctx.fillText(Te.toFixed(0) + " °C", x0 + 120, by + 4);
+      PB.stat("vc-o-p", (m.pc / 1000).toFixed(2) + "<small>kPa</small>");
+      PB.stat("vc-o-q", m.qm.toFixed(1) + "<small>W</small>");
+      PB.stat("vc-o-s", dry ? '<span style="color:var(--bad)">드라이아웃</span>' : Q > 0.8 * m.qm ? '<span style="color:var(--warn)">한계 근접</span>' : '<span style="color:var(--ok)">정상</span>');
+      vgeo = { x0, x1, y0, y1, cx, wk, dry, qm: m.qm, Q };
+    }, { aspect: 0.42, minHeight: 220, maxHeight: 320 });
+    PB.loop(cvs, (dt) => {
+      const g = vgeo; if (!g) { cv.redraw(); return; }
+      const Qe = Math.min(g.Q, g.qm), inner0 = g.y0 + 6 + g.wk, inner1 = g.y1 - 6 - g.wk;
+      spawnAcc += dt * Qe * 4;
+      while (spawnAcc > 1 && parts.length < 260) {
+        spawnAcc -= 1;
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        parts.push({ x: g.cx + (Math.random() - 0.5) * 80, y: inner1 - 2, vx: dir * (60 + 25 * Qe), liq: false, tgt: g.cx + dir * (80 + Math.random() * ((g.x1 - g.x0) / 2 - 100)), top: Math.random() < 0.6 });
+      }
+      const half = (g.x1 - g.x0) / 2;
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i];
+        if (!p.liq) {
+          p.x += p.vx * dt * (0.6 + Math.random() * 0.4);
+          const yt = p.top ? inner0 + 3 : inner1 - 3;
+          p.y += (yt - p.y) * Math.min(1, dt * 2.5) + (Math.random() - 0.5) * 1.5;
+          if ((p.vx > 0 && p.x > p.tgt) || (p.vx < 0 && p.x < p.tgt)) { p.liq = true; p.y = p.top ? g.y0 + 6 + g.wk / 2 : g.y1 - 6 - g.wk / 2; }
+        } else {
+          const sp = 18 + 2.5 * Math.min(g.Q, g.qm);
+          p.x += (p.x < g.cx ? 1 : -1) * sp * dt;
+          if (p.top && Math.abs(p.x - g.cx) < half * 0.85) p.y += 0; // 위쪽 윅
+          const stop = g.dry ? 40 + 0.25 * half * Math.min(1, g.Q / Math.max(g.qm, 0.1) - 1) : 8;
+          if (Math.abs(p.x - g.cx) < stop) parts.splice(i, 1);
+        }
+        if (p.x < g.x0 + 8 || p.x > g.x1 - 8) parts.splice(i, 1);
+      }
+      cv.redraw();
+    });
+  })();
+
+  /* ---------------- 그래파이트 단면 ---------------- */
+  (function () {
+    const MATS = { gr: ["그래파이트", null, 5], cu: ["구리", 390, 390], al: ["알루미늄", 200, 200], pl: ["플라스틱", 0.3, 0.3] };
+    const gM = PB.seg("gr-m", upd);
+    const gT = PB.range("gr-t", (v) => v + " µm", upd);
+    const gK = PB.range("gr-k", (v) => v + " W/m·K", upd);
+    const NXg = 120, NY = 10, DXg = 0.5e-3, HT = 300, QF = 20000; // 열원 플럭스 W/m²
+    let field = null, prof = null, others = {};
+    const kOf = (m) => (m === "gr" ? [gK(), 5] : [MATS[m][1], MATS[m][2]]);
+    function solve2D(kx, ky, t) {
+      const dy = t / NY, Gx = (kx * dy) / DXg, Gy = (ky * DXg) / dy, Lt = HT * DXg;
+      const T = new Float64Array(NXg * NY), a = new Float64Array(NY), b = new Float64Array(NY), c = new Float64Array(NY), d = new Float64Array(NY);
+      const qb = (i) => (Math.abs((i + 0.5) * DXg * 1e3 - 30) < 5 ? QF * DXg : 0);
+      for (let it = 0; it < 4000; it++) {
+        let mx = 0;
+        for (let i = 0; i < NXg; i++) {
+          // 열(column) i의 세로 삼중대각 해 (y=0 아래, y=NY-1 위)
+          for (let j = 0; j < NY; j++) {
+            let diag = 0, rhs = 0;
+            if (i > 0) { diag += Gx; rhs += Gx * T[(i - 1) * NY + j]; }
+            if (i < NXg - 1) { diag += Gx; rhs += Gx * T[(i + 1) * NY + j]; }
+            a[j] = j > 0 ? -Gy : 0; c[j] = j < NY - 1 ? -Gy : 0;
+            diag += (j > 0 ? Gy : 0) + (j < NY - 1 ? Gy : 0);
+            if (j === 0) rhs += qb(i);
+            if (j === NY - 1) diag += Lt;
+            b[j] = diag; d[j] = rhs;
+          }
+          for (let j = 1; j < NY; j++) { const m = a[j] / b[j - 1]; b[j] -= m * c[j - 1]; d[j] -= m * d[j - 1]; }
+          const x = new Float64Array(NY); x[NY - 1] = d[NY - 1] / b[NY - 1];
+          for (let j = NY - 2; j >= 0; j--) x[j] = (d[j] - c[j] * x[j + 1]) / b[j];
+          for (let j = 0; j < NY; j++) { const o = T[i * NY + j], nv = o + 1.85 * (x[j] - o); mx = Math.max(mx, Math.abs(nv - o)); T[i * NY + j] = nv; }
+        }
+        if (mx < 1e-7) break;
+      }
+      return T;
+    }
+    function solve1D(kt) { // kt θ'' − hθ + q = 0, 삼중대각 직접 해
+      const n = NXg, G = kt / DXg, Lc = HT * DXg;
+      const b = new Float64Array(n), d = new Float64Array(n), cc = new Float64Array(n), aa = new Float64Array(n);
+      for (let i = 0; i < n; i++) { aa[i] = i ? -G : 0; cc[i] = i < n - 1 ? -G : 0; b[i] = (i ? G : 0) + (i < n - 1 ? G : 0) + Lc; d[i] = Math.abs((i + 0.5) * DXg * 1e3 - 30) < 5 ? QF * DXg : 0; }
+      for (let i = 1; i < n; i++) { const m = aa[i] / b[i - 1]; b[i] -= m * cc[i - 1]; d[i] -= m * d[i - 1]; }
+      const x = new Float64Array(n); x[n - 1] = d[n - 1] / b[n - 1];
+      for (let i = n - 2; i >= 0; i--) x[i] = (d[i] - cc[i] * x[i + 1]) / b[i];
+      return x;
+    }
+    function upd() {
+      const t = gT() * 1e-6, [kx, ky] = kOf(gM());
+      field = solve2D(kx, ky, t);
+      prof = []; for (let i = 0; i < NXg; i++) prof.push([(i + 0.5) * 0.5 - 30, field[i * NY + NY - 1]]);
+      others = {};
+      Object.keys(MATS).forEach((m) => { if (m === gM()) return; const k = kOf(m)[0], p = solve1D(k * t); others[m] = Array.from(p, (v, i) => [(i + 0.5) * 0.5 - 30, v]); });
+      if (cv) cv.redraw();
+    }
+    const cv = PB.canvas($("cv-gr"), (ctx, w, h) => {
+      if (!field) return;
+      const P = PB.palette();
+      const t = gT() * 1e-6, [kx] = kOf(gM());
+      let mx = 0; for (let i = 0; i < field.length; i++) mx = Math.max(mx, field[i]);
+      const top = 22, sh = Math.round(h * 0.3), lx = 58, rw = w - 72;
+      const cw = rw / NXg, chh = sh / NY;
+      for (let i = 0; i < NXg; i++) for (let j = 0; j < NY; j++) {
+        ctx.fillStyle = rgb(cmap(field[i * NY + j] / (mx || 1)));
+        ctx.fillRect(lx + i * cw, top + (NY - 1 - j) * chh, cw + 0.6, chh + 0.6);
+      }
+      ctx.fillStyle = P.bad; ctx.fillRect(lx + rw * (25 / 60), top + sh, rw * (10 / 60), 6);
+      ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      ctx.fillText("단면 (두께 ×" + Math.round((sh / t) / (rw / 0.06)) + " 과장) · 위: 다음 층으로 방열", lx, top - 4);
+      ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText("열원 10 mm", lx + rw / 2, top + sh + 8);
+      let ym = mx; Object.values(others).forEach((d) => d.forEach(([, v]) => (ym = Math.max(ym, v))));
+      ym = Math.min(ym, mx * 4);
+      const cols = { gr: P.accent, cu: P.warn, al: P.ok, pl: P.bad };
+      const series = Object.keys(others).map((m) => ({ data: others[m], color: cols[m], width: 1.2, dash: [4, 3] }));
+      series.push({ data: prof, color: cols[gM()], width: 2.6 });
+      const box = { x: lx, y: top + sh + 30, w: rw, h: h - (top + sh + 30) - 44 };
+      PB.chart(ctx, box, { x: [-30, 30], y: [0, ym * 1.05], xLabel: "위치 (mm)", yLabel: "윗면 ΔT (K)", series });
+      let lxp = box.x + box.w - 4; ctx.textAlign = "right"; ctx.textBaseline = "top"; ctx.font = "11px " + font();
+      Object.keys(MATS).reverse().forEach((m) => { ctx.fillStyle = cols[m]; ctx.fillText(MATS[m][0], lxp, box.y + 4); lxp -= ctx.measureText(MATS[m][0]).width + 10; });
+      PB.stat("gr-o-kt", (kx * t).toFixed(3) + "<small>W/K</small>");
+      PB.stat("gr-o-dt", mx.toFixed(1) + "<small>K</small>");
+      PB.stat("gr-o-l", (Math.sqrt((kx * t) / HT) * 1000).toFixed(1) + "<small>mm</small>");
+    }, { aspect: 0.62, minHeight: 320, maxHeight: 460 });
+    upd();
+  })();
+
+  /* ---------------- 대류·복사 ---------------- */
+  (function () {
+    const ids = ["cv-a", "cv-h", "cv-e", "cv-ta", "cv-ts", "cv-eta"];
+    const fm = [(v) => v + " cm²", (v) => v.toFixed(1) + " W/m²K", (v) => v.toFixed(2), (v) => v + " °C", (v) => v.toFixed(1) + " °C", (v) => v.toFixed(2)];
+    const g = ids.map((id, i) => PB.range(id, fm[i], () => cv.redraw()));
+    const cv = PB.canvas($("cv-conv"), (ctx) => {
+      const P = PB.palette();
+      const [A, hc, eps, Ta, Ts, eta] = g.map((f) => f());
+      const o = { A: A * 1e-4, h: hc, eps, Ta, eta };
+      const c = [], r = [], t = [];
+      for (let x = Ta; x <= 60; x += 0.25) { const m = qmax(Object.assign({ Ts: x }, o)); c.push([x, m.conv]); r.push([x, m.rad]); t.push([x, m.tot]); }
+      const m = qmax(Object.assign({ Ts }, o));
+      const ymax = Math.max(4, Math.ceil(qmax(Object.assign({ Ts: 60 }, o)).conv + qmax(Object.assign({ Ts: 60 }, o)).rad));
+      PB.chart(ctx, null, {
+        x: [Math.min(Ta, 38), 60], y: [0, ymax], xLabel: "표면 온도 (°C)", yLabel: "방열량 (W)",
+        series: [{ data: c, color: P.accent, width: 1.6, dash: [5, 3] }, { data: r, color: P.warn, width: 1.6, dash: [5, 3] }, { data: t, color: P.text, width: 2.6 }],
+        vlines: [{ x: Ts, color: P.bad, label: "한계 " + Ts + " °C" }],
+        points: [{ x: Ts, y: m.tot, color: P.bad, r: 5, label: m.tot.toFixed(1) + " W" }],
+      });
+      ctx.font = "11px " + font(); ctx.textAlign = "left";
+      ctx.fillStyle = P.accent; ctx.fillText("- - 대류", 66, 30); ctx.fillStyle = P.warn; ctx.fillText("- - 복사", 126, 30); ctx.fillStyle = P.text; ctx.fillText("— 합 × η", 186, 30);
+      const Tm = (Ts + Ta) / 2 + 273.15;
+      PB.stat("cv-o-c", m.conv.toFixed(2) + "<small>W</small>");
+      PB.stat("cv-o-r", m.rad.toFixed(2) + "<small>W</small>");
+      PB.stat("cv-o-q", (Ts > Ta ? m.tot : 0).toFixed(2) + "<small>W</small>");
+      PB.stat("cv-o-hr", (4 * eps * SIG * Tm ** 3).toFixed(1) + "<small>W/m²K</small>");
+    }, { aspect: 0.5, minHeight: 260, maxHeight: 380 });
+  })();
+
+  /* ---------------- 스로틀링 ---------------- */
+  (function () {
+    const SC = { game: [6, 0], chg: [6, 2.5], rec: [4.5, 0], bench: [11, 0] };
+    const gSc = PB.seg("tr-sc", (v) => { gP.set(SC[v][0]); });
+    const gP = PB.range("tr-p", (v) => v.toFixed(1) + " W", () => cv.redraw());
+    const gTa = PB.range("tr-ta", (v) => v + " °C", () => cv.redraw());
+    const gC = PB.range("tr-c", (v) => v + " J/K", () => cv.redraw());
+    const cCase = $("tr-case"), cOff = $("tr-off");
+    [cCase, cOff].forEach((c) => c.addEventListener("change", () => cv.redraw()));
+    const CJ = 3, CI = 25, RJI = 3.5, RIB = 1.5, TJMAX = 95, TSMAX = 43;
+    function sim() {
+      const Preq = gP(), Ta = gTa(), Cb = gC() + (cCase.checked ? 20 : 0), chg = SC[gSc()][1];
+      const Gf = 12 * 0.0105, Gb = 1 / ((cCase.checked ? 1.5 : 0) + 1 / (12 * 0.014)), Rba = 1 / (Gf + Gb);
+      let Tj = Ta, Ti = Ta, Tb = Ta, Pc = Preq, t0 = null, mxJ = Ta, mxS = Ta;
+      const dt = 0.1, oJ = [], oS = [], oB = [], oP = [], oC = [];
+      for (let i = 0; i <= 18000; i++) {
+        const t = i * dt, Ts = Tb + 0.35 * (Ti - Tb);
+        if (!cOff.checked) {
+          Pc += dt * 0.05 * (TSMAX - Ts);
+          if (Tj > TJMAX) Pc -= dt * 1.5 * (Tj - TJMAX);
+          Pc = PB.clamp(Pc, 0.3, Preq);
+        } else Pc = Preq;
+        const fch = chg ? PB.clamp((44 - Tb) / 5, 0, 1) : 0, Pch = chg * fch;
+        const qji = (Tj - Ti) / RJI, qib = (Ti - Tb) / RIB, qba = (Tb - Ta) / Rba;
+        Tj += (dt * (Pc - qji)) / CJ; Ti += (dt * (qji - qib)) / CI; Tb += (dt * (qib + Pch - qba)) / Cb;
+        if (t0 === null && Ts >= TSMAX - 0.05) t0 = t;
+        mxJ = Math.max(mxJ, Tj); mxS = Math.max(mxS, Ts);
+        if (i % 30 === 0) { const m = t / 60; oJ.push([m, Tj]); oS.push([m, Ts]); oB.push([m, Tb]); oP.push([m, Pc]); oC.push([m, Pch]); }
+      }
+      return { oJ, oS, oB, oP, oC, t0, Pend: Pc, mxJ, mxS, Preq, chg };
+    }
+    const cv = PB.canvas($("cv-thr"), (ctx, w, h) => {
+      const P = PB.palette(), S = sim();
+      const h1 = Math.round(h * 0.58);
+      const ytop = Math.max(110, Math.ceil(S.mxJ / 10) * 10 + 10);
+      PB.chart(ctx, { x: 58, y: 14, w: w - 72, h: h1 - 50 }, {
+        x: [0, 30], y: [Math.min(20, gTa() - 5), Math.min(200, ytop)], xLabel: "시간 (분)", yLabel: "온도 (°C)",
+        series: [{ data: S.oB, color: P.dim, width: 1.2, dash: [4, 3] }, { data: S.oS, color: P.warn, width: 2.4 }, { data: S.oJ, color: P.bad, width: 2.2 }],
+        hlines: [{ y: TJMAX, color: P.bad, label: "Tj 한계 95 °C" }, { y: TSMAX, color: P.warn, label: "표면 43 °C" }],
+      });
+      ctx.font = "11px " + font(); ctx.textAlign = "left";
+      ctx.fillStyle = P.bad; ctx.fillText("— Tj", 66, 26); ctx.fillStyle = P.warn; ctx.fillText("— 표면 핫스팟", 106, 26); ctx.fillStyle = P.dim; ctx.fillText("- - 몸체(배터리)", 200, 26);
+      const series = [{ data: [[0, S.Preq], [30, S.Preq]], color: P.faint, width: 1.2, dash: [5, 4] }, { data: S.oP, color: P.accent, width: 2.4 }];
+      if (S.chg) series.push({ data: S.oC, color: P.warn, width: 1.8, dash: [3, 3] });
+      PB.chart(ctx, { x: 58, y: h1 + 6, w: w - 72, h: h - h1 - 50 }, {
+        x: [0, 30], y: [0, Math.ceil(Math.max(S.Preq, S.chg) + 1)], xLabel: "시간 (분)", yLabel: "전력 (W)", series,
+      });
+      ctx.textAlign = "left"; ctx.fillStyle = P.accent; ctx.fillText("— 허용 전력" + (S.chg ? "" : ""), 66, h1 + 18);
+      if (S.chg) { ctx.fillStyle = P.warn; ctx.fillText("- - 충전 발열", 150, h1 + 18); }
+      PB.stat("tr-o-t0", S.t0 === null ? "도달 안 함" : (S.t0 / 60).toFixed(1) + "<small>분</small>");
+      PB.stat("tr-o-p", S.Pend.toFixed(2) + "<small>W</small>");
+      PB.stat("tr-o-perf", Math.round(Math.pow(S.Pend / S.Preq, 0.4) * 100) + "<small>%</small>");
+      PB.stat("tr-o-max", S.mxJ.toFixed(0) + " / " + S.mxS.toFixed(0) + "<small>°C</small>");
+    }, { aspect: 0.72, minHeight: 400, maxHeight: 540 });
+  })();
+
+  /* ---------------- 케이스 ---------------- */
+  (function () {
+    const gM = PB.seg("cs-m", () => cv.redraw());
+    const gT = PB.range("cs-t", (v) => v.toFixed(2) + " mm", () => cv.redraw());
+    const gG = PB.range("cs-g", (v) => v.toFixed(2) + " mm", () => cv.redraw());
+    const AF = 0.0105, AB = 0.014, H = 12, DT = 18, ETA = 0.75;
+    const Rc = (t, k, gap) => (t * 1e-3) / (k * AB) + (gap * 1e-3) / (0.026 * AB);
+    const Q = (rc) => ETA * DT * (H * AF + 1 / (rc + 1 / (H * AB)));
+    const cv = PB.canvas($("cv-case"), (ctx) => {
+      const P = PB.palette(), k = +gM(), t = gT(), gap = gG();
+      const a = [], b = [];
+      for (let x = 0.3; x <= 3.001; x += 0.05) { a.push([x, Q(Rc(x, k, gap))]); b.push([x, Q(Rc(x, k, 0))]); }
+      const q0 = Q(0), rc = Rc(t, k, gap), q1 = Q(rc);
+      PB.chart(ctx, null, {
+        x: [0.3, 3], y: [Math.floor(q0 * 0.7 * 2) / 2, Math.ceil(q0 * 1.04 * 2) / 2], xLabel: "케이스 두께 (mm)", yLabel: "지속 가능 전력 (W)",
+        series: [{ data: [[0.3, q0], [3, q0]], color: P.faint, width: 1.2, dash: [5, 4] }, { data: b, color: P.dim, width: 1.4, dash: [3, 3] }, { data: a, color: P.accent, width: 2.6 }],
+        points: [{ x: t, y: q1, color: P.accent, r: 5 }],
+      });
+      ctx.font = "11px " + font(); ctx.textAlign = "left"; ctx.fillStyle = P.faint;
+      ctx.fillText("- - 케이스 없음", 66, 30); ctx.fillStyle = P.dim; ctx.fillText("··· 공기층 0", 160, 30); ctx.fillStyle = P.accent; ctx.fillText("— 현재 공기층", 240, 30);
+      const Rs = 1 / (H * AB), Tout = 25 + DT * Rs / (rc + Rs);
+      PB.stat("cs-o-r", rc.toFixed(2) + "<small>K/W</small>");
+      PB.stat("cs-o-q0", q0.toFixed(2) + "<small>W</small>");
+      PB.stat("cs-o-q1", q1.toFixed(2) + "<small>W</small> <small>(" + ((q1 / q0 - 1) * 100).toFixed(0) + "%)</small>");
+      PB.stat("cs-o-ts", fmtT(Tout));
+    }, { aspect: 0.5, minHeight: 260, maxHeight: 360 });
+  })();
+
+  /* ---------------- 암전류 ---------------- */
+  (function () {
+    const gT = PB.range("dk-t", (v) => v + " °C", () => cv.redraw());
+    const gE = PB.range("dk-e", (v) => expo(v) >= 1 ? expo(v).toFixed(2) + " s" : "1/" + Math.round(1 / expo(v)) + " s", () => cv.redraw());
+    const gD = PB.range("dk-d", (v) => v.toFixed(1) + " °C", () => cv.redraw());
+    function expo(v) { return (1 / 120) * Math.pow(240, v); }
+    const W = 96, Hh = 60, RN = 1.5;
+    const g1 = new Float32Array(W * Hh), g2 = new Float32Array(W * Hh), hot = new Float32Array(W * Hh);
+    for (let i = 0; i < W * Hh; i++) { g1[i] = PB.randn(); g2[i] = PB.randn(); hot[i] = Math.random() < 0.012 ? 5 + 40 * Math.random() ** 3 : 1; }
+    const off = document.createElement("canvas"); off.width = W; off.height = Hh;
+    const octx = off.getContext("2d"), img = octx.createImageData(W, Hh);
+    const cv = PB.canvas($("cv-dark"), (ctx, w, h) => {
+      const P = PB.palette(), T = gT(), e = expo(gE()), d = gD();
+      const DC = (t) => 8 * Math.pow(2, (t - 60) / d);
+      const narrow = w < 520;
+      const box = narrow ? { x: 54, y: 14, w: w - 68, h: h * 0.5 - 50 } : { x: 54, y: 14, w: w * 0.55 - 60, h: h - 60 };
+      const s = []; for (let t = 25; t <= 80; t += 0.5) s.push([t, DC(t)]);
+      PB.chart(ctx, box, {
+        x: [25, 80], y: [0.1, 1000], logY: true, xLabel: "센서 온도 (°C)", yLabel: "암전류 (e⁻/s)",
+        series: [{ data: s, color: P.warn, width: 2.4 }], points: [{ x: T, y: DC(T), color: P.bad, r: 5 }],
+      });
+      const dc = DC(T), sig = dc * e, sn = Math.sqrt(sig), tot = Math.sqrt(RN * RN + sig);
+      for (let i = 0; i < W * Hh; i++) {
+        const v = sig * hot[i] + Math.sqrt(sig * hot[i]) * g1[i] + RN * g2[i];
+        const b = PB.clamp(18 + v * 9, 0, 255), p = i * 4;
+        img.data[p] = b; img.data[p + 1] = b; img.data[p + 2] = b; img.data[p + 3] = 255;
+      }
+      octx.putImageData(img, 0, 0);
+      const ix = narrow ? 54 : w * 0.58, iy = narrow ? h * 0.5 + 10 : 20, iw = narrow ? w - 68 : w * 0.42 - 14, ih = Math.min(iw * Hh / W, narrow ? h * 0.5 - 30 : h - 50);
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(off, ix, iy, ih * W / Hh, ih);
+      ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.textAlign = "left"; ctx.fillText("가상 암흑 프레임(확대·대비 강조)", ix, iy + ih + 16);
+      PB.stat("dk-o-dc", (dc >= 10 ? dc.toFixed(0) : dc.toFixed(2)) + "<small>e⁻/s</small>");
+      PB.stat("dk-o-n", sn.toFixed(2) + "<small>e⁻ rms</small>");
+      PB.stat("dk-o-r", (tot / RN).toFixed(2) + "<small>× 읽기 잡음</small>");
+    }, { aspect: 0.48, minHeight: 260, maxHeight: 520 });
+  })();
+})();
+
+</script>
+</body>
+</html>

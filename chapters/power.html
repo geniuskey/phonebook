@@ -1,0 +1,1272 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>전력 관리와 충전 · PhoneBook</title>
+<meta name="description" content="스마트폰의 전원 트리와 PMIC, 벅 컨버터와 LDO의 효율, PFM/PWM, 충전 IC와 파워 패스, 스위치드 커패시터 충전, USB PD/PPS 협상, 무선 충전 코일 결합과 Qi2, 대기 전력까지 시뮬레이터로 배운다.">
+<link rel="canonical" href="https://phonebook.euiyun.com/chapters/power.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="PhoneBook">
+<meta property="og:title" content="전력 관리와 충전 · PhoneBook">
+<meta property="og:description" content="스마트폰의 전원 트리와 PMIC, 벅 컨버터와 LDO의 효율, PFM/PWM, 충전 IC와 파워 패스, 스위치드 커패시터 충전, USB PD/PPS 협상, 무선 충전 코일 결합과 Qi2, 대기 전력까지 시뮬레이터로 배운다.">
+<meta property="og:url" content="https://phonebook.euiyun.com/chapters/power.html">
+<meta property="og:image" content="https://phonebook.euiyun.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"전력 관리와 충전","name":"전력 관리와 충전 · PhoneBook","url":"https://phonebook.euiyun.com/chapters/power.html","mainEntityOfPage":"https://phonebook.euiyun.com/chapters/power.html","inLanguage":"ko","isAccessibleForFree":true,"learningResourceType":"interactive textbook chapter","position":6,"image":"https://phonebook.euiyun.com/og.png","dateModified":"2026-10-03","isPartOf":{"@type":"Book","@id":"https://phonebook.euiyun.com/#book","name":"PhoneBook — 인터랙티브 스마트폰 해부 교과서","url":"https://phonebook.euiyun.com/"},"publisher":{"@type":"Organization","name":"PhoneBook","url":"https://phonebook.euiyun.com/"},"description":"스마트폰의 전원 트리와 PMIC, 벅 컨버터와 LDO의 효율, PFM/PWM, 충전 IC와 파워 패스, 스위치드 커패시터 충전, USB PD/PPS 협상, 무선 충전 코일 결합과 Qi2, 대기 전력까지 시뮬레이터로 배운다."},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"PhoneBook","item":"https://phonebook.euiyun.com/"},{"@type":"ListItem","position":2,"name":"06 전력 관리와 충전","item":"https://phonebook.euiyun.com/chapters/power.html"}]}]}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  .pw-tree svg { display: block; width: 100%; height: auto; }
+  .pw-tree .node rect { fill: var(--bg-elev); stroke: var(--border); stroke-width: 1.2; }
+  .pw-tree .node { cursor: pointer; }
+  .pw-tree .node:hover rect, .pw-tree .node.on rect { stroke: var(--accent); stroke-width: 2; fill: var(--accent-soft); }
+  .pw-tree .grp { fill: var(--surface); stroke: var(--border); }
+  .pw-tree .bus { stroke: var(--accent-2); stroke-width: 4; fill: none; }
+  .pw-tree .wire { stroke: var(--text-faint); stroke-width: 1.4; fill: none; }
+  .pw-tree .wire.on { stroke: var(--accent); stroke-width: 2.4; }
+  .pw-tree .t { font-size: 14px; }
+  .pw-tree .t-mono { font-size: 12.5px; }
+  .pw-info { padding: 14px 18px; border-top: 1px solid var(--border); background: var(--bg-elev); font-size: 14.5px; line-height: 1.6; min-height: 7.5em; }
+  .pw-info h4 { margin: 0 0 4px; font-size: 16px; }
+  .pw-info .kv { display: flex; flex-wrap: wrap; gap: 6px 18px; font-family: var(--mono); font-size: 13px; color: var(--text); margin: 4px 0 6px; }
+  .pw-info p { margin: 0; color: var(--text-dim); }
+  .pw-msgs { list-style: none; margin: 0; padding: 12px 18px !important; border-top: 1px solid var(--border); display: grid; gap: 6px; font-size: 13.5px; background: var(--bg-elev); }
+  .pw-msgs li { display: grid; grid-template-columns: 2.2em 1fr; gap: 8px; color: var(--text-faint); margin: 0 !important; transition: color .2s; }
+  .pw-msgs li.on { color: var(--text); }
+  .pw-msgs li .dir { font-family: var(--mono); color: var(--accent); }
+  .pw-msgs li code { font-size: 12px; }
+  .pw-sch .sw { stroke: var(--text); stroke-width: 2; fill: none; }
+</style>
+</head>
+<body data-chapter="power">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 06</div>
+    <h1>전력 관리와 충전</h1>
+    <p class="lead">배터리가 내놓는 것은 3.4~4.45 V 사이를 오르내리는 단 하나의 전압이다. 그런데 CPU 코어는 0.5~1.1 V를, 메모리는 0.5 V와 1.05 V를, 화면은 +4.6 V와 −3 V를, 카메라는 2.8 V를 원한다. 이 하나를 <b>수십 개의 정밀한 전원 레일</b>로 바꿔 주는 것이 전력 관리 IC(PMIC)이고, 반대 방향으로 USB-C와 무선 코일에서 들어온 전력을 배터리에 안전하게 밀어 넣는 것이 충전 회로다. 이 장의 모든 것은 결국 하나의 숫자, <b>효율</b>로 모인다. 효율 1%는 사용 시간이자 열이다.</p>
+    <ul class="objectives">
+      <li>배터리에서 PMIC를 거쳐 수십 개 레일로 갈라지는 전원 트리를 읽고, 레일마다 전압·전류·변환 방식이 다른 이유를 설명한다.</li>
+      <li>벅 컨버터의 듀티·인덕터 리플·손실을 계산하고, LDO와의 효율 차이, PFM/PWM 효율 곡선을 이해한다.</li>
+      <li>충전 IC의 파워 패스와 2:1 스위치드 커패시터 충전이 고속 충전의 열을 줄이는 원리를 안다.</li>
+      <li>USB PD/PPS 협상 과정과, 폰이 배터리 전압을 따라 충전기 전압을 20 mV 단위로 요청하는 이유를 설명한다.</li>
+      <li>무선 충전 코일의 결합계수 k가 정렬·거리에 따라 효율과 발열을 어떻게 바꾸는지, Qi2 자석 정렬의 의미를 시뮬레이션한다.</li>
+    </ul>
+  </header>
+
+  <!-- =============================================================== 1 -->
+  <section id="location">
+    <h2>폰 안의 위치: PMIC, USB-C, 무선 충전 코일</h2>
+    <p>전력 관련 부품은 폰 곳곳에 흩어져 있다. <b>PMIC</b>는 AP 바로 옆, 메인보드 하판에 붙어 있다. CPU 레일은 수 A를 수 ns 단위로 급변시키므로 AP와 가까울수록 배선 인덕턴스와 전압 강하가 작다. <b>USB-C 포트</b>와 과전압 보호(OVP) 스위치는 하단 서브보드에, <b>충전 IC</b>(벅 충전기 + 스위치드 커패시터)는 보드 하판이나 서브보드에, <b>무선 충전 코일</b>은 배터리 뒤 후면 글라스 바로 안쪽에 있다. 코일 뒤에는 자기장을 가둬 배터리 쪽으로 새는 것을 막는 페라이트 시트가, 그 둘레에는 Qi2/MagSafe 계열의 정렬 자석 링이 있다.</p>
+
+    <div class="sim" id="sim-phone">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>전력 부품의 위치</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-phone"><div class="part-card" id="phone-card" hidden></div><span class="hint">드래그: 회전 · 클릭: 부품 정보</span></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>강조할 부품</span><div class="chips" id="ph-chips">
+            <button data-id="wireless" class="on"><i style="background:#d9822b"></i>무선 충전 코일</button>
+            <button data-id="boardBottom"><i style="background:#23704a"></i>보드 하판 (PMIC)</button>
+            <button data-id="bottom"><i style="background:#8e6bd8"></i>하단 (USB-C)</button>
+            <button data-id="battery"><i style="background:#c7ccd6"></i>배터리</button>
+          </div></div>
+          <label class="ctrl"><span>분해 정도 <output id="ph-ex-out"></output></span><input type="range" id="ph-ex" min="0" max="1" step="0.01" value="0.7"></label>
+          <label class="check"><input type="checkbox" id="ph-xray"> X-ray</label>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: 칩을 눌러 부품을 바꿔 가며 보자. 무선 충전 코일은 배터리와 후면 글라스 사이 가장 바깥층에, PMIC는 AP와 같은 보드에 있다. USB-C에서 들어온 전류는 플렉스를 따라 배터리 옆을 지나 보드로 간다. 이 경로의 mΩ들이 고속 충전의 열이 된다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 2 -->
+  <section id="tree">
+    <h2>전원 트리: 배터리 하나에서 수십 개의 레일로</h2>
+    <p>폰의 전원 구조는 나무처럼 생겼다. 뿌리는 배터리와 USB-C 입력이고, 굵은 줄기는 <span class="term">VSYS</span>(시스템 전원 버스, 3.4~4.45 V)다. 여기서 메인 PMIC가 10여 개의 <b>벅 컨버터</b>와 20~40개의 <b>LDO</b>로 가지를 치고, 디스플레이·카메라·RF·오디오용 보조 PMIC가 각자의 특수 전압을 만든다. 플래그십 AP 하나에만 독립 레일이 10개 이상 들어간다. CPU 클러스터마다, GPU, NPU, 메모리 인터페이스, 상시 동작(always-on) 블록이 따로 전압을 조절(DVFS)해야 하기 때문이다(<a href="soc.html">3장</a>).</p>
+    <p>아래 트리에서 레일을 눌러 보자. 전압·전류 범위와 변환 방식이 왜 그렇게 정해졌는지가 나온다.</p>
+
+    <div class="sim" id="sim-tree">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>클릭하는 전원 트리</h3></div>
+      <div class="sim-view pw-tree" style="padding:10px 6px"><svg id="tree-svg" viewBox="0 0 640 720" role="img" aria-label="스마트폰 전원 트리"></svg></div>
+      <div class="pw-info" id="tree-info"></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">레일 수 (이 그림)</span><span class="v" id="tr-n">—</span></div>
+        <div class="stat"><span class="k">벅 / LDO / 기타</span><span class="v" id="tr-k">—</span></div>
+        <div class="stat"><span class="k">최대 순간 전류 합</span><span class="v" id="tr-i">—</span></div>
+      </div>
+      <div class="sim-note">수치는 2023~2026년 플래그십의 대표적인 범위다(제품마다 다르다). 실제 폰에는 이보다 더 많은 레일이 있고, 일부 PMIC는 여러 칩으로 나뉜다. 주황 굵은 선이 VSYS 버스다.</div>
+    </div>
+
+    <div class="callout deep"><strong>왜 이렇게 많이 쪼개나</strong>
+      <p>전력은 대략 \(P \propto C V^2 f\)다. 블록마다 필요한 최저 전압이 다르므로 공통 레일 하나로 묶으면 가장 높은 전압에 모두가 맞춰야 해서 낭비가 크다. 레일을 쪼개면 쉬는 블록은 전원을 아예 끄고(power gating), 바쁜 블록만 전압을 올릴 수 있다. 대가는 PMIC 핀 수, 인덕터 개수(보드 면적), 그리고 레일 사이 시퀀싱(켜는 순서) 복잡도다.</p>
+    </div>
+  </section>
+
+  <!-- =============================================================== 3 -->
+  <section id="buck">
+    <h2>벅 컨버터: 스위치와 인덕터로 전압 낮추기</h2>
+    <p>CPU 레일 0.8 V를 배터리 3.9 V에서 만들 때 저항으로 3.1 V를 떨어뜨리면 효율은 20%에 불과하다. <span class="term">벅 컨버터</span><span class="en">(buck, step-down converter)</span>는 전압을 "깎는" 대신 <b>잘게 썰어 평균</b>을 낸다. 위쪽 스위치(HS)가 켜진 시간 비율, 즉 <b>듀티</b> \(D\) 동안만 입력에 연결하고, 나머지 시간에는 아래쪽 스위치(LS)로 인덕터를 접지에 잇는다. 인덕터가 전류를 부드럽게 유지하고 출력 커패시터가 전압을 평활한다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 240" role="img" aria-label="동기 벅 컨버터 회로">
+        <path d="M60 60H190" class="s-line"/><text x="40" y="65" class="t" text-anchor="end">V<tspan font-size="10">in</tspan></text>
+        <circle cx="60" cy="60" r="4" fill="var(--text-dim)"/>
+        <rect x="190" y="40" width="70" height="40" rx="6" class="f-acc-soft"/><text x="225" y="65" class="t" text-anchor="middle">HS</text>
+        <path d="M260 60H320V190" class="s-line"/>
+        <rect x="290" y="130" width="60" height="40" rx="6" class="f-acc2-soft"/><text x="320" y="155" class="t" text-anchor="middle">LS</text>
+        <path d="M320 170V200" class="s-line"/><path d="M300 200H340M306 206H334M312 212H328" class="s-line"/>
+        <circle cx="320" cy="60" r="4" fill="var(--accent)"/><text x="326" y="50" class="t-acc">SW</text>
+        <path d="M320 60H380" class="s-line"/>
+        <path d="M380 60 q10 -18 20 0 q10 -18 20 0 q10 -18 20 0 q10 -18 20 0" class="s-acc"/>
+        <text x="420" y="34" class="t" text-anchor="middle">L (0.22–1 µH)</text>
+        <path d="M460 60H600" class="s-line"/>
+        <path d="M540 60V110M522 110H558M522 120H558M540 120V200" class="s-line"/>
+        <text x="566" y="120" class="t-mono">C<tspan font-size="9">out</tspan> 10–47 µF</text>
+        <path d="M600 60V80" class="s-line"/><rect x="585" y="80" width="30" height="70" rx="4" class="f-elev"/><text x="600" y="120" class="t-mono" text-anchor="middle" transform="rotate(-90 600 118)">부하</text>
+        <path d="M600 150V200H300" class="s-line"/>
+        <text x="640" y="65" class="t">V<tspan font-size="10">out</tspan> = D·V<tspan font-size="10">in</tspan></text>
+        <text x="40" y="232" class="t-dim">HS 켜짐: 인덕터 전류 증가 (V<tspan font-size="9">in</tspan>−V<tspan font-size="9">out</tspan>)/L · LS 켜짐: 감소 −V<tspan font-size="9">out</tspan>/L · 평균 SW 전압 = 출력 전압</text>
+      </svg>
+      <figcaption><b>그림 6-1.</b> 동기식 벅 컨버터. 두 MOSFET(HS, LS)이 번갈아 켜져 SW 노드에 0 V와 V<sub>in</sub>을 오가는 사각파를 만들고, LC 필터가 그 평균만 통과시킨다. 이상적으로는 손실이 없어 효율이 이론적으로 100%에 가깝다.</figcaption>
+    </figure>
+
+    <div class="formula">$$D = \frac{V_{\text{out}}}{V_{\text{in}}}, \qquad \Delta I_L = \frac{(V_{\text{in}} - V_{\text{out}})\,D}{L\, f_{\text{sw}}}, \qquad \Delta V_{\text{out}} \approx \frac{\Delta I_L}{8\, f_{\text{sw}}\, C_{\text{out}}}$$
+      <div class="where">\(\Delta I_L\)은 인덕터 전류의 피크-피크 리플이다. 손실은 크게 도통 손실 \(I_{\text{rms}}^2(R_{\text{on}} + R_{\text{DCR}})\), 스위칭 손실 \(\propto V_{\text{in}} I f_{\text{sw}}\), 게이트 구동 \(\propto Q_g V_{\text{drv}} f_{\text{sw}}\), 그리고 정지 전류 \(I_q V_{\text{in}}\)이다. 폰 PMIC 벅은 보통 2~4 MHz, 0.22~0.47 µH 인덕터를 쓴다.</div>
+    </div>
+
+    <div class="sim" id="sim-buck">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>벅 컨버터 파형과 효율</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-buck"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>입력 Vin (배터리) <output id="bk-vin-out"></output></span><input type="range" id="bk-vin" min="3.0" max="4.45" step="0.05" value="3.85"></label>
+          <label class="ctrl"><span>출력 Vout <output id="bk-vo-out"></output></span><input type="range" id="bk-vo" min="0.5" max="2.0" step="0.05" value="0.8"></label>
+          <label class="ctrl"><span>부하 전류 <output id="bk-i-out"></output></span><input type="range" id="bk-i" min="0.05" max="4" step="0.05" value="1.5"></label>
+          <label class="ctrl"><span>스위칭 주파수 <output id="bk-f-out"></output></span><input type="range" id="bk-f" min="1" max="6" step="0.1" value="2.4"></label>
+          <label class="ctrl"><span>인덕턴스 <output id="bk-l-out"></output></span><input type="range" id="bk-l" min="0.1" max="1.5" step="0.01" value="0.47"></label>
+        </div>
+      </div>
+      <div class="legend"><span><i style="background:var(--text-dim)"></i>SW 노드 전압</span><span><i style="background:var(--accent)"></i>인덕터 전류</span><span><i style="background:var(--accent-2)"></i>출력 전압 리플 (확대)</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">듀티 D</span><span class="v" id="bk-d">—</span></div>
+        <div class="stat"><span class="k">전류 리플 ΔI</span><span class="v" id="bk-di">—</span></div>
+        <div class="stat"><span class="k">출력 리플 ΔV</span><span class="v" id="bk-dv">—</span></div>
+        <div class="stat"><span class="k">효율</span><span class="v" id="bk-eta">—</span></div>
+        <div class="stat"><span class="k">손실</span><span class="v" id="bk-loss">—</span></div>
+      </div>
+      <div class="sim-note">C<sub>out</sub> = 22 µF, HS/LS 온저항 40/25 mΩ, 인덕터 DCR ∝ L 가정. 해볼 것: 주파수를 1 MHz로 낮추면 리플이 커지고, 이를 막으려면 L이 커야 한다(인덕터가 커진다). 부하 전류를 0.2 A 아래로 내리면 인덕터 전류가 0 아래로 내려가는 구간이 생긴다. 이 영역에서 강제 PWM은 효율이 무너진다(다음 절의 PFM).</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 4 -->
+  <section id="ldo">
+    <h2>LDO vs 스위칭: 언제 무엇을 쓰나</h2>
+    <p><span class="term">LDO</span><span class="en">(Low-Dropout regulator)</span>는 입력과 출력 사이에 트랜지스터 하나를 두고 그 저항을 조절해 전압을 떨어뜨린다. 남는 전압×전류는 전부 열이다. 효율은 단순하다.</p>
+    <div class="formula">$$\eta_{\text{LDO}} = \frac{V_{\text{out}}\, I_{\text{out}}}{V_{\text{in}}\,(I_{\text{out}} + I_q)} \;\approx\; \frac{V_{\text{out}}}{V_{\text{in}}}, \qquad P_{\text{loss}} = (V_{\text{in}} - V_{\text{out}})\, I_{\text{out}}$$
+      <div class="where">\(I_q\)는 LDO 자체가 쓰는 정지 전류(수 µA~수십 µA). 드롭아웃 전압(보통 0.1~0.25 V) 이하로 입력이 낮아지면 레귤레이션이 깨진다.</div>
+    </div>
+    <p>그럼에도 LDO는 폰 안에 수십 개 있다. <b>노이즈가 없고</b>(스위칭 리플 없음, 전원 노이즈 제거비 PSRR이 높음), <b>작고</b>(인덕터 불필요), <b>빠르다</b>. 그래서 카메라 센서 아날로그(2.8 V), PLL·클록, RF 트랜시버, 센서 같은 <b>소전류·저잡음</b> 레일에 쓴다. 효율을 아끼려고 LDO 입력을 배터리에서 바로 받지 않고, 한 단 낮춘 벅 출력(예: 1.35 V, 2.0 V 프리레귤레이터)에서 받는 구조가 흔하다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 210" role="img" aria-label="LDO와 벅 비교">
+        <text x="190" y="24" class="t-acc" text-anchor="middle">LDO: 3.9 V → 1.1 V, 0.5 A</text>
+        <rect x="40" y="50" width="70" height="50" rx="6" class="f-elev"/><text x="75" y="80" class="t" text-anchor="middle">3.9 V</text>
+        <rect x="150" y="45" width="90" height="60" rx="6" class="f-acc2-soft"/><text x="195" y="72" class="t" text-anchor="middle">패스 Tr</text><text x="195" y="92" class="t-mono" text-anchor="middle">2.8 V 강하</text>
+        <rect x="280" y="50" width="70" height="50" rx="6" class="f-elev"/><text x="315" y="80" class="t" text-anchor="middle">1.1 V</text>
+        <path d="M110 75H150M240 75H280" class="s-line"/>
+        <text x="195" y="135" class="t" text-anchor="middle">열 1.4 W · 효율 28%</text>
+        <rect x="70" y="150" width="250" height="16" rx="4" class="f-surface"/><rect x="70" y="150" width="70" height="16" rx="4" class="f-acc"/>
+        <text x="195" y="190" class="t-dim" text-anchor="middle">초록: 부하로 간 전력</text>
+        <line x1="390" y1="16" x2="390" y2="200" class="s-axis" stroke-dasharray="4 4"/>
+        <text x="575" y="24" class="t-acc" text-anchor="middle">벅: 3.9 V → 1.1 V, 0.5 A</text>
+        <rect x="420" y="50" width="70" height="50" rx="6" class="f-elev"/><text x="455" y="80" class="t" text-anchor="middle">3.9 V</text>
+        <rect x="530" y="45" width="90" height="60" rx="6" class="f-acc-soft"/><text x="575" y="72" class="t" text-anchor="middle">스위치+L</text><text x="575" y="92" class="t-mono" text-anchor="middle">D ≈ 0.28</text>
+        <rect x="660" y="50" width="70" height="50" rx="6" class="f-elev"/><text x="695" y="80" class="t" text-anchor="middle">1.1 V</text>
+        <path d="M490 75H530M620 75H660" class="s-line"/>
+        <text x="575" y="135" class="t" text-anchor="middle">손실 ~0.05 W · 효율 ~91%</text>
+        <rect x="450" y="150" width="250" height="16" rx="4" class="f-surface"/><rect x="450" y="150" width="228" height="16" rx="4" class="f-acc"/>
+        <text x="575" y="190" class="t-dim" text-anchor="middle">입력 전류는 출력보다 작다 (~0.15 A)</text>
+      </svg>
+      <figcaption><b>그림 6-2.</b> 같은 변환을 LDO와 벅으로. LDO는 입력 전류 = 출력 전류이고, 벅은 입력 전력 ≈ 출력 전력이라 입력 전류가 출력보다 훨씬 작다.</figcaption>
+    </figure>
+
+    <div class="sim" id="sim-ldo">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>LDO vs 벅 효율 계산기</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-ldo"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>출력 전압 <output id="ld-vo-out"></output></span><input type="range" id="ld-vo" min="0.6" max="3.3" step="0.05" value="1.8"></label>
+          <label class="ctrl"><span>출력 전류 <output id="ld-i-out"></output></span><input type="range" id="ld-i" min="-3" max="0" step="0.05" value="-1"></label>
+          <div class="ctrl"><span>LDO 입력</span><div class="seg" id="ld-src"><button data-value="bat" class="on">배터리 직결</button><button data-value="pre">2.0 V 프리레귤</button></div></div>
+          <label class="ctrl"><span>현재 배터리 전압 <output id="ld-vb-out"></output></span><input type="range" id="ld-vb" min="3.3" max="4.45" step="0.05" value="3.85"></label>
+        </div>
+      </div>
+      <div class="legend"><span><i style="background:var(--accent-2)"></i>LDO</span><span><i style="background:var(--accent)"></i>벅 (자동 PFM/PWM)</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">LDO 효율</span><span class="v" id="ld-e1">—</span></div>
+        <div class="stat"><span class="k">LDO 손실(열)</span><span class="v" id="ld-l1">—</span></div>
+        <div class="stat"><span class="k">벅 효율</span><span class="v" id="ld-e2">—</span></div>
+        <div class="stat"><span class="k">벅 손실</span><span class="v" id="ld-l2">—</span></div>
+      </div>
+      <div class="sim-note">x축은 배터리 방전에 따른 입력 전압. 해볼 것: 1 mA 이하의 소전류에서는 LDO와 벅의 차이가 µW 수준이라 노이즈·면적에서 이기는 LDO가 낫다. 100 mA 이상에서 출력이 낮으면 LDO는 수백 mW를 열로 버린다. "2.0 V 프리레귤"을 고르면 벅이 먼저 2.0 V로 낮춘 뒤 LDO가 받으므로 전체 효율이 크게 오른다(곡선은 두 단 합산).</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 5 -->
+  <section id="efficiency">
+    <h2>효율 곡선: 부하에 따라 달라지는 효율과 PFM/PWM</h2>
+    <p>컨버터의 효율은 부하 전류에 따라 모양이 정해진다. 큰 전류에서는 \(I^2 R\) 도통 손실이 지배해 효율이 서서히 떨어지고, 작은 전류에서는 <b>부하와 무관하게 고정된 손실</b>(스위칭, 게이트 구동, 정지 전류)이 출력 전력에 비해 커져 효율이 급락한다. 폰은 하루의 대부분을 화면이 꺼진 대기 상태(레일당 수 µA~수 mA)로 보내므로, <b>경부하 효율</b>이 배터리 수명에 결정적이다.</p>
+    <p>그래서 PMIC 벅은 부하에 따라 동작 방식을 바꾼다. 무거운 부하에서는 고정 주파수 <span class="term">PWM</span>, 가벼운 부하에서는 필요할 때만 펄스를 몇 개 보내고 쉬는 <span class="term">PFM</span><span class="en">(Pulse-Frequency Modulation, 또는 버스트 모드)</span>로 스위칭 횟수를 부하에 비례하게 줄인다. 대가는 출력 리플이 커지고 스위칭 주파수가 부하에 따라 변해 노이즈 스펙트럼이 퍼진다는 점이다. RF 수신이나 오디오처럼 민감한 순간에는 강제 PWM을 쓰기도 한다.</p>
+
+    <div class="sim" id="sim-eff">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>부하 전류 vs 효율 (PWM / PFM)</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-eff"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>Vin → Vout <output id="ef-vo-out"></output></span><input type="range" id="ef-vo" min="0.5" max="3.3" step="0.05" value="1.0"></label>
+          <label class="ctrl"><span>스위칭 주파수 <output id="ef-f-out"></output></span><input type="range" id="ef-f" min="1" max="6" step="0.1" value="2.4"></label>
+          <label class="ctrl"><span>정지 전류 Iq <output id="ef-iq-out"></output></span><input type="range" id="ef-iq" min="1" max="200" step="1" value="25"></label>
+          <label class="ctrl"><span>인덕터 DCR <output id="ef-dcr-out"></output></span><input type="range" id="ef-dcr" min="10" max="120" step="5" value="40"></label>
+          <label class="ctrl"><span>커서 부하 <output id="ef-x-out"></output></span><input type="range" id="ef-x" min="-4" max="0.6" step="0.05" value="-2"></label>
+        </div>
+      </div>
+      <div class="legend"><span><i style="background:var(--accent-2)"></i>강제 PWM</span><span><i style="background:var(--accent)"></i>자동 PFM/PWM</span><span><i style="background:var(--faint, var(--text-faint))"></i>대표 부하 구간</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">부하</span><span class="v" id="ef-load">—</span></div>
+        <div class="stat"><span class="k">PWM 효율</span><span class="v" id="ef-pwm">—</span></div>
+        <div class="stat"><span class="k">PFM 효율</span><span class="v" id="ef-pfm">—</span></div>
+        <div class="stat"><span class="k">PFM 유효 주파수</span><span class="v" id="ef-fe">—</span></div>
+      </div>
+      <div class="sim-note">V<sub>in</sub> = 3.85 V. 해볼 것: 커서를 1 mA(대기 중 AP 상시 동작 레일 수준)에 두고 PWM과 PFM을 비교하라. 정지 전류 I<sub>q</sub>를 200 µA로 올리면 PFM이어도 경부하 효율이 무너진다. 그래서 PMIC 데이터시트에서 수 µA의 I<sub>q</sub>가 핵심 사양이다. 주파수를 올리면 고부하는 큰 차이 없지만 PWM 경부하가 더 나빠진다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 6 -->
+  <section id="charger">
+    <h2>충전 IC와 파워 패스</h2>
+    <p>충전기는 배터리만 충전하는 것이 아니라 <b>폰 전체에 전원을 공급하면서</b> 남는 전력으로 배터리를 채워야 한다. 배터리가 완전히 방전되었거나 빠져 있어도 폰은 켜져야 하고, 충전 중 게임을 해서 시스템이 충전기 출력보다 많이 쓰면 배터리가 부족분을 보태야 한다. 이것을 관리하는 구조가 <span class="term">파워 패스</span><span class="en">(power path)</span>이고, 폰에서는 대부분 <span class="term">NVDC</span><span class="en">(Narrow VDC)</span> 방식을 쓴다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 260" role="img" aria-label="NVDC 파워 패스 구조">
+        <defs><marker id="pw-a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--text-dim)"/></marker></defs>
+        <rect x="20" y="90" width="100" height="56" rx="8" class="f-elev"/><text x="70" y="114" class="t" text-anchor="middle">USB-C</text><text x="70" y="134" class="t-mono" text-anchor="middle">VBUS 5–20 V</text>
+        <rect x="150" y="90" width="80" height="56" rx="8" class="f-surface"/><text x="190" y="114" class="t" text-anchor="middle">OVP</text><text x="190" y="134" class="t-mono" text-anchor="middle">과전압 차단</text>
+        <rect x="260" y="80" width="130" height="76" rx="8" class="f-acc-soft"/><text x="325" y="110" class="t" text-anchor="middle">벅 충전기</text><text x="325" y="132" class="t-mono" text-anchor="middle">입력 전류 제한</text>
+        <path d="M120 118H148M230 118H258" class="s-line" marker-end="url(#pw-a1)"/>
+        <path d="M390 118H520" stroke="var(--accent-2)" stroke-width="4"/><text x="455" y="108" class="t-acc" text-anchor="middle" style="fill:var(--accent-2)">VSYS</text>
+        <rect x="520" y="90" width="120" height="56" rx="8" class="f-elev"/><text x="580" y="114" class="t" text-anchor="middle">PMIC · 시스템</text><text x="580" y="134" class="t-mono" text-anchor="middle">3.4–4.45 V</text>
+        <path d="M455 118V180" class="s-line"/>
+        <rect x="415" y="180" width="80" height="40" rx="8" class="f-acc2-soft"/><text x="455" y="205" class="t" text-anchor="middle">BATFET</text>
+        <path d="M495 200H560" class="s-line"/>
+        <rect x="560" y="178" width="110" height="44" rx="8" class="f-surface"/><text x="615" y="205" class="t" text-anchor="middle">배터리</text>
+        <rect x="260" y="20" width="130" height="44" rx="8" class="f-acc-soft"/><text x="325" y="47" class="t" text-anchor="middle">2:1 차지 펌프</text>
+        <path d="M230 106 Q245 42 258 42" class="s-line" marker-end="url(#pw-a1)"/>
+        <path d="M390 42H700V200H672" class="s-line" stroke-dasharray="5 4" marker-end="url(#pw-a1)"/>
+        <text x="545" y="36" class="t-dim" text-anchor="middle">고속 충전: 배터리로 직접 (BATFET 우회)</text>
+        <text x="20" y="250" class="t-dim">VSYS는 배터리 전압 근처(최저 ~3.5 V 보장)로 유지된다. BATFET이 배터리 충전 전류를 조절하고, 시스템이 더 필요하면 배터리 쪽에서 보탠다(보충 모드).</text>
+      </svg>
+      <figcaption><b>그림 6-3.</b> NVDC 파워 패스. 벅 충전기는 VSYS를 배터리보다 약간 높게 조절하고, BATFET으로 충전 전류를 제어한다. 고속 충전 때는 고효율 스위치드 커패시터(차지 펌프)가 배터리에 직접 전류를 넣고 벅 충전기는 쉬거나 보조한다.</figcaption>
+    </figure>
+
+    <div class="sim" id="sim-path">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>파워 패스: 전력은 어디로 흐르나</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-path"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>어댑터 가용 전력 <output id="pp-a-out"></output></span><input type="range" id="pp-a" min="0" max="45" step="1" value="18"></label>
+          <label class="ctrl"><span>시스템 소비 <output id="pp-s-out"></output></span><input type="range" id="pp-s" min="0.3" max="12" step="0.1" value="2"></label>
+          <label class="ctrl"><span>배터리 전압 <output id="pp-v-out"></output></span><input type="range" id="pp-v" min="2.8" max="4.45" step="0.01" value="3.8"></label>
+          <label class="ctrl"><span>최대 충전 전력(셀 한도) <output id="pp-c-out"></output></span><input type="range" id="pp-c" min="5" max="40" step="1" value="25"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">모드</span><span class="v" id="pp-mode" style="font-size:15px">—</span></div>
+        <div class="stat"><span class="k">VSYS</span><span class="v" id="pp-vs">—</span></div>
+        <div class="stat"><span class="k">배터리 전력</span><span class="v" id="pp-b">—</span></div>
+        <div class="stat"><span class="k">충전기 손실</span><span class="v" id="pp-l">—</span></div>
+      </div>
+      <div class="sim-note">점의 흐름 속도가 전력에 비례한다. 해볼 것: 어댑터를 0으로 하면 배터리 단독, 어댑터 18 W에 시스템 12 W(게임)면 충전이 거의 멈춘다. 시스템을 18 W 이상으로 생각하면 배터리가 보충한다. 배터리 전압을 2.8 V로 내리면(깊은 방전) VSYS는 최저값 3.5 V로 유지되어 폰이 바로 켜질 수 있고, 배터리는 작은 전류로 천천히 살려낸다(프리차지).</div>
+    </div>
+
+    <h3>스위치드 커패시터 충전: 2:1 차지 펌프</h3>
+    <p>벅 충전기는 인덕터의 DCR과 스위칭 손실 때문에 고전류에서 효율이 90~93% 정도다. 25 W를 넣으면 2 W가 열이다. 20 W 이상 고속 충전에서는 인덕터 없이 <b>커패시터와 스위치만으로</b> 전압을 정확히 절반으로 만드는 <span class="term">2:1 스위치드 커패시터 컨버터</span><span class="en">(charge pump, divider)</span>를 쓴다. 두 위상을 번갈아 가며 플라잉 커패시터를 입력과 출력 사이에 "직렬"로, 그다음 출력과 접지 사이에 "병렬"로 연결하면, 출력 전압 = 입력/2, 출력 전류 = 입력 전류 × 2가 된다.</p>
+    <div class="formula">$$V_{\text{out}} = \frac{V_{\text{in}}}{2} - I_{\text{out}} R_{\text{out}}, \qquad \eta = \frac{V_{\text{out}}}{V_{\text{in}}/2} = 1 - \frac{I_{\text{out}} R_{\text{out}}}{V_{\text{in}}/2}, \qquad R_{\text{out}} \approx \frac{1}{4 f C_{\text{fly}}} + 2R_{\text{on}}$$
+      <div class="where">출력 저항 \(R_{\text{out}}\)은 커패시터 충방전 손실(느린 스위칭 한계)과 스위치 온저항(빠른 스위칭 한계)으로 정해진다. 차지 펌프는 전압을 "조절"하지 못하고 비율만 고정하므로, 충전기 전압 자체를 정밀하게 바꿔 줄 수 있어야 한다. 그래서 USB PD의 <b>PPS</b>와 짝을 이룬다.</div>
+    </div>
+
+    <div class="sim" id="sim-cp">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>2:1 차지 펌프 동작과 효율</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-cp"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>충전 전류 (출력) <output id="cp-i-out"></output></span><input type="range" id="cp-i" min="0.5" max="12" step="0.1" value="6"></label>
+          <label class="ctrl"><span>플라잉 C <output id="cp-c-out"></output></span><input type="range" id="cp-c" min="10" max="100" step="2" value="44"></label>
+          <label class="ctrl"><span>스위칭 주파수 <output id="cp-f-out"></output></span><input type="range" id="cp-f" min="200" max="1000" step="10" value="500"></label>
+          <label class="ctrl"><span>스위치 Ron <output id="cp-r-out"></output></span><input type="range" id="cp-r" min="2" max="15" step="0.5" value="5"></label>
+          <label class="check"><input type="checkbox" id="cp-slow"> 위상 전환 천천히</label>
+        </div>
+      </div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>2:1 차지 펌프</span><span><i style="background:var(--accent-2)"></i>벅 충전기(비교)</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">R<sub>out</sub></span><span class="v" id="cp-ro">—</span></div>
+        <div class="stat"><span class="k">CP 효율</span><span class="v" id="cp-e">—</span></div>
+        <div class="stat"><span class="k">CP 손실</span><span class="v" id="cp-l">—</span></div>
+        <div class="stat"><span class="k">같은 전력 벅 손실</span><span class="v" id="cp-lb">—</span></div>
+      </div>
+      <div class="sim-note">배터리 4.0 V, 입력 ≈ 8.0 V 가정. 해볼 것: 위상 애니메이션에서 커패시터가 "입력–출력 사이(직렬)"와 "출력–접지(병렬)"를 오가는 것을 보자. 전류 6 A에서 CP는 1 W 미만, 벅은 2 W가 넘게 잃는다. 고속 충전 시 폰 발열의 절반이 여기서 갈린다. C<sub>fly</sub>를 줄이거나 주파수를 낮추면 R<sub>out</sub>이 커진다. 전압을 더 낮추는 4:1, 혹은 2S 배터리용 구성도 같은 원리다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 7 -->
+  <section id="pd">
+    <h2>USB PD와 PPS: 충전기와의 협상</h2>
+    <p>USB-C 케이블을 꽂으면 처음에는 무조건 5 V만 나온다. 더 높은 전압은 <span class="term">USB Power Delivery</span><span class="en">(PD)</span> 프로토콜로 <b>협상</b>해야 한다. 협상은 CC 핀 위의 저속 디지털 통신(BMC, 300 kbps)으로 이뤄진다. 충전기(소스)가 자신이 줄 수 있는 전력 목록(<b>PDO</b>, Power Data Object)을 보내면, 폰(싱크)이 하나를 골라 요청(<b>RDO</b>)하고, 소스가 수락 후 전압을 바꾼 뒤 준비 완료를 알린다.</p>
+    <ul>
+      <li><b>고정 PDO</b>: 5 V, 9 V, 15 V, 20 V(EPR은 28/36/48 V). 정해진 전압에 최대 전류.</li>
+      <li><b>PPS</b><span class="en">(Programmable Power Supply)</span>: 예: 3.3~11 V 범위에서 <b>20 mV 단위로 전압</b>, 50 mA 단위로 전류 한도를 지정. 폰은 충전 내내 배터리 전압을 따라 VBUS를 조금씩 올려 요청한다(최소 10초마다 재요청).</li>
+      <li><b>케이블</b>: 3 A를 넘기려면 5 A용 <b>e-marker</b> 칩이 든 케이블이 필요하다. 충전기는 케이블 정보를 읽고 전류를 제한한다.</li>
+    </ul>
+    <p>PPS가 고속 충전의 핵심인 이유는 앞 절의 차지 펌프 때문이다. 차지 펌프는 비율만 고정하므로, 충전기가 VBUS = 2 × V<sub>bat</sub> + 여유분을 정확히 내주면 폰 안에서는 고효율 2:1 변환만 일어나고, 전류 조절은 사실상 <b>충전기 쪽</b>에서 이뤄진다. 즉 손실(열)의 일부를 폰 밖으로 옮기는 것이다.</p>
+
+    <div class="sim" id="sim-pd">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>PD/PPS 협상과 충전 세션</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-pd"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>충전기</span>
+            <select id="pd-src">
+              <option value="bc">구형 5 V 2 A (PD 없음)</option>
+              <option value="fix">PD 고정 9 V 3 A (27 W)</option>
+              <option value="pps3">PD PPS 3.3–11 V 3 A</option>
+              <option value="pps5" selected>PD PPS 3.3–11 V 5 A (45 W급)</option>
+            </select>
+          </div>
+          <label class="check"><input type="checkbox" id="pd-cable" checked> 5 A e-marker 케이블</label>
+          <label class="ctrl"><span>시작 SOC <output id="pd-s0-out"></output></span><input type="range" id="pd-s0" min="0" max="60" step="5" value="10"></label>
+          <button class="btn primary" id="pd-run">협상 다시 보기</button>
+        </div>
+      </div>
+      <ol class="pw-msgs" id="pd-msgs"></ol>
+      <div class="legend"><span><i style="background:var(--accent)"></i>VBUS (V)</span><span><i style="background:var(--accent-2)"></i>IBUS (A)</span><span><i style="background:var(--ok)"></i>SOC (%)</span><span><i style="background:var(--warn)"></i>폰 내부 손실 (W)</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">선택된 PDO</span><span class="v" id="pd-pdo" style="font-size:15px">—</span></div>
+        <div class="stat"><span class="k">최대 입력 전력</span><span class="v" id="pd-pmax">—</span></div>
+        <div class="stat"><span class="k">→ 80%</span><span class="v" id="pd-t80">—</span></div>
+        <div class="stat"><span class="k">충전 중 평균 손실</span><span class="v" id="pd-loss">—</span></div>
+      </div>
+      <div class="sim-note">5,000 mAh 단일 셀, 셀 한도 2C 다단 CC 가정. PPS에서는 2:1 차지 펌프(η ≈ 97%), 고정 PDO에서는 벅 충전기(η ≈ 91%)를 쓴다. 해볼 것: PPS 5 A에서 VBUS가 배터리 전압을 따라 계단처럼 오르는 것을 보자. 케이블을 3 A로 바꾸면 같은 충전기라도 느려진다. 고정 9 V는 전력은 27 W지만 폰 안 손실이 크다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 8 -->
+  <section id="wireless">
+    <h2>무선 충전: 공진 유도 결합</h2>
+    <p>무선 충전은 <b>변압기에서 철심을 빼고 1차·2차 코일을 몇 mm 떼어 놓은 것</b>이다. 충전 패드의 송신(Tx) 코일에 100~200 kHz 교류를 흘리면, 그 자기장 일부가 폰의 수신(Rx) 코일을 지나며 전압을 유도한다. 두 코일이 공유하는 자속의 비율이 <span class="term">결합계수</span> \(k\)이고, 철심 변압기의 k ≈ 0.99와 달리 무선 충전은 정렬이 잘 되어도 0.5~0.8, 어긋나면 0.2 아래로 떨어진다.</p>
+    <p>약한 결합을 보완하려고 양쪽 코일에 커패시터를 직렬로 달아 동작 주파수에서 <b>공진</b>시킨다. 그러면 누설 인덕턴스의 리액턴스가 상쇄되어 작은 k로도 전력을 넘길 수 있다. 이때 링크 효율의 상한은 k와 두 코일의 품질 계수 Q로 정해진다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 230" role="img" aria-label="공진 유도 결합 무선 충전 회로">
+        <rect x="20" y="80" width="90" height="60" rx="8" class="f-elev"/><text x="65" y="106" class="t" text-anchor="middle">인버터</text><text x="65" y="126" class="t-mono" text-anchor="middle">~128 kHz</text>
+        <path d="M110 95H150" class="s-line"/><path d="M150 85V105M158 85V105" class="s-line"/><text x="154" y="76" class="t-mono" text-anchor="middle">C1</text>
+        <path d="M158 95H200V70" class="s-line"/>
+        <path d="M200 70 q18 10 0 20 q18 10 0 20 q18 10 0 20 q18 10 0 20" class="s-acc"/>
+        <path d="M200 150V170H110V125" class="s-line"/>
+        <text x="180" y="200" class="t" text-anchor="middle">Tx 코일 L1</text>
+        <path d="M250 60V180M262 60V180" stroke="var(--text-faint)" stroke-dasharray="4 4"/>
+        <text x="256" y="48" class="t-dim" text-anchor="middle">간격 3–8 mm</text>
+        <path d="M218 110 Q256 80 300 110" class="s-line" stroke-dasharray="3 3"/><text x="256" y="128" class="t-acc" text-anchor="middle">M = k√(L1L2)</text>
+        <path d="M310 70 q-18 10 0 20 q-18 10 0 20 q-18 10 0 20 q-18 10 0 20" class="s-acc"/>
+        <path d="M310 70H360" class="s-line"/><path d="M360 60V80M368 60V80" class="s-line"/><text x="364" y="52" class="t-mono" text-anchor="middle">C2</text>
+        <path d="M368 70H410" class="s-line"/><path d="M310 150V170H410" class="s-line"/>
+        <text x="330" y="200" class="t" text-anchor="middle">Rx 코일 L2</text>
+        <rect x="410" y="60" width="90" height="120" rx="8" class="f-acc-soft"/><text x="455" y="115" class="t" text-anchor="middle">정류기</text><text x="455" y="135" class="t-mono" text-anchor="middle">동기 정류</text>
+        <path d="M500 120H540" class="s-line"/>
+        <rect x="540" y="90" width="90" height="60" rx="8" class="f-elev"/><text x="585" y="116" class="t" text-anchor="middle">충전 IC</text><text x="585" y="136" class="t-mono" text-anchor="middle">벅/CP</text>
+        <path d="M630 120H660" class="s-line"/>
+        <rect x="660" y="95" width="80" height="50" rx="8" class="f-surface"/><text x="700" y="125" class="t" text-anchor="middle">배터리</text>
+        <text x="455" y="210" class="t-dim" text-anchor="middle">Rx → Tx 통신: 부하 변조(ASK)로 전력 증감 요청, 이물 감지(FOD)</text>
+      </svg>
+      <figcaption><b>그림 6-4.</b> 직렬 공진 유도 결합. 수신 측은 정류 후 충전 IC로 넘긴다. Qi 표준에서 폰은 코일의 부하를 변조해 충전 패드에 "전력을 더/덜 보내라"를 계속 알리고, 패드는 손실 전력을 계산해 동전·카드 같은 이물을 감지(FOD)한다.</figcaption>
+    </figure>
+
+    <div class="formula">$$\eta_{\text{link,max}} = \frac{k^2 Q_1 Q_2}{\left(1 + \sqrt{1 + k^2 Q_1 Q_2}\right)^2}, \qquad k = \frac{M}{\sqrt{L_1 L_2}}, \qquad Q = \frac{\omega L}{R}$$
+      <div class="where">\(k^2 Q_1 Q_2\)(성능 지수)가 클수록 효율이 1에 가까워진다. k가 반으로 줄면 성능 지수는 1/4이 된다. 시스템 전체 효율은 여기에 인버터·정류기·충전 IC 손실이 곱해져, 잘 정렬된 15 W 충전에서도 대략 65~80% 수준이다. 나머지는 열이고, 상당 부분이 폰 안(코일과 정류기)에서 난다.</div>
+    </div>
+
+    <div class="sim" id="sim-wpc">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>코일 정렬과 결합계수 k (드래그)</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-wpc" style="touch-action:none;cursor:grab"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>모드</span><div class="seg" id="wp-mode"><button data-value="rx" class="on">폰 충전 받기</button><button data-value="rev">역무선 (폰→이어버드)</button></div></div>
+          <label class="ctrl"><span>코일 간격 (Z) <output id="wp-z-out"></output></span><input type="range" id="wp-z" min="2" max="15" step="0.5" value="4"></label>
+          <label class="ctrl"><span>전달 전력 <output id="wp-p-out"></output></span><input type="range" id="wp-p" min="2" max="25" step="0.5" value="15"></label>
+          <label class="check"><input type="checkbox" id="wp-mag"> 자석 정렬 (Qi2 MPP)</label>
+          <label class="check"><input type="checkbox" id="wp-fer" checked> 페라이트 차폐</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">정렬 오차</span><span class="v" id="wp-d">—</span></div>
+        <div class="stat"><span class="k">결합계수 k</span><span class="v" id="wp-k">—</span></div>
+        <div class="stat"><span class="k">링크 효율</span><span class="v" id="wp-el">—</span></div>
+        <div class="stat"><span class="k">시스템 효율</span><span class="v" id="wp-es">—</span></div>
+        <div class="stat"><span class="k">폰 쪽 발열</span><span class="v" id="wp-h">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽 위에서 본 코일을 <b>드래그</b>해 어긋나게 해 보라. k는 다회권 원형 코일 사이 상호 인덕턴스를 노이만 공식으로 수치 계산하고, 페라이트 효과는 약 1.35배 보정으로 근사했다(링크 효율은 최적 부하 기준 상한). Q<sub>1</sub>=40, Q<sub>2</sub>=25 가정. 해볼 것: 10 mm만 어긋나도 k가 크게 줄고 발열이 급증한다. 자석 정렬을 켜면 코일이 중심으로 끌려간다. 역무선 모드는 작은 이어버드 코일이라 k와 효율이 낮다.</div>
+    </div>
+
+    <h3>Qi2와 자석 정렬, 그리고 발열</h3>
+    <p>예전 Qi 패드는 정렬을 사용자에게 맡겼고, 어긋나면 효율이 떨어져 그만큼 패드와 폰이 데워졌다. 일부 패드는 코일을 여러 개 겹치거나 기계적으로 움직여 이를 보완했다. <b>Qi2</b>(WPC, 2023~)는 애플 MagSafe 방식을 바탕으로 한 <b>자기 전력 프로파일</b>(MPP)을 표준화했다. 폰 코일 둘레의 링 자석이 패드의 자석과 맞물려 코일 중심을 수 mm 이내로 붙잡으므로 k가 항상 높게 유지되고, 15 W(최신 규격은 25 W급)를 안정적으로 낼 수 있다. 자석은 페라이트 바깥에 두어 코일 자속을 해치지 않게 하고, 자석의 방향을 알려주는 별도의 작은 자석(방향 정렬)도 둔다.</p>
+    <p>무선 충전의 한계는 결국 <b>열</b>이다. 15 W를 받으며 효율이 75%라면 약 5 W가 손실이고, 그중 2~3 W가 폰 안(코일 구리 손실, 정류기, 충전 IC)에서 난다. 코일이 배터리 바로 뒤에 붙어 있어 셀 온도가 쉽게 40 °C를 넘고, 충전 IC는 온도에 따라 전력을 줄인다. 그래서 "같은 15 W"라도 유선이 훨씬 빠르다.</p>
+
+    <h3>역무선 충전</h3>
+    <p>일부 폰은 방향을 뒤집어 자신이 송신기가 되어 이어버드·워치를 충전한다(<b>역무선 충전</b>, 보통 4.5 W 안팎). 폰의 충전 IC가 배터리 전압을 승압해 Rx 코일을 인버터로 구동한다. 수신 기기 코일이 작아 k가 낮고, 승압·인버터 손실까지 겹쳐 전체 효율은 대개 50% 안팎이다. 즉 이어버드에 1 Wh를 넣으려면 폰 배터리에서 2 Wh 가까이 빠진다. 비상용 기능으로 이해하는 것이 맞다.</p>
+  </section>
+
+  <!-- =============================================================== 9 -->
+  <section id="standby">
+    <h2>전력 측정: 누설, 대기 전력, 슬립 상태</h2>
+    <p>화면을 끈 폰이 하루에 쓰는 배터리는 몇 %일까? 좋은 폰은 밤새 2~5%(평균 3~8 mA 수준)다. 이 작은 숫자를 만드는 것은 <b>수많은 µA의 합</b>이다. 폰이 대기 중일 때도 AP의 상시 동작 블록과 메모리 셀프 리프레시, 센서 허브, 모뎀이 깨어나고, PMIC 레일마다 정지 전류가, 꺼진 블록마다 트랜지스터 누설이 흐른다.</p>
+    <ul>
+      <li><b>슬립 상태</b>: AP는 활성 → 유휴(clock gating) → 저전력 유휴(power collapse) → 시스템 서스펜드로 단계적으로 내려간다. 깊을수록 전력은 적지만 깨어나는 데 시간·에너지가 든다.</li>
+      <li><b>모뎀 DRX</b>(불연속 수신): 기지국 호출(페이징)을 놓치지 않도록 0.32~2.56초마다 짧게 깨어 수신한다. 주기가 길수록 대기 전력은 적고 착신 지연은 길다.</li>
+      <li><b>웨이크업</b>: 푸시 알림, 위치 갱신, 백그라운드 동기화. 각 웨이크업은 AP·메모리·모뎀을 수 초씩 깨우므로 빈도가 대기 전력을 좌우한다. 운영체제가 알람을 묶어 한꺼번에 처리하는 이유다.</li>
+    </ul>
+    <p>측정은 배터리 대신 정밀 전원 공급기(소스 미터)를 연결하고 수십 kHz 이상으로 전류를 샘플링한다. 대기 전류는 µA부터 A까지 6자리 이상을 오가므로 자동 범위 전환이 필수다. 개발 단계에서는 레일별 감지 저항으로 "어느 레일이 범인인지"를 찾고, 양산 폰에서는 연료 게이지와 PMIC의 전력 모니터가 레일별 에너지를 기록한다.</p>
+
+    <div class="sim" id="sim-sleep">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>대기 전류 파형과 대기 시간</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-sleep"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>슬립 바닥 전류 <output id="sl-f-out"></output></span><input type="range" id="sl-f" min="0.5" max="10" step="0.1" value="2.5"></label>
+          <div class="ctrl"><span>모뎀 DRX 주기</span><div class="seg" id="sl-drx"><button data-value="0.32">0.32 s</button><button data-value="0.64">0.64 s</button><button data-value="1.28" class="on">1.28 s</button><button data-value="2.56">2.56 s</button></div></div>
+          <label class="ctrl"><span>앱 웨이크업 (시간당) <output id="sl-w-out"></output></span><input type="range" id="sl-w" min="0" max="120" step="1" value="20"></label>
+          <label class="ctrl"><span>웨이크업 1회 길이 <output id="sl-l-out"></output></span><input type="range" id="sl-l" min="0.3" max="6" step="0.1" value="2"></label>
+          <label class="check"><input type="checkbox" id="sl-wifi" checked> Wi-Fi 연결 (비컨 수신)</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">평균 전류</span><span class="v" id="sl-avg">—</span></div>
+        <div class="stat"><span class="k">하룻밤(8 h) 소모</span><span class="v" id="sl-night">—</span></div>
+        <div class="stat"><span class="k">대기만으로</span><span class="v" id="sl-days">—</span></div>
+        <div class="stat"><span class="k">가장 큰 몫</span><span class="v" id="sl-top" style="font-size:15px">—</span></div>
+      </div>
+      <div class="sim-note">위: 20초 동안의 배터리 전류(로그 축). 아래: 평균 전류의 구성. 5,000 mAh 기준. 해볼 것: 바닥 전류를 1 mA 줄이는 것과 웨이크업을 시간당 20회 줄이는 것 중 어느 쪽이 더 효과적인가? 대기 전력 최적화는 하드웨어(누설·I<sub>q</sub>)와 소프트웨어(웨이크업 관리)의 공동 작업이다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 10 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <p>전력 설계의 목표는 "배터리의 Wh를 최대한 많이, 최대한 조용하게, 최대한 시원하게 부하에 전달하는 것"이다. 주요 판단 기준을 정리하면 다음과 같다.</p>
+    <div class="table-wrap"><table>
+      <tr><th>항목</th><th>왜 중요한가</th><th>대표적 트레이드오프</th></tr>
+      <tr><td>변환 효율</td><td>효율 1%p = 사용 시간 ~1% + 그만큼의 열. AP 지속 4 W에서 효율 85→90%면 열이 약 0.25 W 준다</td><td>큰 인덕터·큰 FET(면적·원가) vs 효율</td></tr>
+      <tr><td>경부하 효율 / I<sub>q</sub></td><td>폰은 대부분 대기 상태. 레일 수십 개의 µA가 모여 mA가 된다</td><td>PFM 리플·노이즈 vs 대기 전력</td></tr>
+      <tr><td>인덕터 크기·높이</td><td>벅마다 인덕터 1개(멀티페이즈는 여러 개). 보드 면적과 0.6~1.0 mm 높이가 보드 두께를 정한다</td><td>높은 f<sub>sw</sub>(작은 L) vs 스위칭 손실</td></tr>
+      <tr><td>과도 응답</td><td>CPU 부하가 µs 안에 수 A 변한다. 전압이 처지면 오동작, 마진을 두면 전력 낭비</td><td>출력 커패시터 개수·대역폭 vs 면적</td></tr>
+      <tr><td>스위칭 노이즈·RF 간섭</td><td>MHz 스위칭의 고조파와 빠른 에지가 안테나·GNSS·NFC·카메라 영상에 섞인다</td><td>에지 속도(효율) vs EMI, 스펙트럼 확산</td></tr>
+      <tr><td>충전 속도·열·수명</td><td>고속 충전은 편리하지만 열과 셀 열화를 부른다(<a href="battery.html">5장</a>)</td><td>CP·2S·PPS로 열을 줄이되 셀 온도로 전력 제한</td></tr>
+      <tr><td>보호·신뢰성</td><td>USB-C 핀 단락, 습기, 서지, 잘못된 충전기</td><td>OVP·습기 감지·포트 보호 vs 원가·면적</td></tr>
+    </table></div>
+
+    <h3>스위칭 주파수를 고르는 문제</h3>
+    <p>주파수를 올리면 필요한 인덕턴스가 줄어 인덕터가 작고 얇아진다(폰에는 결정적이다). 대신 스위칭·게이트 손실이 주파수에 비례해 늘고, 고조파가 더 높은 대역까지 퍼진다. 특히 고조파 하나가 NFC(13.56 MHz)나 GNSS, 이동통신 수신 대역 근처에 떨어지면 수신 감도가 떨어진다(<a href="rf.html">7장</a>의 감도 저하, desense). 그래서 PMIC는 주파수를 약간씩 흔드는 <b>스펙트럼 확산</b>이나 레일별 주파수 배치(위상 엇갈림)를 쓴다.</p>
+
+    <div class="sim" id="sim-fsw">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>스위칭 주파수 트레이드오프: 효율 · 인덕터 · 간섭</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-fsw"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>스위칭 주파수 <output id="fs-f-out"></output></span><input type="range" id="fs-f" min="0.5" max="8" step="0.05" value="2.4"></label>
+          <label class="ctrl"><span>최대 부하 전류 <output id="fs-i-out"></output></span><input type="range" id="fs-i" min="1" max="6" step="0.5" value="3"></label>
+          <label class="ctrl"><span>허용 리플 (Imax 대비) <output id="fs-r-out"></output></span><input type="range" id="fs-r" min="15" max="50" step="5" value="30"></label>
+          <label class="check"><input type="checkbox" id="fs-ss"> 스펙트럼 확산 (±5%)</label>
+        </div>
+      </div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>효율 @ 1 A</span><span><i style="background:var(--accent-2)"></i>효율 @ 0.1 A (PWM)</span><span><i style="background:var(--blue)"></i>필요 인덕터 높이</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">필요 L</span><span class="v" id="fs-l">—</span></div>
+        <div class="stat"><span class="k">인덕터 (2016 기준 높이)</span><span class="v" id="fs-h">—</span></div>
+        <div class="stat"><span class="k">효율 @1 A</span><span class="v" id="fs-e">—</span></div>
+        <div class="stat"><span class="k">NFC 13.56 MHz 근접 고조파</span><span class="v" id="fs-nfc" style="font-size:15px">—</span></div>
+      </div>
+      <div class="sim-note">3.85 V → 0.8 V 벅. 인덕터는 2.0 × 1.6 mm 풋프린트에서 L·I<sup>2</sup>에 비례해 높이가 정해진다는 단순 모델. 해볼 것: 1 MHz에서는 인덕터가 2 mm 가까이 높아져 보드 샌드위치에 안 들어간다. 6 MHz 이상에서는 인덕터가 얇아지지만 효율이 떨어진다. 고조파가 13.56 MHz에 가까워지면(예: 2.7 MHz × 5) 경고가 뜬다. 스펙트럼 확산은 피크를 낮추지만 넓게 퍼뜨린다.</div>
+    </div>
+
+    <h3>다른 부품과의 상호작용</h3>
+    <ul>
+      <li><b>열</b>: PMIC와 충전 IC는 AP 다음가는 열원이다. 고속 충전 중 충전 IC 근처가 핫스팟이 되므로 배치와 방열 경로(구리 면, 그라파이트 시트, 베이퍼 챔버)를 함께 설계한다.</li>
+      <li><b>RF</b>: 인덕터의 자기장과 SW 노드의 빠른 에지는 안테나 근처에 두지 않고 차폐 캔 안에 넣는다. 모뎀 수신 중에는 PMIC가 PWM 고정·주파수 이동으로 협조한다. PA 전원(APT/ET 트래커)은 RF 성능과 효율을 직접 바꾼다.</li>
+      <li><b>배터리</b>: 배터리 커넥터·보호 FET·배선의 mΩ가 피크 전류 때 전압 강하를 만든다(<a href="battery.html#resistance">5장</a>). PMIC는 이 강하를 감시해 피크 전력을 제한(배터리 전류 제한, 브라운아웃 방지)한다.</li>
+      <li><b>무선 충전 코일·NFC</b>: 같은 위치를 공유해 서로 간섭하므로 코일 배치·페라이트·자석을 함께 설계하고, 금속 케이스·카메라 범프가 자기장을 막지 않게 한다.</li>
+      <li><b>USB-C</b>: 포트에 물이 들어간 채 VBUS가 걸리면 부식·단락이 생긴다. 습기 감지 후 충전을 막는 기능이 들어간다.</li>
+    </ul>
+
+    <div class="callout warn"><strong>흔한 실패 사례</strong>
+      <p>· 대기 중 레일 하나가 PFM으로 안 내려가 하룻밤 10% 소모. · 고속 충전 중 충전 IC 핫스팟이 배터리 옆이라 셀 온도 상승 → 충전 전력이 반으로 꺾임. · 벅 고조파가 GNSS나 LTE 저대역에 떨어져 특정 채널 감도 저하. · CPU 부하 급변 시 전압 처짐으로 간헐적 재부팅(출력 커패시터 부족, 배터리 노화와 겹침). · 무선 충전 코일과 NFC 안테나 튜닝 충돌.</p>
+    </div>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>배터리 → (충전기·파워 패스) → VSYS → PMIC → 수십 개 레일. 블록마다 필요한 전압·전류·노이즈 조건이 달라 레일을 쪼개고, 쉬는 블록은 끈다.</li>
+      <li>벅 컨버터는 \(V_{out} = D V_{in}\), 리플 \(\Delta I = (V_{in}-V_{out})D/(L f)\). 고부하 효율은 도통 손실, 경부하 효율은 스위칭·I<sub>q</sub>가 정한다.</li>
+      <li>LDO는 효율 ≈ V<sub>out</sub>/V<sub>in</sub>이지만 조용하고 작아 소전류·저잡음 레일에 쓴다. 벅 출력을 프리레귤레이터로 받으면 손실이 준다.</li>
+      <li>PFM/버스트 모드는 경부하에서 스위칭을 줄여 대기 효율을 지킨다. 폰은 대부분 대기 상태라 µA의 I<sub>q</sub>가 핵심 사양이다.</li>
+      <li>NVDC 파워 패스는 시스템 전원과 배터리 충전을 동시에 관리하고, 2:1 차지 펌프는 96~98% 효율로 고속 충전의 열을 줄인다.</li>
+      <li>USB PD는 CC 핀으로 PDO/RDO를 협상하고, PPS는 20 mV 단위 전압 조절로 차지 펌프 직접 충전을 가능하게 한다. 3 A 초과는 e-marker 케이블이 필요하다.</li>
+      <li>무선 충전 효율은 \(k^2 Q_1 Q_2\)로 정해지고, k는 정렬·거리에 민감하다. Qi2 자석 정렬이 k를 유지한다. 손실의 상당 부분은 폰 안의 열이 된다.</li>
+      <li>전력 설계는 효율(사용 시간+열), 인덕터 크기·높이, 스위칭 노이즈와 RF 간섭, 충전 속도와 배터리 수명 사이의 균형이다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>1. 3.8 V에서 0.8 V를 만드는 이상적 벅 컨버터의 듀티는?</p><div class="opts">
+        <button class="opt">약 0.79</button><button class="opt" data-correct>약 0.21</button><button class="opt">0.5</button><button class="opt">약 4.75</button>
+      </div><div class="quiz-exp">D = V<sub>out</sub>/V<sub>in</sub> = 0.8/3.8 ≈ 0.21. 위쪽 스위치가 주기의 약 21% 동안 켜진다.</div></div>
+
+      <div class="quiz-q"><p>2. 배터리 3.9 V에서 LDO로 1.2 V, 300 mA를 만들 때 LDO의 발열은?</p><div class="opts">
+        <button class="opt">약 0.36 W</button><button class="opt" data-correct>약 0.81 W</button><button class="opt">약 1.17 W</button><button class="opt">거의 0</button>
+      </div><div class="quiz-exp">(3.9 − 1.2) × 0.3 = 0.81 W. 효율은 약 31%다. 이런 레일은 벅으로 만들거나 벅 출력을 LDO 입력으로 쓴다.</div></div>
+
+      <div class="quiz-q"><p>3. 경부하에서 강제 PWM 벅의 효율이 급락하는 주된 이유는?</p><div class="opts">
+        <button class="opt">도통 손실이 부하 전류의 제곱으로 커져서</button>
+        <button class="opt" data-correct>스위칭·게이트 구동 같은 고정 손실이 작은 출력 전력에 비해 커져서</button>
+        <button class="opt">인덕터가 포화되어서</button>
+        <button class="opt">듀티가 1이 되어서</button>
+      </div><div class="quiz-exp">고정 손실은 부하와 무관하므로 출력이 작아지면 비율이 커진다. PFM은 스위칭 횟수를 부하에 비례하게 줄여 이를 해결한다.</div></div>
+
+      <div class="quiz-q"><p>4. 2:1 스위치드 커패시터 충전기의 특징으로 옳은 것은?</p><div class="opts">
+        <button class="opt">출력 전압을 임의로 조절할 수 있다</button>
+        <button class="opt">인덕터가 커서 높이가 높다</button>
+        <button class="opt" data-correct>전압 비가 고정이고 효율이 높아, 충전기가 PPS로 입력 전압을 정밀하게 맞춰 줘야 한다</button>
+        <button class="opt">출력 전류가 입력 전류의 절반이다</button>
+      </div><div class="quiz-exp">CP는 V<sub>out</sub> ≈ V<sub>in</sub>/2, I<sub>out</sub> ≈ 2 I<sub>in</sub>. 조절 기능이 없으므로 PPS로 VBUS를 20 mV 단위로 맞춘다.</div></div>
+
+      <div class="quiz-q"><p>5. USB-C에 처음 연결된 직후 VBUS 전압과, 9 V 이상을 받기 위해 필요한 것은?</p><div class="opts">
+        <button class="opt" data-correct>5 V, CC 라인으로 PD 협상(Source_Capabilities → Request → Accept → PS_RDY)</button>
+        <button class="opt">20 V, 별도 협상 불필요</button>
+        <button class="opt">0 V, D+/D− 데이터선 협상</button>
+        <button class="opt">9 V, 케이블 길이 측정</button>
+      </div><div class="quiz-exp">USB-C는 안전을 위해 기본 5 V로 시작하고, 고전압은 PD 메시지 교환 후에만 나온다.</div></div>
+
+      <div class="quiz-q"><p>6. 무선 충전에서 결합계수 k가 0.6에서 0.3으로 떨어지면 성능 지수 \(k^2Q_1Q_2\)는?</p><div class="opts">
+        <button class="opt">절반</button><button class="opt" data-correct>1/4</button><button class="opt">변화 없음</button><button class="opt">2배</button>
+      </div><div class="quiz-exp">k²에 비례하므로 1/4. 효율이 떨어지고 같은 전력을 받으려면 송신 전류가 커져 양쪽 모두 발열이 늘어난다.</div></div>
+
+      <div class="quiz-q"><p>7. Qi2의 자석 정렬(MPP)이 주는 가장 직접적인 이점은?</p><div class="opts">
+        <button class="opt">코일 주파수를 MHz로 올린다</button>
+        <button class="opt" data-correct>코일 중심을 항상 맞춰 k를 높게 유지해 효율과 발열을 안정시킨다</button>
+        <button class="opt">페라이트가 필요 없어진다</button>
+        <button class="opt">유선 충전보다 빠르게 한다</button>
+      </div><div class="quiz-exp">정렬 오차가 k를 가장 크게 떨어뜨리는 요인이다. 자석이 이를 기계적으로 해결한다.</div></div>
+
+      <div class="quiz-q"><p>8. 벅 컨버터의 스위칭 주파수를 높일 때의 영향으로 옳지 않은 것은?</p><div class="opts">
+        <button class="opt">같은 리플에 필요한 인덕턴스가 줄어 인덕터가 작아진다</button>
+        <button class="opt">스위칭·게이트 손실이 늘어난다</button>
+        <button class="opt" data-correct>정지 전류 I<sub>q</sub>가 0이 되어 대기 효율이 좋아진다</button>
+        <button class="opt">고조파가 더 높은 주파수까지 퍼져 RF 간섭 검토가 필요하다</button>
+      </div><div class="quiz-exp">주파수를 올리면 경부하(PWM) 효율은 오히려 나빠진다. I<sub>q</sub>는 제어 회로 설계로 정해진다.</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const font = () => getComputedStyle(document.body).getPropertyValue("--font");
+  const mono = () => getComputedStyle(document.body).getPropertyValue("--mono");
+  const safe = (name, fn) => { try { fn(); } catch (e) { console.error(name, e); } };
+  const fmtI = (a) => a >= 1 ? a.toFixed(2) + " A" : a >= 1e-3 ? (a * 1e3).toFixed(a >= 0.01 ? 0 : 1) + " mA" : (a * 1e6).toFixed(0) + " µA";
+  const alpha = (hex, a) => { if (!hex || hex[0] !== "#") return hex; const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+
+  /* ---------- 공통: 벅 손실 모델 ---------- */
+  function buckLoss(vin, vo, I, f, L, mode, iq) {
+    // f: Hz, L: H, mode: 'pwm' | 'auto'
+    const D = Math.min(0.98, vo / vin);
+    const dI = (vin - vo) * D / (L * f);
+    const Rhs = 0.04, Rls = 0.025, dcr = 0.03 * Math.sqrt(L / 0.47e-6) + 0.01;
+    const iq_ = (iq == null ? 25e-6 : iq);
+    let cond, sw, fe = f;
+    const Pgate = 1.2e-9 * 3.6 * f; // Qg*Vdrv*f (양 스위치 합)
+    const PswEdge = (I0) => 0.5 * vin * I0 * 1.2e-9 * f; // tr+tf ~1.2 ns
+    const Pcoss = 0.5 * 400e-12 * vin * vin * f;
+    if (mode === "auto" && I < dI / 2) {
+      // PFM: 버스트, 피크 전류 ~ 정해진 값, 주파수 부하에 비례
+      const Ipk = Math.max(dI, 0.25);
+      fe = Math.min(f, 2 * I / (Ipk * Ipk * L * (1 / (vin - vo) + 1 / vo)) || 0);
+      const irms2 = (Ipk * Ipk / 3) * (fe / f > 0 ? Math.min(1, 2 * I / Ipk) : 0);
+      cond = irms2 * ((Rhs * D + Rls * (1 - D)) + dcr);
+      sw = (Pgate + Pcoss) * (fe / f) + 0.5 * vin * Ipk * 1.2e-9 * fe;
+    } else {
+      const irms2 = I * I + dI * dI / 12;
+      cond = irms2 * (Rhs * D + Rls * (1 - D) + dcr);
+      sw = Pgate + Pcoss + PswEdge(Math.max(I, dI / 2));
+      // PWM 경부하: 음전류 순환 손실 포함(irms 항에 이미)
+    }
+    const q = iq_ * vin + (mode === "pwm" ? 0.6e-3 * vin : 0);
+    const loss = cond + sw + q;
+    const pout = vo * I;
+    return { loss, eta: pout / (pout + loss), dI, D, fe, dcr };
+  }
+
+  /* ================================================== 1. 폰 3D */
+  safe("phone", () => {
+    const el = $("v-phone");
+    const T = PB.three(el, { camera: [-150, -150, 160], target: [0, 0, 0], fov: 35, minDistance: 90, maxDistance: 420 });
+    if (!T) return;
+    const P = PB.phone3d(T);
+    const card = $("phone-card");
+    let cur = "wireless";
+    const open = (part) => {
+      card.innerHTML = PB.partCardHTML(part, "");
+      card.hidden = false;
+      card.querySelector(".x").addEventListener("click", () => { card.hidden = true; });
+    };
+    const select = (id) => {
+      cur = id; P.highlight(id); open(P.byId[id]);
+      [...$("ph-chips").children].forEach((b) => b.classList.toggle("on", b.dataset.id === id));
+    };
+    P.setExplode(0.7);
+    select("wireless");
+    $("ph-chips").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) select(b.dataset.id); });
+    PB.range("ph-ex", (v) => Math.round(v * 100) + "%", (v) => P.setExplode(v));
+    $("ph-xray").addEventListener("change", (e) => P.setXray(e.target.checked));
+    T.pick([P.group], (hit) => { if (!hit) return; const part = P.partAt(hit.object); if (part) { P.highlight(part.id); open(part); [...$("ph-chips").children].forEach((b) => b.classList.toggle("on", b.dataset.id === part.id)); } });
+  });
+
+  /* ================================================== 2. 전원 트리 */
+  safe("tree", () => {
+    const svg = $("tree-svg");
+    const NS = "http://www.w3.org/2000/svg";
+    const G = [
+      { name: "메인 PMIC", y: 30, rails: [
+        { id: "cpub", n: "CPU 빅/프라임", v: "0.5–1.1 V", i: "~4–8 A", k: "buck", d: "멀티페이즈 벅(2~3상)", note: "가장 큰 순간 전류. DVFS로 수 µs마다 전압이 바뀌고, 부하 급변 때 전압 처짐을 막으려 PMIC를 AP 바로 옆에 두고 출력 커패시터를 여러 개 단다." },
+        { id: "cpum", n: "CPU 미드/리틀", v: "0.5–1.0 V", i: "~2–4 A", k: "buck", d: "벅", note: "효율 코어 클러스터. 화면 켜진 일상 사용의 대부분을 담당하므로 중부하 효율이 중요하다." },
+        { id: "gpu", n: "GPU", v: "0.5–0.9 V", i: "~3–6 A", k: "buck", d: "멀티페이즈 벅", note: "게임에서 지속 부하가 가장 큰 레일. 열 한계 안에서 전압·주파수가 조절된다." },
+        { id: "npu", n: "NPU·ISP·멀티미디어", v: "0.5–0.9 V", i: "~1–3 A", k: "buck", d: "벅", note: "AI 연산과 카메라 처리. 사용하지 않을 때는 전원을 완전히 끈다(power gating)." },
+        { id: "cx", n: "SoC 로직(CX)·모뎀", v: "0.55–0.9 V", i: "~2–4 A", k: "buck", d: "벅", note: "버스·메모리 컨트롤러·상시 동작 로직. 대기 중에도 낮은 전압으로 살아 있어 경부하 효율이 핵심이다." },
+        { id: "ddr", n: "LPDDR5X VDD2H / VDDQ", v: "1.05 V / 0.5 V", i: "~1–2 A", k: "buck", d: "벅 2개", note: "메모리 코어와 I/O. VDDQ는 매우 낮아 정밀도와 리플 요구가 엄격하다. 셀프 리프레시 중에도 유지된다." },
+        { id: "io", n: "I/O 1.8 V", v: "1.8 V", i: "~0.5–1 A", k: "buck", d: "벅", note: "칩 간 신호 전압, 센서·디스플레이 인터페이스 공통. 여러 LDO의 입력(프리레귤레이터)으로도 쓰인다." },
+        { id: "pll", n: "PLL·아날로그 LDO", v: "0.75–1.2 V", i: "10–300 mA", k: "ldo", d: "LDO 수십 개", note: "클록 지터에 민감한 블록. 스위칭 리플이 섞이면 위상 잡음이 늘어 LDO로 깨끗하게 만든다." },
+        { id: "ufs", n: "UFS VCC / VCCQ", v: "2.5–3.3 V / 1.2 V", i: "~0.3–0.8 A", k: "ldo", d: "LDO/벅", note: "저장장치 NAND와 인터페이스 전원. 쓰기 중 전류가 크다." },
+      ] },
+      { name: "보조 PMIC·전용 전원", y: 330, rails: [
+        { id: "elvdd", n: "OLED ELVDD (+)", v: "+4.6 V 내외", i: "~0.2–0.8 A", k: "etc", d: "부스트", note: "OLED 화소 전류의 양(+) 전원. 배터리보다 높아야 하므로 승압. 화면 밝기에 따라 전류가 바뀌고, 리플은 화면 깜빡임으로 보인다." },
+        { id: "elvss", n: "OLED ELVSS (−)", v: "−1.5 ~ −4 V", i: "~0.2–0.8 A", k: "etc", d: "반전 벅-부스트", note: "음(−) 전원. 밝기·온도에 따라 전압을 조절해 효율을 높인다(동적 ELVSS)." },
+        { id: "camA", n: "카메라 AVDD", v: "2.8 V", i: "50–200 mA", k: "ldo", d: "LDO", note: "이미지 센서 아날로그 회로. 리플이 영상에 가로줄 노이즈로 나타나므로 저잡음 LDO가 필수다." },
+        { id: "camD", n: "카메라 DVDD", v: "0.9–1.1 V", i: "0.2–1 A", k: "ldo", d: "LDO(벅 입력)", note: "센서 디지털 로직. 전류가 커 벅 출력(1.35 V 등)을 입력으로 쓰는 LDO가 일반적이다." },
+        { id: "ois", n: "AF·OIS 구동", v: "2.8–3.3 V", i: "0.1–0.5 A", k: "ldo", d: "LDO/드라이버", note: "VCM 액추에이터 구동 전류. 흔들림 보정 중 계속 흐른다." },
+        { id: "pa", n: "RF PA 공급 (APT/ET)", v: "0.5–5.5 V", i: "~0.5–2 A", k: "etc", d: "벅-부스트 트래커", note: "PA 출력에 맞춰 전원 전압을 계속 바꾸는 엔벨로프 트래킹(ET)/APT. 송신 효율을 크게 높이지만, 빠른 변조로 노이즈 관리가 어렵다." },
+      ] },
+      { name: "VSYS 직결 부하", y: 560, rails: [
+        { id: "amp", n: "스피커 앰프 부스트", v: "8–11 V", i: "~0.5–1.5 A", k: "etc", d: "부스트 + D급 앰프", note: "작은 스피커에서 큰 소리를 내려 승압. 순간 전류가 커 배터리 전압 강하와 함께 관리된다." },
+        { id: "flash", n: "플래시 LED", v: "~3.5–5 V", i: "~1–1.5 A", k: "etc", d: "부스트/전류원", note: "짧고 큰 펄스. 저배터리·저온에서는 전압 강하로 꺼짐을 막기 위해 플래시 전류를 줄인다." },
+        { id: "hap", n: "햅틱(LRA) 드라이버", v: "VSYS", i: "~0.1–0.5 A", k: "etc", d: "H-브리지", note: "진동 모터 구동. 오버드라이브로 빠르게 멈추게 한다." },
+        { id: "aon", n: "센서·상시 동작", v: "1.8 V", i: "수 µA–수 mA", k: "ldo", d: "저 I_q LDO", note: "가속도·조도 센서와 센서 허브. 24시간 켜져 있으므로 I_q 수 µA급 LDO를 쓴다." },
+      ] },
+    ];
+    const C = { id: "chg", n: "충전 IC + 차지 펌프", v: "VBUS → VSYS/배터리", i: "~3–12 A", k: "etc", d: "벅 충전기 + 2:1 CP", note: "USB-C/무선 입력을 받아 VSYS를 만들고 배터리를 충전한다. 파워 패스(NVDC)로 배터리가 없어도 시스템을 켤 수 있다(아래 절)." };
+    const B = { id: "bat", n: "배터리", v: "3.0–4.45 V", i: "피크 6–10 A", k: "etc", d: "리튬이온 셀 + PCM", note: "모든 전력의 근원. 피크 전류 시 내부저항으로 전압이 떨어지므로 PMIC는 VSYS 전압을 감시해 피크 전력을 제한한다(5장)." };
+    const all = [];
+    const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || svg).appendChild(e); return e; };
+    // 왼쪽: USB, 충전 IC, 배터리, VSYS
+    const busX = 205;
+    const nodes = {};
+    function nodeBox(r, x, y, w, h, title, sub) {
+      const g = el("g", { class: "node", tabindex: "0" });
+      el("rect", { x, y, width: w, height: h, rx: 7 }, g);
+      const t = el("text", { x: x + 9, y: y + (sub ? 18 : h / 2 + 5), class: "t" }, g); t.textContent = title;
+      if (sub) { const s = el("text", { x: x + 9, y: y + 36, class: "t-mono" }, g); s.textContent = sub; }
+      g.addEventListener("click", () => show(r));
+      g.addEventListener("keydown", (e) => { if (e.key === "Enter") show(r); });
+      nodes[r.id] = g; r.g = g;
+      return g;
+    }
+    // VSYS 버스
+    const topY = 40, botY = 690;
+    el("path", { d: `M${busX} ${topY} V${botY}`, class: "bus" });
+    const vs = el("text", { x: busX - 6, y: 24, class: "t-acc", "text-anchor": "middle", style: "fill:var(--accent-2)" }); vs.textContent = "VSYS";
+    // 입력/충전/배터리
+    const U = { id: "usb", n: "USB-C 입력", v: "VBUS 5–20 V (PD/PPS)", i: "~3–5 A", k: "etc", d: "OVP 스위치", note: "협상 전에는 5 V. 과전압 보호(OVP) 스위치가 잘못된 충전기·서지로부터 내부를 지킨다. 무선 충전 입력도 같은 충전 IC로 들어온다." };
+    nodeBox(U, 8, 120, 160, 48, "USB-C · 무선", "VBUS 5–20 V");
+    nodeBox(C, 8, 230, 160, 48, "충전 IC + CP", "VBUS→VSYS");
+    nodeBox(B, 8, 380, 160, 48, "배터리", "3.0–4.45 V");
+    el("path", { d: "M88 168V230", class: "wire" });
+    el("path", { d: `M168 254H${busX}`, class: "wire" });
+    el("path", { d: `M168 404H${busX}`, class: "wire" });
+    [U, C, B].forEach((r) => all.push(r));
+    // 그룹
+    const gx = 240, gw = 392;
+    G.forEach((grp) => {
+      const h = 34 + grp.rails.length * 25;
+      el("rect", { x: gx, y: grp.y, width: gw, height: h, rx: 10, class: "grp" });
+      const tt = el("text", { x: gx + 12, y: grp.y + 22, class: "t-acc" }); tt.textContent = grp.name;
+      el("path", { d: `M${busX} ${grp.y + 17}H${gx}`, class: "wire" });
+      grp.rails.forEach((r, j) => {
+        const y = grp.y + 32 + j * 25;
+        const g = el("g", { class: "node", tabindex: "0" });
+        el("rect", { x: gx + 10, y, width: gw - 20, height: 22, rx: 5 }, g);
+        const t = el("text", { x: gx + 32, y: y + 16, class: "t" }, g); t.textContent = r.n;
+        const v = el("text", { x: gx + gw - 18, y: y + 16, class: "t-mono", "text-anchor": "end" }, g); v.textContent = r.v;
+        const mk = el("circle", { cx: gx + 21, cy: y + 11, r: 4, fill: r.k === "buck" ? "var(--accent)" : r.k === "ldo" ? "var(--accent-2)" : "var(--blue)" }, g);
+        g.addEventListener("click", () => show(r));
+        g.addEventListener("keydown", (e) => { if (e.key === "Enter") show(r); });
+        r.g = g; all.push(r);
+      });
+    });
+    // 범례
+    [["벅", "var(--accent)"], ["LDO", "var(--accent-2)"], ["부스트·기타", "var(--blue)"]].forEach(([n, c], i) => {
+      el("circle", { cx: 16 + i * 0, cy: 480 + i * 22, r: 5, fill: c });
+      const t = el("text", { x: 28, y: 485 + i * 22, class: "t-dim" }); t.textContent = n;
+    });
+    const t2 = el("text", { x: 8, y: 560, class: "t-dim" }); t2.textContent = "레일을 클릭하세요";
+    function show(r) {
+      all.forEach((x) => x.g && x.g.classList.toggle("on", x === r));
+      $("tree-info").innerHTML = `<h4>${r.n}</h4><div class="kv"><span>전압 ${r.v}</span><span>전류 ${r.i}</span><span>방식 ${r.d}</span></div><p>${r.note}</p>`;
+    }
+    show(G[0].rails[0]);
+    const rails = G.flatMap((g) => g.rails);
+    PB.stat("tr-n", rails.length + "<small>개</small>");
+    PB.stat("tr-k", rails.filter((r) => r.k === "buck").length + " / " + rails.filter((r) => r.k === "ldo").length + " / " + rails.filter((r) => r.k === "etc").length);
+    PB.stat("tr-i", "~25<small>A (동시 아님)</small>");
+  });
+
+  /* ================================================== 3. 벅 */
+  safe("buck", () => {
+    const gv = PB.range("bk-vin", (v) => v.toFixed(2) + " V", () => {});
+    const go = PB.range("bk-vo", (v) => v.toFixed(2) + " V", () => {});
+    const gi = PB.range("bk-i", (v) => v.toFixed(2) + " A", () => {});
+    const gf = PB.range("bk-f", (v) => v.toFixed(1) + " MHz", () => {});
+    const gl = PB.range("bk-l", (v) => v.toFixed(2) + " µH", () => {});
+    let phase = 0;
+    const cv = PB.canvas($("cv-buck"), (ctx, w, h) => {
+      const P = PB.palette();
+      const vin = gv(), vo = Math.min(go(), vin - 0.2), I = gi(), f = gf() * 1e6, L = gl() * 1e-6;
+      const r = buckLoss(vin, vo, I, f, L, "pwm");
+      const D = r.D, dI = r.dI, Cout = 22e-6;
+      const dV = dI / (8 * f * Cout);
+      const left = 56, right = 14, gap = 12;
+      const ph = (h - 14 - 36 - gap * 2) / 3;
+      const box = (i, hh) => ({ x: left, y: 10 + i * (ph + gap), w: w - left - right, h: ph });
+      const nP = 3;
+      const T = 1;
+      const N = 360;
+      const sw = [], il = [], vr = [];
+      for (let k = 0; k <= N; k++) {
+        const t = k / N * nP;
+        const u = ((t + phase) % 1 + 1) % 1;
+        const on = u < D;
+        sw.push([t, on ? vin : 0]);
+        const iL = on ? I - dI / 2 + dI * (u / D) : I + dI / 2 - dI * ((u - D) / (1 - D));
+        il.push([t, iL]);
+        // 출력 리플 ~ 인덕터 리플 적분(포물선 근사)
+        const ic = iL - I;
+        vr.push([t, 0]);
+      }
+      // 출력 전압 리플: 커패시터 전류 적분
+      let acc = 0; const dt = nP / N / f;
+      for (let k = 0; k <= N; k++) { acc += (il[k][1] - I) * dt / Cout; vr[k][1] = acc; }
+      const mean = vr.reduce((a, p) => a + p[1], 0) / vr.length;
+      vr.forEach((p) => (p[1] = (p[1] - mean) * 1000));
+      const lab = (t, i) => { const b = box(i); ctx.save(); ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.translate(13, b.y + b.h / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText(t, 0, 0); ctx.restore(); };
+      PB.chart(ctx, box(0), { x: [0, nP], y: [-0.3, 4.6], xFmt: () => "", yFmt: (v) => v.toFixed(0), series: [{ data: sw, color: P.dim, width: 1.8 }], hlines: [{ y: vo, color: P.accent2, label: "평균 = " + vo.toFixed(2) + " V" }] });
+      const imin = Math.min(...il.map((p) => p[1])), imax = Math.max(...il.map((p) => p[1]));
+      const ilo = Math.min(0, imin) - 0.1, ihi = imax + 0.1;
+      PB.chart(ctx, box(1), { x: [0, nP], y: [ilo, ihi], xFmt: () => "", yFmt: (v) => v.toFixed(1), series: [{ data: il, color: P.accent, width: 2.2 }], hlines: [{ y: I, color: P.faint }, ...(imin < 0 ? [{ y: 0, color: P.bad, label: "0 A 아래: 역전류" }] : [])] });
+      const vm = Math.max(1, Math.max(...vr.map((p) => Math.abs(p[1]))) * 1.3);
+      PB.chart(ctx, box(2), { x: [0, nP], y: [-vm, vm], xLabel: "시간 (스위칭 주기)", xFmt: (v) => Number.isInteger(v) ? String(v) : "", yFmt: (v) => v.toFixed(vm < 3 ? 1 : 0), series: [{ data: vr, color: P.accent2, width: 2 }] });
+      lab("SW (V)", 0); lab("I_L (A)", 1); lab("ΔV_out (mV)", 2);
+      const rA = buckLoss(vin, vo, I, f, L, "pwm");
+      PB.stat("bk-d", D.toFixed(3));
+      PB.stat("bk-di", (dI).toFixed(2) + "<small>A p-p</small>");
+      PB.stat("bk-dv", (dV * 1000).toFixed(1) + "<small>mV p-p</small>");
+      PB.stat("bk-eta", (rA.eta * 100).toFixed(1) + "<small>%</small>");
+      PB.stat("bk-loss", (rA.loss * 1000).toFixed(0) + "<small>mW</small>");
+    }, { aspect: 0.62, minHeight: 340, maxHeight: 460 });
+    PB.loop($("cv-buck"), (dt) => { phase += dt * 0.35; cv.redraw(); });
+  });
+
+  /* ================================================== 4. LDO vs 벅 */
+  safe("ldo", () => {
+    const gvo = PB.range("ld-vo", (v) => v.toFixed(2) + " V", () => cv.redraw());
+    const gi = PB.range("ld-i", (v) => fmtI(Math.pow(10, v)), () => cv.redraw());
+    const gs = PB.seg("ld-src", () => cv.redraw());
+    const gvb = PB.range("ld-vb", (v) => v.toFixed(2) + " V", () => cv.redraw());
+    const IQ = 30e-6;
+    function ldo(vin, vo, I) { if (vin < vo + 0.15) return null; return vo * I / (vin * (I + IQ)); }
+    function sys(vb, vo, I, src) {
+      const bk = buckLoss(vb, vo, I, 2.4e6, 0.47e-6, "auto");
+      let lE;
+      if (src === "pre") {
+        if (vo > 1.85) lE = ldo(vb, vo, I);
+        else { const l = ldo(2.0, vo, I); const pre = buckLoss(vb, 2.0, I + IQ, 2.4e6, 0.47e-6, "auto"); lE = l == null ? null : l * pre.eta; }
+      } else lE = ldo(vb, vo, I);
+      return { ldo: lE, buck: bk.eta };
+    }
+    const cv = PB.canvas($("cv-ldo"), (ctx, w, h) => {
+      const P = PB.palette();
+      const vo = gvo(), I = Math.pow(10, gi()), src = gs(), vb = gvb();
+      const a = [], b = [];
+      for (let v = 3.0; v <= 4.451; v += 0.01) { const s = sys(v, vo, I, src); a.push([v, s.ldo == null ? NaN : s.ldo * 100]); b.push([v, s.buck * 100]); }
+      const s = sys(vb, vo, I, src);
+      PB.chart(ctx, null, { x: [3.0, 4.45], y: [0, 100], xLabel: "배터리(입력) 전압 (V)", yLabel: "효율 (%)", xFmt: (v) => v.toFixed(1), series: [{ data: a, color: P.accent2, width: 2.4 }, { data: b, color: P.accent, width: 2.4 }], vlines: [{ x: vb, color: P.faint }], points: [...(s.ldo != null ? [{ x: vb, y: s.ldo * 100, color: P.accent2 }] : []), { x: vb, y: s.buck * 100, color: P.accent }] });
+      const pout = vo * I;
+      const lossOf = (e) => e == null ? null : pout / e - pout;
+      const f = (x) => x == null ? "—" : x >= 0.1 ? (x).toFixed(2) + "<small>W</small>" : x >= 1e-4 ? (x * 1000).toFixed(x >= 0.01 ? 0 : 2) + "<small>mW</small>" : (x * 1e6).toFixed(0) + "<small>µW</small>";
+      PB.stat("ld-e1", s.ldo == null ? "드롭아웃" : (s.ldo * 100).toFixed(0) + "<small>%</small>");
+      PB.stat("ld-l1", f(lossOf(s.ldo)));
+      PB.stat("ld-e2", (s.buck * 100).toFixed(0) + "<small>%</small>");
+      PB.stat("ld-l2", f(lossOf(s.buck)));
+    }, { aspect: 0.55, minHeight: 260, maxHeight: 380 });
+  });
+
+  /* ================================================== 5. 효율 곡선 */
+  safe("eff", () => {
+    const gvo = PB.range("ef-vo", (v) => "3.85 → " + v.toFixed(2) + " V", () => cv.redraw());
+    const gf = PB.range("ef-f", (v) => v.toFixed(1) + " MHz", () => cv.redraw());
+    const giq = PB.range("ef-iq", (v) => v + " µA", () => cv.redraw());
+    const gd = PB.range("ef-dcr", (v) => v + " mΩ", () => cv.redraw());
+    const gx = PB.range("ef-x", (v) => fmtI(Math.pow(10, v)), () => cv.redraw());
+    function model(I, mode) {
+      const L = 0.47e-6 * Math.pow(gd() / 40, 1);
+      return buckLoss(3.85, gvo(), I, gf() * 1e6, Math.max(0.1e-6, L), mode, giq() * 1e-6);
+    }
+    const cv = PB.canvas($("cv-eff"), (ctx, w, h) => {
+      const P = PB.palette();
+      const pw = [], pf = [];
+      for (let e = -4; e <= 0.61; e += 0.02) { const I = Math.pow(10, e); pw.push([I, model(I, "pwm").eta * 100]); pf.push([I, model(I, "auto").eta * 100]); }
+      const x = Math.pow(10, gx());
+      const a = model(x, "pwm"), b = model(x, "auto");
+      const band = PB.isDark() ? "rgba(230,235,245,.05)" : "rgba(20,26,38,.04)";
+      const C = PB.chart(ctx, null, { x: [1e-4, 4], y: [0, 100], logX: true, xLabel: "부하 전류 (A, 로그)", yLabel: "효율 (%)", xFmt: (v) => v >= 1 ? v + " A" : v >= 1e-3 ? v * 1e3 + " mA" : v * 1e6 + " µA", series: [{ data: pw, color: P.accent2, width: 2.2 }, { data: pf, color: P.accent, width: 2.6 }], bands: [{ x0: 1e-4, x1: 5e-3, color: band }, { x0: 0.5, x1: 4, color: band }], vlines: [{ x, color: P.faint }], points: [{ x, y: a.eta * 100, color: P.accent2 }, { x, y: b.eta * 100, color: P.accent }] });
+      ctx.save(); ctx.font = "11px " + font(); ctx.fillStyle = P.dim; ctx.textAlign = "center";
+      ctx.fillText("대기 상태", C.X(7e-4), C.Y(6)); ctx.fillText("게임·카메라", C.X(1.4), C.Y(6));
+      ctx.restore();
+      PB.stat("ef-load", fmtI(x).replace(" ", "<small>") + "</small>");
+      PB.stat("ef-pwm", (a.eta * 100).toFixed(1) + "<small>%</small>");
+      PB.stat("ef-pfm", (b.eta * 100).toFixed(1) + "<small>%</small>");
+      PB.stat("ef-fe", b.fe >= 1e6 ? (b.fe / 1e6).toFixed(2) + "<small>MHz</small>" : (b.fe / 1e3).toFixed(b.fe < 1e4 ? 1 : 0) + "<small>kHz</small>");
+    }, { aspect: 0.55, minHeight: 260, maxHeight: 400 });
+  });
+
+  /* ================================================== 6. 파워 패스 */
+  safe("path", () => {
+    const ga = PB.range("pp-a", (v) => v + " W", () => {});
+    const gs = PB.range("pp-s", (v) => v.toFixed(1) + " W", () => {});
+    const gv = PB.range("pp-v", (v) => v.toFixed(2) + " V", () => {});
+    const gc = PB.range("pp-c", (v) => v + " W", () => {});
+    let t = 0;
+    function solve() {
+      const A = ga(), S = gs(), vb = gv(), cmax = gc();
+      const eta = 0.92;
+      const vsys = Math.max(3.5, vb + 0.08);
+      const avail = A * eta;
+      let bat, mode, pre = vb < 3.0;
+      if (A <= 0.01) { bat = -S; mode = "배터리 단독"; }
+      else if (avail >= S) {
+        let ch = Math.min(avail - S, cmax);
+        if (pre) ch = Math.min(ch, 0.1 * 5 * vb);
+        if (vb >= 4.44) ch = Math.min(ch, 0.3);
+        bat = ch; mode = pre ? "프리차지" : ch < 0.5 ? "충전 거의 정지" : "충전 + 시스템 공급";
+      } else { bat = avail - S; mode = "보충 모드(배터리 지원)"; }
+      const pin = A <= 0.01 ? 0 : (S + Math.max(0, bat)) / eta;
+      return { A, S, vb, vsys, bat, mode, pin, loss: pin * (1 - eta) };
+    }
+    const cv = PB.canvas($("cv-path"), (ctx, w, h) => {
+      const P = PB.palette();
+      const r = solve();
+      const nodes = { ad: [w * 0.1, h * 0.28], ch: [w * 0.36, h * 0.28], vs: [w * 0.62, h * 0.28], sy: [w * 0.88, h * 0.28], bf: [w * 0.62, h * 0.68], bt: [w * 0.88, h * 0.68] };
+      const bw = Math.min(110, w * 0.2), bh = 46;
+      const flows = [["ad", "ch", r.pin], ["ch", "vs", r.pin - r.loss], ["vs", "sy", r.S], [r.bat >= 0 ? "vs" : "bt", r.bat >= 0 ? "bf" : "bf", Math.abs(r.bat)], [r.bat >= 0 ? "bf" : "bf", r.bat >= 0 ? "bt" : "vs", Math.abs(r.bat)]];
+      // 경로 선
+      ctx.lineCap = "round";
+      flows.forEach(([a, b, p]) => {
+        const [x0, y0] = nodes[a], [x1, y1] = nodes[b];
+        ctx.strokeStyle = p > 0.05 ? (a === "bt" || (a === "bf" && b === "vs") ? P.accent2 : P.accent) : P.border;
+        ctx.globalAlpha = p > 0.05 ? 0.35 : 1;
+        ctx.lineWidth = 2 + Math.min(14, p * 0.6);
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+        ctx.globalAlpha = 1;
+        if (p > 0.05) {
+          const n = 5, len = Math.hypot(x1 - x0, y1 - y0);
+          ctx.fillStyle = a === "bt" || (a === "bf" && b === "vs") ? P.accent2 : P.accent;
+          for (let i = 0; i < n; i++) { const u = ((i / n) + t * (0.15 + p * 0.03)) % 1; ctx.beginPath(); ctx.arc(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u, 3.5, 0, 6.28); ctx.fill(); }
+        }
+      });
+      // 노드
+      const label = { ad: ["어댑터", r.A.toFixed(0) + (w < 420 ? " W" : " W 가능")], ch: ["벅 충전기", "η ≈ 92%"], vs: ["VSYS", r.vsys.toFixed(2) + " V"], sy: ["시스템", r.S.toFixed(1) + " W"], bf: ["BATFET", (r.bat >= 0 ? (w < 420 ? "+" : "충전 ") : (w < 420 ? "−" : "방전 ")) + Math.abs(r.bat).toFixed(1) + " W"], bt: ["배터리", r.vb.toFixed(2) + " V"] };
+      ctx.font = "12px " + font(); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      Object.entries(nodes).forEach(([k, [x, y]]) => {
+        ctx.fillStyle = PB.color("bg-elev"); ctx.strokeStyle = k === "vs" ? P.accent2 : P.border; ctx.lineWidth = k === "vs" ? 2 : 1;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - bw / 2, y - bh / 2, bw, bh, 8) : ctx.rect(x - bw / 2, y - bh / 2, bw, bh); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = P.text; ctx.font = "600 12px " + font(); ctx.fillText(label[k][0], x, y - 8);
+        ctx.fillStyle = P.dim; ctx.font = "11px " + mono(); ctx.fillText(label[k][1], x, y + 10);
+      });
+      PB.stat("pp-mode", r.mode);
+      PB.stat("pp-vs", r.vsys.toFixed(2) + "<small>V</small>");
+      PB.stat("pp-b", (r.bat >= 0 ? "+" : "") + r.bat.toFixed(1) + "<small>W</small>");
+      PB.stat("pp-l", r.loss.toFixed(2) + "<small>W</small>");
+    }, { aspect: 0.48, minHeight: 230, maxHeight: 320 });
+    PB.loop($("cv-path"), (dt) => { t += dt; cv.redraw(); });
+  });
+
+  /* ================================================== 7. 차지 펌프 */
+  safe("cp", () => {
+    const gi = PB.range("cp-i", (v) => v.toFixed(1) + " A", () => {});
+    const gc = PB.range("cp-c", (v) => v + " µF", () => {});
+    const gf = PB.range("cp-f", (v) => v + " kHz", () => {});
+    const gr = PB.range("cp-r", (v) => v.toFixed(1) + " mΩ", () => {});
+    let t = 0;
+    function cp(I) {
+      const Rout = 1 / (4 * gf() * 1e3 * gc() * 1e-6) + 4 * gr() / 1000 / 2;
+      const vbat = 4.0;
+      const loss = I * I * Rout + 0.15 + 0.01 * I; // 고정 손실(게이트·Iq)
+      const pout = vbat * I;
+      return { Rout, eta: pout / (pout + loss), loss };
+    }
+    function bk(I) { const pout = 4.0 * I; const loss = 0.12 + I * I * 0.035 + 0.035 * pout * 0.6; return { eta: pout / (pout + loss), loss }; }
+    const cv = PB.canvas($("cv-cp"), (ctx, w, h) => {
+      const P = PB.palette();
+      const I = gi();
+      const slow = $("cp-slow").checked;
+      const phase = Math.floor(t * (slow ? 0.8 : 3)) % 2;
+      // 위: 회로도 (직렬 스택: Vin–S1–A–S2–Vout–S3–B–S4–GND, C_fly는 A–B 사이)
+      const sh = 206;
+      const xs = Math.round(w * 0.5), y0 = 24, dy = 36;
+      const ys = [y0, y0 + dy, y0 + 2 * dy, y0 + 3 * dy, y0 + 4 * dy]; // Vin, A, Vout, B, GND
+      const on = phase === 0 ? [true, false, true, false] : [false, true, false, true];
+      const names = ["S1", "S2", "S3", "S4"];
+      ctx.lineCap = "round";
+      for (let i = 0; i < 4; i++) {
+        const ya = ys[i], yb = ys[i + 1];
+        ctx.strokeStyle = on[i] ? P.accent : P.faint; ctx.lineWidth = on[i] ? 3.5 : 2;
+        ctx.beginPath(); ctx.moveTo(xs, ya); ctx.lineTo(xs, ya + 8);
+        if (on[i]) ctx.lineTo(xs, yb - 8); else ctx.lineTo(xs + 14, yb - 12);
+        ctx.moveTo(xs, yb - 8); ctx.lineTo(xs, yb); ctx.stroke();
+        ctx.fillStyle = on[i] ? P.accent : P.faint; ctx.font = "600 11px " + mono(); ctx.textAlign = "left"; ctx.textBaseline = "middle";
+        ctx.fillText(names[i] + (on[i] ? " ON" : ""), xs + 20, (ya + yb) / 2);
+      }
+      // 노드 점
+      ctx.fillStyle = P.text; ys.forEach((y) => { ctx.beginPath(); ctx.arc(xs, y, 3, 0, 6.28); ctx.fill(); });
+      // C_fly (왼쪽)
+      const xc = xs - 70, cyM = (ys[1] + ys[3]) / 2;
+      ctx.strokeStyle = P.accent2; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(xs, ys[1]); ctx.lineTo(xc, ys[1]); ctx.lineTo(xc, cyM - 5); ctx.moveTo(xc - 16, cyM - 5); ctx.lineTo(xc + 16, cyM - 5); ctx.moveTo(xc - 16, cyM + 5); ctx.lineTo(xc + 16, cyM + 5); ctx.moveTo(xc, cyM + 5); ctx.lineTo(xc, ys[3]); ctx.lineTo(xs, ys[3]); ctx.stroke();
+      ctx.fillStyle = P.accent2; ctx.textAlign = "right"; ctx.font = "12px " + font(); ctx.fillText("C_fly", xc - 22, cyM);
+      // 레일 라벨
+      ctx.strokeStyle = P.dim; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(xs, ys[0]); ctx.lineTo(xs - Math.min(120, xs - 92), ys[0]); ctx.moveTo(xs, ys[2]); ctx.lineTo(Math.min(w - 8, xs + 150), ys[2]); ctx.moveTo(xs - 10, ys[4]); ctx.lineTo(xs + 10, ys[4]); ctx.moveTo(xs - 6, ys[4] + 5); ctx.lineTo(xs + 6, ys[4] + 5); ctx.stroke();
+      ctx.fillStyle = P.text; ctx.textAlign = "right"; ctx.fillText("V_in ≈ 8 V", xs - Math.min(120, xs - 92) - 4, ys[0]);
+      ctx.textAlign = "left"; ctx.textAlign = "right"; ctx.fillText(w < 420 ? "V_out ≈ 4 V" : "V_out ≈ 4.0 V → 배터리", Math.min(w - 8, xs + 150), ys[2] - 12);
+      ctx.fillStyle = P.accent; ctx.font = "600 12px " + font(); ctx.textAlign = "center";
+      const pt = phase === 0 ? ["위상 1: V_in → S1 → C_fly → S3 → 출력", "(C_fly 충전, 입력과 출력 사이 직렬)"] : ["위상 2: GND → S4 → C_fly → S2 → 출력", "(C_fly 방전, 출력과 병렬)"];
+      if (ctx.measureText(pt[0] + " " + pt[1]).width < w - 16) ctx.fillText(pt[0] + " " + pt[1], w / 2, ys[4] + 24);
+      else { ctx.font = "600 11px " + font(); ctx.fillText(pt[0], w / 2, ys[4] + 18); ctx.fillText(pt[1], w / 2, ys[4] + 32); }
+      // 아래: 효율 차트
+      const box = { x: 56, y: sh + 16, w: w - 56 - 16, h: h - sh - 16 - 44 };
+      const a = [], b = [];
+      for (let i = 0.3; i <= 12.01; i += 0.1) { a.push([i, cp(i).eta * 100]); b.push([i, bk(i).eta * 100]); }
+      const c0 = cp(I), b0 = bk(I);
+      PB.chart(ctx, box, { x: [0, 12], y: [80, 100], xLabel: "충전 전류 (A)", yLabel: "효율 (%)", series: [{ data: b, color: P.accent2, width: 2.2 }, { data: a, color: P.accent, width: 2.6 }], vlines: [{ x: I, color: P.faint }], points: [{ x: I, y: c0.eta * 100, color: P.accent }, { x: I, y: b0.eta * 100, color: P.accent2 }] });
+      PB.stat("cp-ro", (c0.Rout * 1000).toFixed(1) + "<small>mΩ</small>");
+      PB.stat("cp-e", (c0.eta * 100).toFixed(1) + "<small>%</small>");
+      PB.stat("cp-l", c0.loss.toFixed(2) + "<small>W</small>");
+      PB.stat("cp-lb", b0.loss.toFixed(2) + "<small>W</small>");
+    }, { aspect: 0.8, minHeight: 380, maxHeight: 520 });
+    PB.loop($("cv-cp"), (dt) => { t += dt; cv.redraw(); });
+  });
+
+  /* ================================================== 8. PD/PPS */
+  safe("pd", () => {
+    const src = $("pd-src");
+    const gs0 = PB.range("pd-s0", (v) => v + "%", () => { cv.redraw(); });
+    const OCVt = [[0,3.0],[0.05,3.55],[0.1,3.66],[0.2,3.73],[0.3,3.77],[0.4,3.81],[0.5,3.86],[0.6,3.93],[0.7,4.01],[0.8,4.10],[0.9,4.21],[0.95,4.30],[1,4.42]];
+    const ocv = (s) => { for (let i = 1; i < OCVt.length; i++) if (s <= OCVt[i][0]) { const [a, va] = OCVt[i - 1], [b, vb] = OCVt[i]; return va + (vb - va) * (s - a) / (b - a); } return 4.42; };
+    const CH = {
+      bc: { pdos: [], name: "5 V 2 A", pps: false },
+      fix: { pdos: ["5V 3A", "9V 3A"], name: "9 V 3 A", pps: false },
+      pps3: { pdos: ["5V 3A", "9V 3A", "PPS 3.3–11V 3A"], name: "PPS 3 A", pps: true, imax: 3 },
+      pps5: { pdos: ["5V 3A", "9V 3A", "PPS 3.3–11V 5A"], name: "PPS 5 A", pps: true, imax: 5 },
+    };
+    function session() {
+      const c = CH[src.value];
+      const cable5 = $("pd-cable").checked;
+      const Q = 5, R = 0.04;
+      let s = gs0() / 100, t = 0; const dt = 10; const out = [];
+      let lossSum = 0, n = 0;
+      while (t < 150 * 60 && s < 0.995) {
+        const vo = ocv(s);
+        // 셀 한도: 다단 CC
+        const cell = Q * (s < 0.3 ? 2 : s < 0.5 ? 1.6 : s < 0.7 ? 1.2 : 0.8);
+        let Ib, vbus, ibus, loss;
+        if (src.value === "bc") { const Pin = 10; const eta = 0.88; Ib = Math.min(cell, Pin * eta / (vo + 0.1)); vbus = 5; ibus = Ib * (vo + 0.1) / eta / vbus; loss = vbus * ibus * (1 - eta); }
+        else if (!c.pps) { const Pin = 27; const eta = 0.91; Ib = Math.min(cell, Pin * eta / (vo + 0.1)); vbus = 9; ibus = Ib * (vo + 0.1) / eta / vbus; loss = vbus * ibus * (1 - eta); }
+        else {
+          const imax = Math.min(c.imax, cable5 ? 5 : 3);
+          const eta = 0.97;
+          Ib = Math.min(cell, imax * 2 * eta);
+          let vt = vo + Ib * R;
+          if (vt > 4.45) { Ib = Math.max(0, (4.45 - vo) / R); vt = 4.45; }
+          vbus = Math.round((2 * vt + 0.15) / 0.02) * 0.02;
+          ibus = Ib / 2 / eta;
+          loss = vbus * ibus * (1 - eta) + 0.25;
+        }
+        const Vt = Math.min(4.45, vo + Ib * R);
+        const Ibb = Vt >= 4.45 ? Math.min(Ib, (4.45 - vo) / R) : Ib;
+        const cellHeat = Ibb * Ibb * R;
+        out.push({ t: t / 60, vbus, ibus, s, loss: loss + cellHeat, P: vbus * ibus });
+        lossSum += loss + cellHeat; n++;
+        if (Ibb < 0.05 * Q && s > 0.9) break;
+        s += Ibb * dt / 3600 / Q; t += dt;
+      }
+      return { out, avgLoss: lossSum / n, c };
+    }
+    let anim = 1;
+    const cv = PB.canvas($("cv-pd"), (ctx, w, h) => {
+      const P = PB.palette();
+      const r = session();
+      const d = r.out;
+      const tEnd = Math.max(30, Math.ceil(d[d.length - 1].t / 15) * 15);
+      const nShow = Math.max(1, Math.floor(d.length * anim));
+      const dd = d.slice(0, nShow);
+      const left = 50, right = 14, gap = 12;
+      const ph = (h - 12 - 46 - gap) / 2;
+      const b0 = { x: left, y: 10, w: w - left - right, h: ph }, b1 = { x: left, y: 10 + ph + gap, w: w - left - right, h: ph };
+      PB.chart(ctx, b0, { x: [0, tEnd], y: [0, 10], xFmt: () => "", series: [{ data: dd.map((p) => [p.t, p.vbus]), color: P.accent, width: 2.2 }, { data: dd.map((p) => [p.t, p.ibus]), color: P.accent2, width: 2.2 }, { data: dd.map((p) => [p.t, p.loss]), color: P.warn, width: 1.6, dash: [5, 4] }] });
+      PB.chart(ctx, b1, { x: [0, tEnd], y: [0, 100], xLabel: "시간 (분)", xFmt: (v) => String(Math.round(v)), series: [{ data: dd.map((p) => [p.t, p.s * 100]), color: P.ok, width: 2.4 }], hlines: [{ y: 80, color: P.faint }] });
+      ctx.save(); ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.textAlign = "center";
+      [["V · A · W", b0], ["SOC %", b1]].forEach(([s, b]) => { ctx.save(); ctx.translate(12, b.y + b.h / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(s, 0, 0); ctx.restore(); });
+      ctx.restore();
+      const t80 = d.find((p) => p.s >= 0.8);
+      PB.stat("pd-pdo", src.value === "bc" ? "없음 (5 V)" : r.c.pps ? "PPS (APDO)" : "고정 9 V");
+      PB.stat("pd-pmax", Math.max(...d.map((p) => p.P)).toFixed(1) + "<small>W</small>");
+      PB.stat("pd-t80", t80 ? Math.round(t80.t) + "<small>분</small>" : "—");
+      PB.stat("pd-loss", r.avgLoss.toFixed(2) + "<small>W</small>");
+    }, { aspect: 0.55, minHeight: 300, maxHeight: 400 });
+    function msgs() {
+      const c = CH[src.value];
+      const L = [["", "Attach", "CC 핀 풀업/풀다운으로 연결·방향 감지, VBUS 5 V 출력"]];
+      if (src.value === "bc") L.push(["", "PD 없음", "BC 1.2 / Type-C 전류 광고(최대 5 V 3 A)만 사용, 폰은 5 V로 충전"]);
+      else {
+        L.push(["S→", "Source_Capabilities", "PDO 목록: " + c.pdos.join(", ")]);
+        L.push(["→S", "Request", c.pps ? "APDO #3 선택: 예) 8.24 V, " + (Math.min(c.imax, $("pd-cable").checked ? 5 : 3)) + " A (20 mV · 50 mA 단위)" : "PDO #2 선택: 9 V 3 A"]);
+        L.push(["S→", "Accept", "요청 수락, 전압 전환 시작"]);
+        L.push(["S→", "PS_RDY", "VBUS 안정, 싱크가 고전류 사용 가능"]);
+        if (c.pps) L.push(["→S", "Request (반복)", "배터리 전압을 따라 VBUS를 갱신, 최소 10초마다 재요청(없으면 소스가 5 V로 복귀)"]);
+      }
+      $("pd-msgs").innerHTML = L.map(([d, m, x]) => `<li><span class="dir">${d || "·"}</span><span><code>${m}</code> ${x}</span></li>`).join("");
+      return [...$("pd-msgs").children];
+    }
+    let items = [], step = 0, timer = null;
+    function run() {
+      items = msgs(); step = 0; anim = 0.02;
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        if (step < items.length) { items[step].classList.add("on"); step++; }
+        else { anim = Math.min(1, anim + 0.08); cv.redraw(); if (anim >= 1) { clearInterval(timer); timer = null; } }
+      }, 260);
+      cv.redraw();
+    }
+    src.addEventListener("change", run);
+    $("pd-cable").addEventListener("change", run);
+    $("pd-run").addEventListener("click", run);
+    items = msgs(); items.forEach((li) => li.classList.add("on"));
+    cv.redraw();
+  });
+
+  /* ================================================== 9. 무선 충전 */
+  safe("wpc", () => {
+    const mu = 4e-7 * Math.PI;
+    const SEG = 40;
+    const cosT = [], sinT = [];
+    for (let i = 0; i < SEG; i++) { cosT.push(Math.cos(2 * Math.PI * i / SEG)); sinT.push(Math.sin(2 * Math.PI * i / SEG)); }
+    function Mloops(r1, r2, dx, z) {
+      // 노이만 공식 (mm 단위 입력 → m)
+      r1 /= 1000; r2 /= 1000; dx /= 1000; z /= 1000;
+      const dth = 2 * Math.PI / SEG; let s = 0;
+      for (let i = 0; i < SEG; i++) {
+        const x1 = r1 * cosT[i], y1 = r1 * sinT[i];
+        for (let j = 0; j < SEG; j++) {
+          const x2 = dx + r2 * cosT[j], y2 = r2 * sinT[j];
+          const d = Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2 + z * z);
+          s += (cosT[i] * cosT[j] + sinT[i] * sinT[j]) / d;
+        }
+      }
+      return mu / (4 * Math.PI) * s * r1 * r2 * dth * dth;
+    }
+    const coil = (rin, rout, turns, groups) => { const g = []; for (let i = 0; i < groups; i++) g.push({ r: rin + (rout - rin) * (i + 0.5) / groups, n: turns / groups }); return g; };
+    function selfL(c) { let L = 0; c.forEach((a, i) => c.forEach((b, j) => { if (i === j) L += a.n * a.n * mu * (a.r / 1000) * (Math.log(8 * a.r / 1.2) - 2); else L += a.n * b.n * Mloops(a.r, b.r, 0, 0.6); })); return L; }
+    const COILS = {
+      rx: { tx: coil(9, 21, 10, 5), rx: coil(8, 19, 12, 5), Q1: 40, Q2: 25, eta0: 0.85 },
+      rev: { tx: coil(8, 19, 12, 5), rx: coil(4, 9.5, 10, 4), Q1: 25, Q2: 15, eta0: 0.7 },
+    };
+    Object.values(COILS).forEach((c) => { c.L1 = selfL(c.tx); c.L2 = selfL(c.rx); });
+    function kOf(c, dx, z, fer) {
+      let M = 0; c.tx.forEach((a) => c.rx.forEach((b) => (M += a.n * b.n * Mloops(a.r, b.r, dx, z))));
+      const k = M / Math.sqrt(c.L1 * c.L2);
+      return Math.max(0, fer ? Math.min(0.85, k * 1.35) : k);
+    }
+    const etaLink = (k, c) => { const x = k * k * c.Q1 * c.Q2; return x / Math.pow(1 + Math.sqrt(1 + x), 2); };
+    let mode = "rx", off = { x: 9, y: 4 }, drag = null, curve = null, curveKey = "";
+    const gz = PB.range("wp-z", (v) => v.toFixed(1) + " mm", () => { curve = null; cv.redraw(); });
+    const gp = PB.range("wp-p", (v) => v.toFixed(1) + " W", () => cv.redraw());
+    PB.seg("wp-mode", (v) => { mode = v; curve = null; if (v === "rev") { gp.set(4.5); gz.set(5); } else { gp.set(15); gz.set(4); } cv.redraw(); });
+    $("wp-fer").addEventListener("change", () => { curve = null; cv.redraw(); });
+    $("wp-mag").addEventListener("change", () => cv.redraw());
+    let geo = null;
+    const cv = PB.canvas($("cv-wpc"), (ctx, w, h) => {
+      const P = PB.palette();
+      const c = COILS[mode];
+      const z = gz(), fer = $("wp-fer").checked;
+      const d = Math.hypot(off.x, off.y);
+      const k = kOf(c, d, z, fer);
+      const el = etaLink(k, c);
+      const es = el * c.eta0;
+      const Pout = gp();
+      const loss = Pout / es - Pout;
+      const phoneHeat = mode === "rx" ? loss * 0.45 : Pout / es - Pout; // 역무선: 폰이 송신 측이라 대부분
+      // 왼쪽: 위에서 본 코일
+      const side = Math.min(h - 20, w * 0.5);
+      const sc = side / 70; // 70 mm 폭
+      const cx = 10 + side / 2, cy = h / 2;
+      geo = { cx, cy, sc };
+      ctx.strokeStyle = P.border; ctx.strokeRect(10, cy - side / 2, side, side);
+      const drawCoil = (cc, x, y, col, a) => { ctx.strokeStyle = col; ctx.globalAlpha = a; cc.forEach((g) => { ctx.lineWidth = Math.max(1.5, g.n * 0.9); ctx.beginPath(); ctx.arc(x, y, g.r * sc, 0, 6.28); ctx.stroke(); }); ctx.globalAlpha = 1; ctx.lineWidth = 1; };
+      drawCoil(c.tx, cx, cy, P.accent2, 0.75);
+      if ($("wp-mag").checked && mode === "rx") { ctx.strokeStyle = P.dim; ctx.setLineDash([4, 3]); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, 26 * sc, 0, 6.28); ctx.stroke(); ctx.beginPath(); ctx.arc(cx + off.x * sc, cy + off.y * sc, 26 * sc, 0, 6.28); ctx.stroke(); ctx.setLineDash([]); ctx.lineWidth = 1; }
+      drawCoil(c.rx, cx + off.x * sc, cy + off.y * sc, P.accent, 0.95);
+      ctx.fillStyle = P.accent; ctx.beginPath(); ctx.arc(cx + off.x * sc, cy + off.y * sc, 4, 0, 6.28); ctx.fill();
+      ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText(mode === "rx" ? "주황: 충전 패드 Tx · 청록: 폰 Rx (드래그)" : "주황: 폰 Tx · 청록: 이어버드 Rx (드래그)", 14, cy - side / 2 + 4);
+      // 오른쪽: k vs 오프셋
+      const key = mode + z + fer;
+      if (!curve || curveKey !== key) { curve = []; for (let x = 0; x <= 25; x += 1) curve.push([x, kOf(c, x, z, fer)]); curveKey = key; }
+      const bx = { x: side + 64, y: 14, w: w - side - 64 - 14, h: h - 14 - 46 };
+      if (bx.w > 90) {
+        PB.chart(ctx, bx, { x: [0, 25], y: [0, 1], xLabel: "정렬 오차 (mm)", yLabel: "", series: [{ data: curve, color: P.accent, width: 2.2 }, { data: curve.map(([x, kk]) => [x, etaLink(kk, c) * c.eta0]), color: P.accent2, width: 2, dash: [5, 4] }], points: [{ x: Math.min(25, d), y: k, color: P.accent, label: "k" }, { x: Math.min(25, d), y: es, color: P.accent2 }] });
+        ctx.save(); ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.translate(side + 24, bx.y + bx.h / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("k (실선) · 시스템 효율 (점선)", 0, 0); ctx.restore();
+      }
+      PB.stat("wp-d", d.toFixed(1) + "<small>mm</small>");
+      PB.stat("wp-k", k.toFixed(2));
+      PB.stat("wp-el", (el * 100).toFixed(0) + "<small>%</small>");
+      PB.stat("wp-es", (es * 100).toFixed(0) + "<small>%</small>");
+      PB.stat("wp-h", phoneHeat.toFixed(1) + "<small>W</small>");
+    }, { aspect: 0.5, minHeight: 250, maxHeight: 360 });
+    // 드래그
+    const canvas = $("cv-wpc");
+    const toMM = (ev) => { const r = canvas.getBoundingClientRect(); return { x: (ev.clientX - r.left - geo.cx) / geo.sc, y: (ev.clientY - r.top - geo.cy) / geo.sc }; };
+    canvas.addEventListener("pointerdown", (ev) => { if (!geo) return; const m = toMM(ev); if (Math.hypot(m.x - off.x, m.y - off.y) < 26) { drag = { dx: m.x - off.x, dy: m.y - off.y }; canvas.setPointerCapture(ev.pointerId); } });
+    canvas.addEventListener("pointermove", (ev) => { if (!drag) return; const m = toMM(ev); off.x = PB.clamp(m.x - drag.dx, -25, 25); off.y = PB.clamp(m.y - drag.dy, -25, 25); cv.redraw(); });
+    const end = () => { drag = null; };
+    canvas.addEventListener("pointerup", end); canvas.addEventListener("pointercancel", end);
+    // 자석 끌림
+    PB.loop(canvas, (dt) => {
+      if (drag || !$("wp-mag").checked || mode !== "rx") return;
+      const d = Math.hypot(off.x, off.y);
+      if (d < 0.05 || d > 18) return;
+      const k = Math.min(1, dt * 6);
+      off.x -= off.x * k; off.y -= off.y * k; cv.redraw();
+    });
+  });
+
+  /* ================================================== 10. 대기 */
+  safe("sleep", () => {
+    const gf = PB.range("sl-f", (v) => v.toFixed(1) + " mA", () => cv.redraw());
+    const gdrx = PB.seg("sl-drx", () => cv.redraw());
+    const gw = PB.range("sl-w", (v) => v + " 회", () => cv.redraw());
+    const gl = PB.range("sl-l", (v) => v.toFixed(1) + " s", () => cv.redraw());
+    $("sl-wifi").addEventListener("change", () => cv.redraw());
+    const cv = PB.canvas($("cv-sleep"), (ctx, w, h) => {
+      const P = PB.palette();
+      const floor = gf(), drx = Number(gdrx()), wph = gw(), wl = gl(), wifi = $("sl-wifi").checked;
+      const drxQ = 15e-3 * 60; // 15 ms @ 60 mA → mA·s
+      const wifiQ = 4e-3 * 80, wifiT = 0.3072; // DTIM3
+      const appI = 250;
+      const parts = [["슬립 바닥", floor, P.faint], ["모뎀 페이징(DRX)", drxQ / drx, P.blue], ["Wi-Fi 비컨", wifi ? wifiQ / wifiT : 0, P.accent], ["앱 웨이크업", wph * wl * appI / 3600, P.accent2]];
+      const avg = parts.reduce((a, p) => a + p[1], 0);
+      // 파형
+      const N = 4000, T = 20, data = [];
+      const appAt = wph > 0 ? 12 : -1;
+      for (let i = 0; i <= N; i++) {
+        const t = i / N * T; let I = floor;
+        if ((t % drx) < 0.015) I += 60;
+        if (wifi && (t % wifiT) < 0.004) I += 80;
+        if (appAt > 0 && t >= appAt && t < appAt + wl) I += appI * (t < appAt + 0.15 ? 1.6 : 1);
+        data.push([t, I]);
+      }
+      const bh = 54;
+      const box = { x: 56, y: 12, w: w - 56 - 14, h: h - 12 - 44 - bh - 16 };
+      PB.chart(ctx, box, { x: [0, T], y: [0.3, 1000], logY: true, xLabel: "시간 (s)", yLabel: "전류 (mA)", series: [{ data, color: P.accent, width: 1.2 }], hlines: [{ y: avg, color: P.accent2, label: "평균 " + avg.toFixed(2) + " mA" }] });
+      // 구성 막대
+      const by = h - bh + 4, bx = 16, bw = w - 32;
+      let x = bx;
+      parts.forEach(([n, v, col]) => { const ww = v / avg * bw; ctx.fillStyle = col; ctx.globalAlpha = 0.8; ctx.fillRect(x, by, ww, 18); ctx.globalAlpha = 1; x += ww; });
+      ctx.font = "11px " + font(); ctx.textBaseline = "top"; ctx.textAlign = "left";
+      let lx = bx;
+      parts.forEach(([n, v, col]) => { const s = n + " " + Math.round(v / avg * 100) + "%"; const tw = ctx.measureText(s).width + 26; if (lx + tw > bx + bw) return; ctx.fillStyle = col; ctx.fillRect(lx, by + 26, 10, 10); ctx.fillStyle = P.dim; ctx.fillText(s, lx + 14, by + 25); lx += tw; });
+      const top = parts.slice().sort((a, b) => b[1] - a[1])[0];
+      PB.stat("sl-avg", avg.toFixed(2) + "<small>mA</small>");
+      PB.stat("sl-night", (avg * 8 / 5000 * 100).toFixed(1) + "<small>%</small>");
+      PB.stat("sl-days", (5000 / avg / 24).toFixed(1) + "<small>일</small>");
+      PB.stat("sl-top", top[0]);
+    }, { aspect: 0.55, minHeight: 300, maxHeight: 400 });
+  });
+
+  /* ================================================== 11. f_sw 트레이드오프 */
+  safe("fsw", () => {
+    const gf = PB.range("fs-f", (v) => v.toFixed(2) + " MHz", () => cv.redraw());
+    const gi = PB.range("fs-i", (v) => v.toFixed(1) + " A", () => cv.redraw());
+    const gr = PB.range("fs-r", (v) => v + "%", () => cv.redraw());
+    $("fs-ss").addEventListener("change", () => cv.redraw());
+    const vin = 3.85, vo = 0.8;
+    function at(fM) {
+      const f = fM * 1e6, Imax = gi(), dI = Imax * gr() / 100;
+      const D = vo / vin;
+      const L = (vin - vo) * D / (dI * f);
+      const Isat = Imax + dI / 2;
+      const vol = 0.75 * L * 1e6 * Isat * Isat + 0.3;
+      const hgt = vol / 3.2;
+      const e1 = buckLoss(vin, vo, 1, f, L, "pwm").eta, e01 = buckLoss(vin, vo, 0.1, f, L, "pwm").eta;
+      return { L, hgt, e1, e01 };
+    }
+    const cv = PB.canvas($("cv-fsw"), (ctx, w, h) => {
+      const P = PB.palette();
+      const fM = gf();
+      const a = [], b = [], c = [];
+      for (let x = 0.5; x <= 8.001; x += 0.05) { const r = at(x); a.push([x, r.e1 * 100]); b.push([x, r.e01 * 100]); c.push([x, r.hgt]); }
+      const r = at(fM);
+      const gap = 12, left = 56;
+      const ph1 = (h - 12 - 40 - gap) * 0.6, ph2 = (h - 12 - 40 - gap) * 0.4;
+      PB.chart(ctx, { x: left, y: 10, w: w - left - 14, h: ph1 }, { x: [0.5, 8], y: [50, 100], xFmt: () => "", yLabel: "효율 (%)", series: [{ data: b, color: P.accent2, width: 2.2 }, { data: a, color: P.accent, width: 2.4 }], vlines: [{ x: fM, color: P.faint }] });
+      const hmax = Math.min(4, Math.max(1.5, Math.ceil(at(0.5).hgt)));
+      PB.chart(ctx, { x: left, y: 10 + ph1 + gap, w: w - left - 14, h: ph2 }, { x: [0.5, 8], y: [0, hmax], xLabel: "스위칭 주파수 (MHz)", yFmt: (v) => v.toFixed(1), series: [{ data: c, color: P.blue, width: 2.2 }], hlines: [{ y: 1.0, color: P.bad, label: "보드 허용 높이 ~1.0 mm" }], vlines: [{ x: fM, color: P.faint }] });
+      ctx.save(); ctx.fillStyle = P.dim; ctx.font = "11px " + font(); ctx.translate(13, 10 + ph1 + gap + ph2 / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText("높이 (mm)", 0, 0); ctx.restore();
+      // NFC 고조파
+      const ss = $("fs-ss").checked ? 0.05 : 0;
+      let hit = null;
+      for (let n = 1; n <= 30; n++) { const fh = n * fM; const span = fh * ss; if (Math.abs(fh - 13.56) <= 0.25 + span) { hit = n; break; } }
+      PB.stat("fs-l", (r.L * 1e9).toFixed(0) + "<small>nH</small>");
+      PB.stat("fs-h", r.hgt.toFixed(2) + "<small>mm</small>");
+      PB.stat("fs-e", (r.e1 * 100).toFixed(1) + "<small>%</small>");
+      PB.stat("fs-nfc", hit ? "⚠ " + hit + "차 = " + (hit * fM).toFixed(2) + " MHz" + (ss ? " (확산)" : "") : "없음");
+    }, { aspect: 0.6, minHeight: 300, maxHeight: 420 });
+  });
+})();
+</script>
+</body>
+</html>

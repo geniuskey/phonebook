@@ -1,0 +1,1244 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AP(SoC): 폰의 두뇌 · PhoneBook</title>
+<meta name="description" content="스마트폰 AP(SoC)의 다이 평면도, 공정 노드와 수율·원가, 동적 전력과 DVFS, 이종 코어 스케줄링, 열 스로틀링, 메모리 대역폭과 캐시, NPU와 온디바이스 AI, 모뎀 통합과 패키징을 시뮬레이터로 배운다.">
+<link rel="canonical" href="https://phonebook.euiyun.com/chapters/soc.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="PhoneBook">
+<meta property="og:title" content="AP(SoC): 폰의 두뇌 · PhoneBook">
+<meta property="og:description" content="스마트폰 AP(SoC)의 다이 평면도, 공정 노드와 수율·원가, 동적 전력과 DVFS, 이종 코어 스케줄링, 열 스로틀링, 메모리 대역폭과 캐시, NPU와 온디바이스 AI, 모뎀 통합과 패키징을 시뮬레이터로 배운다.">
+<meta property="og:url" content="https://phonebook.euiyun.com/chapters/soc.html">
+<meta property="og:image" content="https://phonebook.euiyun.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"AP(SoC): 폰의 두뇌","name":"AP(SoC): 폰의 두뇌 · PhoneBook","url":"https://phonebook.euiyun.com/chapters/soc.html","mainEntityOfPage":"https://phonebook.euiyun.com/chapters/soc.html","inLanguage":"ko","isAccessibleForFree":true,"learningResourceType":"interactive textbook chapter","position":3,"image":"https://phonebook.euiyun.com/og.png","dateModified":"2026-10-03","isPartOf":{"@type":"Book","@id":"https://phonebook.euiyun.com/#book","name":"PhoneBook — 인터랙티브 스마트폰 해부 교과서","url":"https://phonebook.euiyun.com/"},"publisher":{"@type":"Organization","name":"PhoneBook","url":"https://phonebook.euiyun.com/"},"description":"스마트폰 AP(SoC)의 다이 평면도, 공정 노드와 수율·원가, 동적 전력과 DVFS, 이종 코어 스케줄링, 열 스로틀링, 메모리 대역폭과 캐시, NPU와 온디바이스 AI, 모뎀 통합과 패키징을 시뮬레이터로 배운다."},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"PhoneBook","item":"https://phonebook.euiyun.com/"},{"@type":"ListItem","position":2,"name":"03 AP(SoC): 폰의 두뇌","item":"https://phonebook.euiyun.com/chapters/soc.html"}]}]}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  .fig-lg svg .t, .fig-lg svg .t-acc { font-size: 16px; }
+  .fig-lg svg .t-dim { font-size: 14px; }
+  .fig-lg svg .t-mono { font-size: 13px; }
+  /* die floorplan */
+  .die-wrap { padding: 12px; }
+  .die-svg .blk { cursor: pointer; transition: opacity .15s; }
+  .die-svg .blk rect { stroke: var(--bg-elev); stroke-width: 2; }
+  .die-svg .blk:hover rect, .die-svg .blk.on rect { stroke: var(--text); stroke-width: 3; }
+  .die-svg .blk text { pointer-events: none; font-family: var(--font); font-size: 15px; font-weight: 700; fill: #fff; }
+  .die-svg .blk text.sub { font-size: 12px; font-weight: 500; fill: rgba(255,255,255,.85); font-family: var(--mono); }
+  .die-svg .blk.off { opacity: .18; }
+  .die-info { padding: 14px 18px; border-top: 1px solid var(--border); min-height: 7.5em; font-size: 14.5px; line-height: 1.6; }
+  .die-info h4 { margin: 0 0 4px; font-size: 16px; display: flex; gap: 8px; align-items: center; }
+  .die-info h4 i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .die-info p { margin: 0 0 6px; color: var(--text-dim); }
+  .die-info .kv { display: flex; flex-wrap: wrap; gap: 4px 18px; font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+  .die-info .kv span b { color: var(--text-faint); font-weight: 400; margin-right: 4px; }
+  .loc-wrap { position: relative; }
+  .soc-gantt-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-dim); padding: 8px 18px 0; }
+  .soc-gantt-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; }
+  .f-cpu { fill: #3f7fd9; } .f-gpu { fill: #7a5cd6; } .f-npu { fill: #d1497a; } .f-isp { fill: #e08a1e; }
+  .f-mdm { fill: #2c9a74; } .f-mem { fill: #6d7686; } .f-sec { fill: #b8423a; }
+</style>
+</head>
+<body data-chapter="soc">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 03</div>
+    <h1>AP(SoC): 폰의 두뇌</h1>
+    <p class="lead">엄지손톱보다 작은 실리콘 한 조각에 CPU 여덟 개 남짓, 그래픽 프로세서, 인공지능 가속기, 카메라 영상 처리기, 그리고 많은 경우 셀룰러 모뎀까지 들어 있다. 이 칩을 <b>애플리케이션 프로세서</b><span class="en">(AP, Application Processor)</span> 또는 <b>시스템 온 칩</b><span class="en">(SoC, System on Chip)</span>이라 부른다. 이 장에서는 다이 위의 블록을 하나씩 짚어 보고, 그 블록들이 <b>왜 3~5 W라는 작은 전력 예산</b> 안에 갇혀 사는지, 그리고 그 제약이 폰 전체 설계를 어떻게 좌우하는지 시뮬레이터로 따라간다.</p>
+    <ul class="objectives">
+      <li>SoC 다이 평면도에서 CPU·GPU·NPU·ISP·모뎀·메모리 컨트롤러·시스템 캐시의 역할과 대략적인 면적 비중을 설명한다.</li>
+      <li>웨이퍼당 다이 수와 결함 밀도로 칩 원가를 계산하고, 공정 노드(FinFET → GAA)의 의미를 이해한다.</li>
+      <li>동적 전력 \(P=\alpha C V^2 f\)와 DVFS로부터 전력이 주파수의 세제곱에 가깝게 늘어나는 이유를 유도한다.</li>
+      <li>이종 코어(big.LITTLE) 스케줄링, 순간 성능과 지속 성능, 열 스로틀링을 정량적으로 비교한다.</li>
+      <li>LPDDR5X 대역폭, 캐시 계층의 지연, NPU의 TOPS와 정밀도가 온디바이스 AI 성능을 어떻게 제한하는지 계산한다.</li>
+      <li>칩 선택이 보드 면적·배터리·열 설계·원가에 미치는 영향을 트레이드오프로 판단한다.</li>
+    </ul>
+  </header>
+
+  <!-- =============================================================== 1 -->
+  <section id="what">
+    <h2>SoC란 무엇인가: 한 칩 위의 컴퓨터</h2>
+    <p>데스크톱 PC를 열면 CPU, 그래픽 카드, 메모리 모듈, 메인보드의 칩셋, 네트워크 카드가 따로따로 꽂혀 있다. 스마트폰에는 그럴 공간도, 전력도 없다. 칩과 칩 사이를 오가는 신호는 패키지 핀과 보드 배선을 거치면서 비트당 수 pJ의 에너지를 쓰지만, 같은 다이 안에서 오가면 그보다 한두 자릿수 적은 에너지로 끝난다. 그래서 폰은 컴퓨터 한 대 분량의 기능을 <b>하나의 다이</b>에 몰아넣는다. 이것이 SoC다.</p>
+    <p>SoC 안의 블록들은 <span class="term">온칩 인터커넥트</span><span class="en">(NoC, Network on Chip)</span>라는 고속 도로망으로 연결되고, 모두가 같은 DRAM을 나눠 쓴다. 공유 메모리로 가는 길목에는 <span class="term">시스템 레벨 캐시</span><span class="en">(SLC, System Level Cache)</span>가 있어 블록 사이의 데이터 교환을 DRAM까지 내려가지 않고 처리한다. 카메라 사진 한 장이 찍히는 과정만 봐도 ISP → NPU → GPU → 디스플레이 컨트롤러로 데이터가 넘어가는데, 이 모든 이동이 SLC와 DRAM을 거친다.</p>
+
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 760 360" role="img" aria-label="SoC 블록 구조">
+        <defs>
+          <marker id="sc-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--text-dim)"/></marker>
+        </defs>
+        <rect x="10" y="10" width="740" height="340" rx="14" class="f-surface"/>
+        <text x="28" y="36" class="t-dim">SoC 다이</text>
+        <rect x="30" y="50" width="130" height="64" rx="8" class="f-elev"/><text x="95" y="78" class="t" text-anchor="middle">CPU 클러스터</text><text x="95" y="99" class="t-mono" text-anchor="middle">1+3+4 코어</text>
+        <rect x="175" y="50" width="110" height="64" rx="8" class="f-elev"/><text x="230" y="78" class="t" text-anchor="middle">GPU</text><text x="230" y="99" class="t-mono" text-anchor="middle">그래픽·연산</text>
+        <rect x="300" y="50" width="100" height="64" rx="8" class="f-elev"/><text x="350" y="78" class="t" text-anchor="middle">NPU</text><text x="350" y="99" class="t-mono" text-anchor="middle">AI 가속</text>
+        <rect x="415" y="50" width="100" height="64" rx="8" class="f-elev"/><text x="465" y="78" class="t" text-anchor="middle">ISP</text><text x="465" y="99" class="t-mono" text-anchor="middle">카메라</text>
+        <rect x="530" y="50" width="100" height="64" rx="8" class="f-elev"/><text x="580" y="78" class="t" text-anchor="middle">DSP</text><text x="580" y="99" class="t-mono" text-anchor="middle">센서·오디오</text>
+        <rect x="645" y="50" width="90" height="64" rx="8" class="f-elev"/><text x="690" y="78" class="t" text-anchor="middle">코덱</text><text x="690" y="99" class="t-mono" text-anchor="middle">비디오</text>
+        <rect x="30" y="160" width="705" height="40" rx="8" class="f-acc-soft"/><text x="382" y="186" class="t-acc" text-anchor="middle">온칩 인터커넥트 (NoC) · 코히어런시</text>
+        <g class="s-line">
+          <path d="M95 114 V158"/><path d="M230 114 V158"/><path d="M350 114 V158"/><path d="M465 114 V158"/><path d="M580 114 V158"/><path d="M690 114 V158"/>
+        </g>
+        <rect x="30" y="236" width="150" height="56" rx="8" class="f-elev"/><text x="105" y="262" class="t" text-anchor="middle">시스템 캐시</text><text x="105" y="281" class="t-mono" text-anchor="middle">SLC 8–24 MB</text>
+        <rect x="200" y="236" width="170" height="56" rx="8" class="f-elev"/><text x="285" y="262" class="t" text-anchor="middle">메모리 컨트롤러</text><text x="285" y="281" class="t-mono" text-anchor="middle">LPDDR5X × 4ch</text>
+        <rect x="390" y="236" width="110" height="56" rx="8" class="f-elev"/><text x="445" y="262" class="t" text-anchor="middle">모뎀</text><text x="445" y="281" class="t-mono" text-anchor="middle">5G 기저대역</text>
+        <rect x="520" y="236" width="100" height="56" rx="8" class="f-elev"/><text x="570" y="262" class="t" text-anchor="middle">보안 영역</text><text x="570" y="281" class="t-mono" text-anchor="middle">키·생체</text>
+        <rect x="640" y="236" width="95" height="56" rx="8" class="f-elev"/><text x="687" y="262" class="t" text-anchor="middle">I/O PHY</text><text x="687" y="281" class="t-mono" text-anchor="middle">UFS·MIPI·USB</text>
+        <g class="s-line"><path d="M105 200 V234"/><path d="M285 200 V234"/><path d="M445 200 V234"/><path d="M570 200 V234"/><path d="M687 200 V234"/></g>
+        <path d="M285 292 V330 H370" class="s-line" marker-end="url(#sc-a)"/><text x="378" y="335" class="t-dim">DRAM (PoP, 칩 위에 적층)</text>
+      </svg>
+      <figcaption><b>그림 3-1.</b> SoC의 논리 구조. 연산 블록(위)은 NoC를 통해 공유 캐시와 메모리 컨트롤러(아래)에 붙는다. 모든 블록이 같은 DRAM을 나눠 쓰므로 메모리 대역폭은 블록들 사이의 공동 자원이다.</figcaption>
+    </figure>
+
+    <div class="table-wrap"><table>
+      <thead><tr><th>블록</th><th>주된 일</th><th>잘하는 것</th><th>대표 지표</th></tr></thead>
+      <tbody>
+        <tr><td>CPU</td><td>OS, 앱 로직, 브라우저, 게임 로직</td><td>분기 많은 범용 코드, 낮은 지연</td><td>IPC × 클럭, 단일/멀티 코어 점수</td></tr>
+        <tr><td>GPU</td><td>3D 렌더링, UI 합성, 범용 병렬 연산</td><td>수천 개의 같은 연산을 동시에</td><td>TFLOPS(FP32/FP16), fps/W</td></tr>
+        <tr><td>NPU</td><td>신경망 추론(사진·음성·LLM)</td><td>저정밀 행렬 곱</td><td>TOPS(INT8/INT4), TOPS/W</td></tr>
+        <tr><td>ISP</td><td>센서 원시 데이터 → 사진·영상</td><td>고정 파이프라인 픽셀 처리</td><td>Gpixel/s, 동시 카메라 수</td></tr>
+        <tr><td>모뎀</td><td>4G/5G 기저대역 신호 처리</td><td>채널 부호·복호, MIMO 연산</td><td>최대 다운로드 속도, 대기 전류</td></tr>
+        <tr><td>DSP / 센서 허브</td><td>오디오, 항상 켜진 센서·키워드 감지</td><td>mW 이하의 상시 동작</td><td>µW~mW 대기 전력</td></tr>
+        <tr><td>비디오 코덱</td><td>H.265/AV1 인코딩·디코딩</td><td>전용 하드웨어로 수십 배 효율</td><td>8K30 / 4K120 등 처리 능력</td></tr>
+      </tbody>
+    </table></div>
+    <p>핵심은 <b>전용 하드웨어의 효율</b>이다. 같은 4K 동영상 디코딩을 CPU가 소프트웨어로 하면 수 W가 들지만, 전용 디코더는 수백 mW 이하로 해낸다. 범용성을 포기한 만큼 에너지가 줄어든다. 그래서 SoC의 역사는 "자주 하는 일을 전용 블록으로 떼어 내는 역사"이기도 하다. 이미지 신호 처리는 ISP로, 신경망은 NPU로, 오디오와 센서 감시는 저전력 DSP로 옮겨 갔다. 카메라 ISP의 파이프라인은 자매편 SensorBook의 <a href="https://sensorbook.euiyun.com/chapters/isp.html">ISP 장</a>에서 자세히 다룬다.</p>
+  </section>
+
+  <!-- =============================================================== 2 -->
+  <section id="where">
+    <h2>폰 안의 위치</h2>
+    <p>AP는 메인보드 하판, 폰의 위쪽 3분의 1 지점에 있다. 바로 위에는 DRAM 패키지가 겹쳐 올라가 있고(PoP, <a href="board.html">4장</a>), 그 위로 열 인터페이스 물질과 <b>베이퍼 챔버</b>가 붙어 열을 화면 쪽 넓은 판으로 퍼뜨린다. 배터리와는 일부러 떨어져 있다. 배터리는 45 °C를 넘으면 수명이 빨리 줄기 때문이다. 아래 모델을 돌려 보고, 칩을 눌러 위치를 확인해 보자.</p>
+    <div class="sim" id="sim-loc">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>폰 속의 AP와 베이퍼 챔버</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three loc-wrap" id="v-loc"><div class="part-card" id="loc-card" hidden></div><span class="hint">드래그로 회전 · 부품 클릭</span></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>분해 정도 <output id="loc-ex-out"></output></span><input type="range" id="loc-ex" min="0" max="1" step="0.01" value="0.6"></label>
+          <div class="ctrl"><span>강조할 부품</span><div class="chips" id="loc-chips">
+            <button data-id="boardBottom" class="on"><i style="background:#23704a"></i>메인보드 하판 (AP)</button>
+            <button data-id="vc"><i style="background:#d9874a"></i>베이퍼 챔버</button>
+            <button data-id="battery"><i style="background:#c7ccd6"></i>배터리</button>
+          </div></div>
+          <label class="check"><input type="checkbox" id="loc-xray"> 나머지 부품 투명하게</label>
+          <button class="btn" id="loc-fly">AP 확대해서 보기</button>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: 분해를 0으로 줄이면 AP(빨간 고리)와 베이퍼 챔버가 위아래로 정확히 겹친다. 열이 지나가는 경로는 다이 → DRAM 패키지 → TIM → 베이퍼 챔버 → 미드플레이트·디스플레이 순이다.</div>
+    </div>
+    <p>이 배치에는 이유가 있다. AP는 메모리·전원 IC와 짧게 연결되어야 하고(고속 신호와 큰 전류), 베이퍼 챔버의 한가운데에 있어야 하며, 손으로 쥐는 아래쪽보다 위쪽에 있어야 덜 뜨겁게 느껴진다. 반대로 카메라와 가까우면 ISP로 가는 MIPI 배선이 짧아진다. 보드 위의 위치 하나에도 신호, 열, 사용자 경험이 얽혀 있다.</p>
+  </section>
+
+  <!-- =============================================================== 3 -->
+  <section id="floorplan">
+    <h2>다이 평면도: 블록별 역할</h2>
+    <p>칩을 패키지에서 꺼내 위에서 찍으면 회색 사각형 조각보처럼 보인다. 각 조각이 하나의 기능 블록이다. 플래그십 SoC의 다이는 대략 <b>100~150 mm²</b>, 손톱만 한 크기에 트랜지스터 150억~200억 개 이상이 들어간다. 아래 평면도는 공개된 다이 사진들의 공통 경향을 바탕으로 그린 <b>개략도</b>다(실제 배치는 제품마다 다르다). 블록을 눌러 보자.</p>
+    <div class="sim" id="sim-die">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>클릭하는 SoC 다이 평면도</h3></div>
+      <div class="die-wrap">
+        <svg class="die-svg" id="die-svg" viewBox="0 0 800 520" role="img" aria-label="SoC 다이 평면도"></svg>
+      </div>
+      <div class="sim-controls">
+        <div class="ctrl"><span>모뎀</span><div class="seg" id="die-modem"><button data-value="int" class="on">통합 (온다이)</button><button data-value="ext">외장 칩</button></div></div>
+        <div class="ctrl"><span>강조</span><div class="seg" id="die-cat"><button data-value="all" class="on">전체</button><button data-value="compute">연산</button><button data-value="media">미디어</button><button data-value="infra">인프라</button></div></div>
+      </div>
+      <div class="die-info" id="die-info"></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">다이 면적(개략)</span><span class="v" id="die-area">—</span></div>
+        <div class="stat"><span class="k">선택 블록 비중</span><span class="v" id="die-share">—</span></div>
+        <div class="stat"><span class="k">트랜지스터 수(추정)</span><span class="v" id="die-tr">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 모뎀을 외장으로 바꾸면 다이가 작아진다. 대신 그 칩은 보드 위 어딘가에 따로 놓여야 하고 자기 전원·메모리가 필요하다(<a href="#modem">10절</a>). 메모리 PHY가 다이 가장자리를 둘러싸는 이유도 생각해 보자. 신호가 칩 밖으로 나가는 곳이 가장자리이기 때문이다.</div>
+    </div>
+    <p>평면도에서 눈에 띄는 경향 몇 가지:</p>
+    <ul>
+      <li><b>GPU가 가장 크다.</b> 그래픽은 병렬 연산 유닛을 늘리는 만큼 성능이 오르므로 면적을 아낌없이 쓴다. 대략 다이의 15~25%.</li>
+      <li><b>CPU 코어 자체는 작다.</b> 고성능 코어 하나가 L2 캐시를 포함해 2~4 mm² 수준이다. CPU 클러스터 면적의 절반 가까이는 캐시다.</li>
+      <li><b>SRAM 캐시가 상당 부분을 차지한다.</b> SLC, L2/L3를 합치면 다이의 10~15%가 SRAM이다. 문제는 SRAM이 최신 공정에서 잘 줄어들지 않는다는 점이다(<a href="#node">4절</a>).</li>
+      <li><b>가장자리는 I/O 차지다.</b> LPDDR PHY, UFS·PCIe·MIPI·USB PHY는 아날로그 회로가 섞여 있어 공정이 바뀌어도 거의 줄지 않는다.</li>
+    </ul>
+  </section>
+
+  <!-- =============================================================== 4 -->
+  <section id="node">
+    <h2>공정 노드: 트랜지스터를 더 작게, 그리고 그 대가</h2>
+    <p>"3 nm 공정"이라는 이름은 더 이상 어떤 물리적 길이도 뜻하지 않는다. 게이트 길이나 금속 배선 간격은 이름보다 훨씬 크다(최소 금속 피치가 20 nm대). 노드 이름은 <b>세대의 상표</b>에 가깝고, 실질적인 지표는 <span class="term">트랜지스터 밀도</span>(MTr/mm²), 같은 성능에서의 전력, 같은 전력에서의 성능이다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>노드(세대)</th><th>소자 구조</th><th>논리 밀도(공칭, MTr/mm²)</th><th>이전 세대 대비 (대략)</th><th>모바일 적용</th></tr></thead>
+      <tbody>
+        <tr><td>7 nm급</td><td>FinFET</td><td>~90–100</td><td>—</td><td>2018–2020</td></tr>
+        <tr><td>5 nm급</td><td>FinFET</td><td>~130–170</td><td>전력 −20~30% 또는 성능 +15%</td><td>2020–2022</td></tr>
+        <tr><td>4 nm급</td><td>FinFET</td><td>~140–180</td><td>5 nm급의 개량</td><td>2022–2024</td></tr>
+        <tr><td>3 nm급</td><td>FinFET / 첫 GAA</td><td>~200–290</td><td>전력 −25~35% 또는 성능 +10~15%</td><td>2023–2026</td></tr>
+        <tr><td>2 nm급</td><td>GAA 나노시트</td><td>~300+</td><td>전력 −25~30%</td><td>2025–</td></tr>
+      </tbody>
+    </table></div>
+    <p>표의 밀도는 논리 셀만으로 계산한 공칭값이다. 실제 칩은 SRAM, 아날로그, I/O가 섞여 있어 다이 전체 평균은 이보다 훨씬 낮다(3 nm급 실제 모바일 SoC가 ~130–160 MTr/mm² 수준). 특히 <b>SRAM 셀은 5 nm → 3 nm에서 거의 줄지 않았다</b>. 캐시를 늘리는 비용이 상대적으로 커졌다는 뜻이다.</p>
+
+    <h3>FinFET에서 GAA로</h3>
+    <p>트랜지스터를 작게 만들면 게이트가 채널을 장악하는 힘이 약해져, 꺼져 있어야 할 때 전류가 새는 <span class="term">단채널 효과</span>가 커진다. 해법은 게이트가 채널을 더 많은 면에서 감싸게 하는 것이다. 평면 트랜지스터는 위 한 면, FinFET은 지느러미 모양 채널의 세 면, <span class="term">GAA</span><span class="en">(Gate-All-Around)</span>는 얇은 나노시트를 네 면 모두 감싼다. 시트 폭을 셀마다 다르게 정할 수 있어, 고성능 셀에는 넓게, 저전력 셀에는 좁게 쓸 수 있다는 것도 GAA의 장점이다.</p>
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 760 300" role="img" aria-label="평면, FinFET, GAA 단면 비교">
+        <!-- planar -->
+        <g transform="translate(20,0)">
+          <rect x="10" y="180" width="200" height="80" class="f-surface"/>
+          <rect x="60" y="160" width="100" height="22" fill="var(--accent-2)" opacity=".75"/>
+          <rect x="60" y="150" width="100" height="10" fill="var(--warn)" opacity=".6"/>
+          <rect x="50" y="90" width="120" height="60" rx="4" fill="var(--blue)" opacity=".75"/>
+          <text x="110" y="126" class="t" text-anchor="middle" style="fill:#fff">게이트</text>
+          <text x="110" y="226" class="t-dim" text-anchor="middle">실리콘 기판</text>
+          <text x="110" y="40" class="t-acc" text-anchor="middle">평면 (~28 nm까지)</text>
+          <text x="110" y="62" class="t-mono" text-anchor="middle">게이트가 1면 제어</text>
+          <text x="110" y="290" class="t-mono" text-anchor="middle">채널(주황)·절연막(노랑)</text>
+        </g>
+        <!-- finfet -->
+        <g transform="translate(270,0)">
+          <rect x="10" y="200" width="200" height="60" class="f-surface"/>
+          <path d="M40 200 V110 H180 V200 H150 V140 H70 V200 Z" fill="var(--blue)" opacity=".75"/>
+          <rect x="70" y="140" width="80" height="60" fill="var(--warn)" opacity=".6"/>
+          <rect x="80" y="150" width="60" height="110" fill="var(--accent-2)" opacity=".8"/>
+          <text x="110" y="128" class="t" text-anchor="middle" style="fill:#fff">게이트</text>
+          <text x="110" y="40" class="t-acc" text-anchor="middle">FinFET (22–3 nm급)</text>
+          <text x="110" y="62" class="t-mono" text-anchor="middle">핀의 3면 제어</text>
+          <text x="110" y="290" class="t-mono" text-anchor="middle">세로로 선 핀이 채널</text>
+        </g>
+        <!-- gaa -->
+        <g transform="translate(520,0)">
+          <rect x="10" y="220" width="200" height="40" class="f-surface"/>
+          <rect x="40" y="90" width="140" height="130" rx="4" fill="var(--blue)" opacity=".75"/>
+          <g>
+            <rect x="60" y="108" width="100" height="22" fill="var(--warn)" opacity=".7"/><rect x="66" y="113" width="88" height="12" fill="var(--accent-2)"/>
+            <rect x="60" y="144" width="100" height="22" fill="var(--warn)" opacity=".7"/><rect x="66" y="149" width="88" height="12" fill="var(--accent-2)"/>
+            <rect x="60" y="180" width="100" height="22" fill="var(--warn)" opacity=".7"/><rect x="66" y="185" width="88" height="12" fill="var(--accent-2)"/>
+          </g>
+          <text x="110" y="40" class="t-acc" text-anchor="middle">GAA 나노시트 (3–2 nm급~)</text>
+          <text x="110" y="62" class="t-mono" text-anchor="middle">시트의 4면 제어</text>
+          <text x="110" y="290" class="t-mono" text-anchor="middle">시트 2–4장을 적층</text>
+        </g>
+      </svg>
+      <figcaption><b>그림 3-2.</b> 채널 방향으로 자른 트랜지스터 단면(개략). 게이트(파랑)가 채널(주황)을 감싸는 면이 늘어날수록 꺼짐 상태의 누설이 줄고, 같은 누설에서 문턱 전압과 동작 전압을 낮출 수 있다.</figcaption>
+    </figure>
+
+    <h3>면적이 곧 원가다</h3>
+    <p>칩 원가의 출발점은 300 mm 웨이퍼 한 장의 가격이다. 최신 노드일수록 노광 단계(EUV)와 공정 단계가 늘어 웨이퍼 가격이 오른다. 대략 5 nm급이 1.5만 달러대, 3 nm급이 2만 달러 안팎, 2 nm급은 그 이상으로 알려져 있다(계약 조건에 따라 크게 다르다). 웨이퍼 한 장에서 나오는 다이 수와 그중 정상인 비율(수율)이 다이 원가를 정한다.</p>
+    <div class="formula">$$N_\text{die} \approx \frac{\pi (d/2)^2}{A} - \frac{\pi d}{\sqrt{2A}},\qquad Y = e^{-D_0 A},\qquad C_\text{die} = \frac{C_\text{wafer}}{N_\text{die}\,Y}$$
+      <div class="where">\(d\): 웨이퍼 지름(300 mm), \(A\): 다이 면적, 둘째 항은 가장자리에서 잘려 나가는 다이. \(D_0\): 단위 면적당 치명 결함 수(성숙 공정 ~0.05–0.1 /cm², 초기 공정 0.2 /cm² 이상). 포아송 수율 모델은 큰 다이에 보수적이며, 실무에서는 결함 군집을 반영한 Murphy·음이항 모델도 쓴다.</div>
+    </div>
+    <div class="sim" id="sim-wafer">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>웨이퍼, 결함, 그리고 다이 한 개의 값</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-wafer"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>다이 면적 <output id="wf-a-out"></output></span><input type="range" id="wf-a" min="40" max="400" step="5" value="120"></label>
+          <label class="ctrl"><span>결함 밀도 D₀ <output id="wf-d-out"></output></span><input type="range" id="wf-d" min="0.02" max="0.5" step="0.01" value="0.10"></label>
+          <label class="ctrl"><span>웨이퍼 가격 <output id="wf-c-out"></output></span><input type="range" id="wf-c" min="8000" max="32000" step="500" value="20000"></label>
+          <button class="btn primary" id="wf-roll">결함 다시 뿌리기</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">웨이퍼당 다이</span><span class="v" id="wf-n">—</span></div>
+        <div class="stat"><span class="k">양품(이번 웨이퍼)</span><span class="v" id="wf-good">—</span></div>
+        <div class="stat"><span class="k">수율 (모델)</span><span class="v" id="wf-y">—</span></div>
+        <div class="stat"><span class="k">양품 다이 원가</span><span class="v" id="wf-cost">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 면적을 120 → 240 mm²로 두 배 늘려 보자. 다이 수는 절반 이하가 되고, 수율도 떨어져 원가는 두 배를 훌쩍 넘는다. 큰 다이가 이중으로 비싼 이유다. 패키징·테스트 비용(수 달러~)은 별도다.</div>
+    </div>
+    <p>그래서 SoC 설계팀은 mm² 단위로 면적을 다툰다. GPU 코어 하나를 더 넣을지, SLC를 4 MB 늘릴지, 모뎀을 온다이로 넣을지가 모두 원가 계산서에 올라간다. 플래그십 AP는 폰 재료비(BOM)에서 디스플레이와 함께 가장 비싼 부품 중 하나로, 대략 BOM의 15~25%로 추정된다.</p>
+  </section>
+
+  <!-- =============================================================== 5 -->
+  <section id="power">
+    <h2>동적 전력과 DVFS: 왜 전력은 주파수의 세제곱인가</h2>
+    <p>CMOS 논리 게이트가 0에서 1로 바뀔 때마다 출력에 달린 배선과 다음 게이트의 정전 용량 \(C\)를 \(V\)까지 충전하고, 1에서 0으로 바뀔 때 방전한다. 한 번 충방전할 때 전원에서 꺼내 열로 버리는 에너지가 \(CV^2\)이다. 이것이 초당 \(\alpha f\)번 일어나면:</p>
+    <div class="formula">$$P_\text{dyn} = \alpha\, C\, V^2 f, \qquad P_\text{leak} = V\, I_\text{leak}(V, T)$$
+      <div class="where">\(\alpha\): 활동률(클럭당 실제로 바뀌는 노드 비율, 0.05–0.3), \(C\): 스위칭 정전 용량, \(V\): 공급 전압, \(f\): 클럭 주파수. 누설 전류는 온도가 오를수록 지수적으로 늘어 25 °C 오를 때마다 대략 두 배가 된다.</div>
+    </div>
+    <p>여기서 함정은 \(V\)와 \(f\)가 독립이 아니라는 점이다. 트랜지스터가 더 빨리 스위칭하려면 더 많은 전류가 필요하고, 그러려면 게이트 전압이 문턱 전압 \(V_{th}\)보다 충분히 높아야 한다. 즉 <b>높은 클럭에는 높은 전압이 필요하다</b>. 근사적으로 \(f \propto (V - V_{th})^{\beta}/V\) (\(\beta\) ≈ 1.3–1.5)이며, 문턱 전압보다 꽤 높은 영역에서는 \(V\)가 \(f\)에 거의 비례해 오른다. 그러면</p>
+    <div class="formula">$$V \propto f \;\Rightarrow\; P_\text{dyn} \propto V^2 f \propto f^3, \qquad E_\text{task} = P\cdot t \propto f^3 \cdot \frac{1}{f} = f^2$$</div>
+    <p>클럭을 20% 올리면 전력은 70% 늘고, 같은 일을 하는 데 드는 에너지도 44% 늘어난다. 반대로 최소 전압 \(V_\text{min}\)(SRAM이 안정적으로 동작하는 하한, 대략 0.5–0.6 V)에 닿은 뒤에는 전압을 더 내릴 수 없어 전력이 \(f\)에 비례해서만 줄고, 누설 전력은 그대로 남는다. 이 때문에 "가능한 한 느리게"가 늘 최선은 아니다. 일정 클럭 아래로는 일을 빨리 끝내고 잠드는 쪽(<span class="term">race-to-idle</span>)이 유리해진다.</p>
+    <p><span class="term">DVFS</span><span class="en">(Dynamic Voltage and Frequency Scaling)</span>는 부하에 맞춰 이 전압-주파수 쌍(<span class="term">OPP</span>, Operating Performance Point)을 수 ms 단위로 바꾸는 기법이다. 각 CPU 클러스터, GPU, NPU가 각자의 전압 레일과 OPP 표를 갖고, PMIC가 빠르게 전압을 바꿔 준다(<a href="power.html">6장</a>).</p>
+    <div class="sim" id="sim-dvfs">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>전압-주파수 곡선과 전력</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-dvfs"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>클럭 <output id="dv-f-out"></output></span><input type="range" id="dv-f" min="0.3" max="4.2" step="0.05" value="2.4"></label>
+          <label class="ctrl"><span>칩 온도 <output id="dv-t-out"></output></span><input type="range" id="dv-t" min="25" max="105" step="1" value="50"></label>
+          <label class="ctrl"><span>문턱 전압 편차 ΔVth <output id="dv-vt-out"></output></span><input type="range" id="dv-vt" min="-40" max="40" step="5" value="0"></label>
+          <div class="ctrl"><span>아래 그래프</span><div class="seg" id="dv-view"><button data-value="p" class="on">전력</button><button data-value="e">작업당 에너지</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">필요 전압</span><span class="v" id="dv-v">—</span></div>
+        <div class="stat"><span class="k">동적 / 누설</span><span class="v" id="dv-p">—</span></div>
+        <div class="stat"><span class="k">성능/W (상대)</span><span class="v" id="dv-ppw">—</span></div>
+        <div class="stat"><span class="k">에너지/작업 (상대)</span><span class="v" id="dv-e">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 클럭을 3.0 → 4.0 GHz로 올리면(성능 +33%) 전력은 두 배 넘게 뛴다. 온도를 100 °C로 올리면 누설이 커져 저클럭에서의 작업당 에너지 곡선이 위로 휜다. 에너지 최소점(최적 효율 클럭)이 생기는 것을 확인하자. 칩마다 V<sub>th</sub>가 조금씩 달라 같은 클럭에 필요한 전압이 다르다. 이를 칩별로 측정해 OPP 표를 조정하는 것이 <b>비닝</b>이다.</div>
+    </div>
+    <div class="callout deep">
+      <strong>전압이 1% 아까운 이유</strong>
+      <p>\(P \propto V^2\)이므로 전압 1% 여유(가드밴드)는 동적 전력 2%에 해당한다. 그래서 최신 SoC는 칩마다 측정한 전압 표(AVS, Adaptive Voltage Scaling)를 쓰고, 온칩 센서로 순간 전압 강하를 감지해 클럭을 잠깐 늦추는 회로(droop detector)로 가드밴드를 줄인다. 전원 무결성(<a href="board.html#pdn">4장</a>)이 나쁘면 이 여유를 다시 늘려야 하므로 보드 설계가 곧 전력 효율이다.</p>
+    </div>
+  </section>
+
+  <!-- =============================================================== 6 -->
+  <section id="hetero">
+    <h2>이종 코어와 스케줄링: big.LITTLE</h2>
+    <p>앞 절의 결론을 뒤집어 보면, <b>한 종류의 코어로는 넓은 성능 범위를 효율적으로 덮을 수 없다</b>. 높은 클럭에 최적화된 큰 코어(넓은 실행 폭, 큰 캐시, 깊은 비순차 실행 창)는 낮은 클럭에서도 스위칭 정전 용량 \(C\)가 커서 전력을 많이 쓴다. 작은 코어는 최고 성능은 낮지만 저부하 구간에서 훨씬 효율적이다. 그래서 모바일 CPU는 크기가 다른 코어를 섞는다. 2011년 Arm이 제안한 <span class="term">big.LITTLE</span>에서 출발해, 지금은 대개 세 단계(프라임 1–2 + 성능 3–5 + 효율 0–4)로 나뉜다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>코어 등급</th><th>최대 클럭(대략)</th><th>상대 IPC</th><th>코어당 최대 전력</th><th>주 용도</th></tr></thead>
+      <tbody>
+        <tr><td>프라임(초고성능)</td><td>3.8–4.3 GHz</td><td>1.0</td><td>4–6 W</td><td>앱 실행, 웹 페이지 로딩, 터치 응답 버스트</td></tr>
+        <tr><td>성능(중간)</td><td>2.8–3.5 GHz</td><td>~0.7–0.8</td><td>1.5–3 W</td><td>게임 로직, 멀티스레드 작업</td></tr>
+        <tr><td>효율(소형)</td><td>1.8–2.2 GHz</td><td>~0.35–0.5</td><td>0.2–0.5 W</td><td>백그라운드 동기화, 음악, 대기 중 작업</td></tr>
+      </tbody>
+    </table></div>
+    <p>운영체제 스케줄러(리눅스의 <span class="term">EAS</span><span class="en">(Energy Aware Scheduling)</span>)는 각 코어의 전력 모델을 알고 있어서, 작업의 "필요 성능"(최근 부하로 추정한 utilization)을 보고 <b>그 성능을 가장 적은 에너지로 낼 수 있는 코어와 클럭</b>을 고른다. 아래 시뮬레이터 위쪽은 세 종류 코어의 성능-전력 곡선이고, 아래쪽은 짧은 사용 시나리오를 정책별로 배치한 결과다.</p>
+    <div class="sim" id="sim-hmp">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>어느 코어에서 돌릴까: 성능-전력 곡선과 스케줄링</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-hmp"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>작업이 요구하는 성능 <output id="hm-d-out"></output></span><input type="range" id="hm-d" min="0.1" max="4.2" step="0.05" value="1.0"></label>
+          <div class="ctrl"><span>스케줄링 정책 (아래 타임라인)</span><div class="seg" id="hm-pol"><button data-value="eas" class="on">에너지 인지</button><button data-value="big">항상 프라임</button><button data-value="little">항상 효율</button></div></div>
+        </div>
+      </div>
+      <div class="sim-view"><canvas id="cv-hmp2"></canvas></div>
+      <div class="soc-gantt-legend"><span><i style="background:var(--bad)"></i>프라임</span><span><i style="background:var(--accent-2)"></i>성능</span><span><i style="background:var(--accent)"></i>효율</span><span><i style="background:var(--warn);opacity:.5"></i>요구 성능 미달(버벅임)</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">이 부하에 최적인 코어</span><span class="v" id="hm-best">—</span></div>
+        <div class="stat"><span class="k">그때 전력</span><span class="v" id="hm-p">—</span></div>
+        <div class="stat"><span class="k">시나리오 에너지</span><span class="v" id="hm-e">—</span></div>
+        <div class="stat"><span class="k">요구 미달 시간</span><span class="v" id="hm-miss">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 요구 성능이 0.5 근처일 때 효율 코어의 전력이 프라임 코어의 몇 분의 1인지 보자. 0.9를 넘으면 효율 코어 곡선이 끝나 버린다(그 성능을 아예 낼 수 없다). "항상 프라임"은 버벅임이 없지만 에너지가 크고, "항상 효율"은 에너지는 작지만 앱 실행 버스트에서 요구 성능을 못 맞춘다.</div>
+    </div>
+    <p>두 곡선이 교차하는 점이 중요하다. 그 아래에서는 작은 코어가, 위에서는 큰 코어가 효율적이다. 효율 코어를 아예 빼는 설계(프라임+성능 코어만)도 등장했는데, 성능 코어를 낮은 클럭에서도 효율적으로 다듬고 저부하 작업을 DSP·센서 허브로 넘길 수 있다면 면적 대비 이득이 크다는 판단이다. 정답은 하나가 아니라 <b>코어 설계, 공정, 소프트웨어 스케줄러의 조합</b>이다.</p>
+    <div class="callout tip">
+      <strong>체감 성능은 "첫 100 ms"가 결정한다</strong>
+      <p>사용자가 화면을 터치하면 스케줄러는 부하가 쌓이기를 기다리지 않고 클럭과 코어를 미리 올린다(touch boost, uclamp). 앱 실행 직후 수백 ms만 프라임 코어를 최고 클럭으로 쓰고 바로 내려오는 것이 체감 속도와 배터리를 동시에 지키는 요령이다.</p>
+    </div>
+  </section>
+
+  <!-- =============================================================== 7 -->
+  <section id="thermal">
+    <h2>순간 성능 vs 지속 성능: 열 스로틀링</h2>
+    <p>벤치마크 점수는 대개 시원한 칩이 처음 몇십 초 동안 내는 <b>순간 성능</b>이다. 게임을 30분 하면 이야기가 달라진다. 폰에는 팬이 없고, 열은 결국 손에 닿는 표면(화면과 뒷면)에서 대류와 복사로 공기 중에 버려진다. 사람 손이 불편해지지 않는 표면 온도는 대략 <b>43~45 °C</b>, 실온 25 °C에서 폰 전체가 계속 버릴 수 있는 열은 크기와 재질에 따라 <b>대략 3~5 W</b>다. 이 값이 SoC의 <span class="term">지속 전력 예산</span>이다(디스플레이 등 다른 부품의 전력도 이 예산을 나눠 쓴다).</p>
+    <div class="formula">$$C_\text{th}\frac{dT_s}{dt} = P - \frac{T_s - T_a}{R_\text{sa}}, \qquad T_j = T_s + P\,R_\text{js}$$
+      <div class="where">\(T_s\): 표면(가장 뜨거운 곳) 온도, \(T_a\): 주변 온도, \(R_\text{sa}\): 표면→공기 열저항(폰 전체 ~4–6 K/W), \(C_\text{th}\): 폰의 열용량(~100–150 J/K, 무게 200 g 안팎), \(T_j\): 다이 접합 온도, \(R_\text{js}\): 다이→표면 열저항. 시정수 \(R_\text{sa}C_\text{th}\)는 수~10분이다.</div>
+    </div>
+    <p>폰의 열 시정수가 수 분이라는 것은, <b>처음 몇 분은 열용량에 빚을 내서</b> 지속 예산보다 훨씬 큰 전력을 쓸 수 있다는 뜻이다. 열관리 소프트웨어는 표면 온도 추정값(여러 서미스터 + 모델)이 한계에 가까워지면 클럭 상한을 내린다. 이것이 <span class="term">열 스로틀링</span>이다. 접합 온도(대략 95~105 °C 한계)는 짧은 버스트에서 먼저 걸리는 별도 제한이다.</p>
+    <div class="sim" id="sim-throttle">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>30분 게임: 온도와 클럭의 시간축</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-thr"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>요청 전력(최고 클럭 시) <output id="th-p-out"></output></span><input type="range" id="th-p" min="3" max="14" step="0.5" value="9"></label>
+          <label class="ctrl"><span>주변 온도 <output id="th-ta-out"></output></span><input type="range" id="th-ta" min="0" max="40" step="1" value="25"></label>
+          <label class="ctrl"><span>표면 온도 한계 <output id="th-lim-out"></output></span><input type="range" id="th-lim" min="39" max="48" step="0.5" value="43"></label>
+          <div class="ctrl"><span>방열</span><div class="seg" id="th-cool"><button data-value="none">그래파이트만</button><button data-value="vc" class="on">베이퍼 챔버</button><button data-value="case">두꺼운 케이스</button></div></div>
+          <button class="btn primary" id="th-run">▶ 다시 재생</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">초기 성능</span><span class="v" id="th-peak">—</span></div>
+        <div class="stat"><span class="k">지속 성능(마지막 10분)</span><span class="v" id="th-sus">—</span></div>
+        <div class="stat"><span class="k">안정성(지속/초기)</span><span class="v" id="th-stab">—</span></div>
+        <div class="stat"><span class="k">스로틀 시작</span><span class="v" id="th-t0">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 베이퍼 챔버를 빼면 핫스폿이 집중되어 같은 전력에서 표면 최고 온도가 높아지고 스로틀이 빨리 걸린다. 두꺼운 케이스는 열저항을 키운다. 요청 전력을 4 W로 낮추면 거의 스로틀이 걸리지 않는다. "최고 클럭을 조금 낮게 설계한 칩"이 지속 성능에서는 이기는 경우가 많다.</div>
+    </div>
+    <p>스로틀링이 성능을 깎는 정도는 전력-성능 곡선의 모양에 달려 있다. 전력이 \(f^3\)에 가깝다면 전력을 절반으로 줄여도 클럭은 \(0.5^{1/3}\) ≈ 79%로만 줄어든다. 그래서 9 W를 요구하던 칩이 4 W로 내려와도 성능은 70~80% 수준을 유지한다. <b>지속 성능을 결정하는 것은 최고 클럭이 아니라 3~5 W 근처에서의 효율(성능/W)</b>이다. 열 확산 구조는 <a href="thermal.html">열 관리 장</a>에서 자세히 다룬다.</p>
+  </section>
+
+  <!-- =============================================================== 8 -->
+  <section id="memory">
+    <h2>메모리 대역폭과 캐시 계층</h2>
+    <p>연산 유닛이 아무리 빨라도 데이터가 제때 오지 않으면 논다. 모바일 SoC의 주 메모리는 <span class="term">LPDDR</span><span class="en">(Low-Power DDR)</span> DRAM이다. 현재 플래그십은 LPDDR5X(핀당 7.5~10.7 Gbps), 차세대는 LPDDR6다. LPDDR5X는 채널당 16비트 폭이고, 폰은 보통 4채널 = 64비트 버스를 쓴다.</p>
+    <div class="formula">$$BW_\text{peak} = \text{데이터율(MT/s)} \times \frac{\text{버스 폭(bit)}}{8}$$
+      <div class="where">예: 8,533 MT/s × 64 bit / 8 = 68.3 GB/s. 실제 유효 대역폭은 뱅크 충돌, 리프레시, 읽기/쓰기 전환 때문에 피크의 60–80%다.</div>
+    </div>
+    <div class="sim" id="sim-bw">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>LPDDR 대역폭 계산기: 누가 대역폭을 먹나</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-bw"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>메모리 규격</span><div class="seg" id="bw-std"><button data-value="6400">5 · 6400</button><button data-value="8533" class="on">5X · 8533</button><button data-value="10667">5X · 10667</button></div></div>
+          <div class="ctrl"><span>채널 수(×16 bit)</span><div class="seg" id="bw-ch"><button data-value="2">2ch</button><button data-value="4" class="on">4ch</button></div></div>
+          <label class="ctrl"><span>유효 효율 <output id="bw-eff-out"></output></span><input type="range" id="bw-eff" min="50" max="90" step="1" value="70"></label>
+          <label class="check"><input type="checkbox" id="bw-game" checked> 게임 GPU (1440p 120 fps)</label>
+          <label class="check"><input type="checkbox" id="bw-cam" checked> 4K60 HDR 영상 촬영</label>
+          <label class="check"><input type="checkbox" id="bw-llm"> 온디바이스 LLM 생성</label>
+          <label class="check"><input type="checkbox" id="bw-disp" checked> 디스플레이 갱신</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">피크 대역폭</span><span class="v" id="bw-peak">—</span></div>
+        <div class="stat"><span class="k">유효 대역폭</span><span class="v" id="bw-effv">—</span></div>
+        <div class="stat"><span class="k">요구 합계</span><span class="v" id="bw-need">—</span></div>
+        <div class="stat"><span class="k">DRAM I/O 전력(추정)</span><span class="v" id="bw-pw">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: LLM을 켜면 다른 작업과 동시에 대역폭이 모자라는 것을 볼 수 있다. 메모리 트래픽은 공짜가 아니다. LPDDR5X 접근 에너지를 비트당 ~4–6 pJ로 잡으면 40 GB/s는 1.5 W 안팎으로, SoC 지속 예산의 3분의 1이다. 그래서 SLC 히트율을 올리고 데이터를 압축하는 기법(프레임 버퍼 압축 등)이 중요하다.</div>
+    </div>
+
+    <h3>캐시 계층: 가까울수록 빠르고 작다</h3>
+    <p>DRAM까지 가는 왕복은 100 ns가 넘는다. 4 GHz 코어에게는 400 사이클 이상 기다리는 시간이다. 그래서 코어 가까이에 작고 빠른 SRAM을 여러 단계로 둔다.</p>
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 760 300" role="img" aria-label="캐시 계층 피라미드">
+        <path d="M380 20 L450 80 L310 80 Z" fill="var(--bad)" opacity=".8"/>
+        <path d="M310 84 L450 84 L510 136 L250 136 Z" fill="var(--accent-2)" opacity=".75"/>
+        <path d="M250 140 L510 140 L570 192 L190 192 Z" fill="var(--warn)" opacity=".7"/>
+        <path d="M190 196 L570 196 L630 248 L130 248 Z" fill="var(--accent)" opacity=".6"/>
+        <path d="M130 252 L630 252 L690 290 L70 290 Z" fill="var(--blue)" opacity=".55"/>
+        <text x="380" y="70" class="t" text-anchor="middle" style="fill:#fff;font-weight:700">레지스터</text>
+        <text x="380" y="117" class="t" text-anchor="middle" style="fill:#fff;font-weight:700">L1 64–128 KB</text>
+        <text x="380" y="173" class="t" text-anchor="middle" style="font-weight:700">L2 1–4 MB (코어별·클러스터)</text>
+        <text x="380" y="228" class="t" text-anchor="middle" style="font-weight:700">L3 / SLC 8–24 MB (공유)</text>
+        <text x="380" y="277" class="t" text-anchor="middle" style="fill:#fff;font-weight:700">LPDDR5X DRAM 8–16 GB</text>
+        <text x="20" y="60" class="t-mono">~0.25 ns</text><text x="20" y="114" class="t-mono">~1 ns</text><text x="20" y="170" class="t-mono">~3–5 ns</text><text x="20" y="226" class="t-mono">~10–30 ns</text><text x="20" y="282" class="t-mono">~100–150 ns</text>
+        <text x="740" y="114" class="t-mono" text-anchor="end">~0.1 pJ/B</text><text x="740" y="170" class="t-mono" text-anchor="end">~0.5 pJ/B</text><text x="740" y="226" class="t-mono" text-anchor="end">~1–2 pJ/B</text><text x="740" y="282" class="t-mono" text-anchor="end">~30–50 pJ/B</text>
+      </svg>
+      <figcaption><b>그림 3-3.</b> 메모리 계층(개략). 왼쪽은 접근 지연, 오른쪽은 바이트당 이동 에너지의 대략적 크기. 한 단계 내려갈 때마다 용량은 수~수십 배, 지연과 에너지는 수 배씩 커진다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-cache">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>작업 세트 크기와 평균 접근 지연</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-cache"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>작업 세트 크기 <output id="ca-ws-out"></output></span><input type="range" id="ca-ws" min="0" max="100" step="1" value="55"></label>
+          <label class="ctrl"><span>SLC 용량 <output id="ca-slc-out"></output></span><input type="range" id="ca-slc" min="0" max="32" step="2" value="12"></label>
+          <label class="ctrl"><span>L2 용량 <output id="ca-l2-out"></output></span><input type="range" id="ca-l2" min="0.5" max="4" step="0.5" value="2"></label>
+          <div class="ctrl"><span>접근 패턴</span><div class="seg" id="ca-pat"><button data-value="rand" class="on">무작위(포인터 추적)</button><button data-value="seq">순차(프리페치)</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">평균 지연</span><span class="v" id="ca-lat">—</span></div>
+        <div class="stat"><span class="k">4 GHz에서</span><span class="v" id="ca-cyc">—</span></div>
+        <div class="stat"><span class="k">주로 머무는 계층</span><span class="v" id="ca-lvl">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 작업 세트를 키우면 지연이 계단처럼 오른다. 계단의 모서리가 각 캐시의 용량이다. SLC를 0으로 줄이면 L2를 벗어나자마자 DRAM으로 떨어진다. 순차 접근에서는 프리페처가 데이터를 미리 가져와 큰 작업 세트에서도 지연이 숨겨진다.</div>
+    </div>
+    <p>공식으로 쓰면 평균 메모리 접근 시간(AMAT)은 \(\text{AMAT} = t_{L1} + m_{L1}\,(t_{L2} + m_{L2}\,(t_{L3} + m_{L3}\,t_\text{DRAM}))\)이다(\(m\): 각 단계의 미스율). 큰 캐시는 미스율을 줄이지만 면적과 누설 전력을 먹고, 캐시가 커지면 접근 지연 자체도 늘어난다. 다이 평면도에서 SRAM이 큰 면적을 차지하는 것은 이 계산의 결과다.</p>
+  </section>
+
+  <!-- =============================================================== 9 -->
+  <section id="npu">
+    <h2>NPU와 온디바이스 AI: TOPS와 정밀도</h2>
+    <p>신경망 추론의 대부분은 행렬 곱, 즉 <span class="term">곱셈-누산</span><span class="en">(MAC, Multiply-Accumulate)</span>의 반복이다. NPU는 MAC 유닛 수천~수만 개를 2차원 배열로 깔고, 가중치와 활성값을 온칩 SRAM에 붙잡아 둔 채 흘려보내는 전용 가속기다. 성능은 보통 TOPS(초당 조 단위 연산)로 표시한다.</p>
+    <div class="formula">$$\text{TOPS} = 2 \times N_\text{MAC} \times f \times 10^{-12}$$
+      <div class="where">MAC 한 번 = 곱셈 + 덧셈 = 2연산. 예: INT8 MAC 16,384개 × 1.4 GHz × 2 ≈ 46 TOPS. 같은 회로로 INT4를 처리하면 MAC 수가 사실상 두 배가 되어 공칭 TOPS도 두 배가 된다. 그래서 TOPS를 비교할 때는 <b>어떤 정밀도인지</b>, 희소성(0 건너뛰기) 가정이 들어갔는지 확인해야 한다.</div>
+    </div>
+    <p>정밀도를 낮추는 이유는 단순하다. 곱셈기의 면적과 에너지는 비트 수의 대략 제곱에 비례하고, 메모리 이동량은 비트 수에 비례한다. FP16 → INT8로 가면 연산 에너지는 수 분의 1, 가중치 크기는 절반, INT4는 다시 절반이다. 대신 <span class="term">양자화</span> 오차가 생기므로, 학습 후 보정이나 양자화 인지 학습으로 정확도를 지킨다.</p>
+    <p>그런데 대형 언어 모델(LLM)의 토큰 생성(디코드)은 사정이 다르다. 토큰 하나를 만들 때마다 모델의 <b>모든 가중치를 한 번씩 DRAM에서 읽어야</b> 하는데, 가중치 하나당 연산은 2회뿐이다. 연산 강도(연산/바이트)가 너무 낮아 NPU의 TOPS가 아니라 <b>메모리 대역폭</b>이 속도를 정한다. 아래 루프라인<span class="en">(roofline)</span> 그래프로 확인하자.</p>
+    <div class="sim" id="sim-npu">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>NPU 루프라인: 연산이 한계인가, 대역폭이 한계인가</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-npu"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>MAC 수 (INT8 기준) <output id="np-mac-out"></output></span><input type="range" id="np-mac" min="11" max="15" step="0.5" value="14"></label>
+          <label class="ctrl"><span>NPU 클럭 <output id="np-f-out"></output></span><input type="range" id="np-f" min="0.6" max="1.8" step="0.05" value="1.3"></label>
+          <label class="ctrl"><span>LLM 파라미터 수 <output id="np-par-out"></output></span><input type="range" id="np-par" min="0.5" max="14" step="0.5" value="3"></label>
+          <div class="ctrl"><span>가중치 정밀도</span><div class="seg" id="np-prec"><button data-value="16">FP16</button><button data-value="8">INT8</button><button data-value="4" class="on">INT4</button></div></div>
+          <label class="ctrl"><span>메모리 유효 대역폭 <output id="np-bw-out"></output></span><input type="range" id="np-bw" min="20" max="100" step="1" value="50"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">NPU 피크</span><span class="v" id="np-tops">—</span></div>
+        <div class="stat"><span class="k">모델 가중치 크기</span><span class="v" id="np-size">—</span></div>
+        <div class="stat"><span class="k">디코드 속도 상한</span><span class="v" id="np-tps">—</span></div>
+        <div class="stat"><span class="k">이때 NPU 활용률</span><span class="v" id="np-util">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: MAC 수를 두 배로 늘려도 LLM 디코드 점(빨강)은 움직이지 않는다. 대역폭 기울기 아래에 갇혀 있기 때문이다. 대신 INT4로 바꾸면 읽을 바이트가 줄어 토큰 속도가 두 배 가까이 오른다. 반면 사진 처리 CNN(초록)과 프롬프트 처리(prefill, 보라)는 연산 강도가 높아 NPU 피크에 닿는다. 8 GB 폰이라면 OS와 앱이 쓰고 남은 메모리도 모델 크기를 제한한다.</div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>온디바이스 AI 작업</th><th>특성</th><th>병목</th></tr></thead>
+      <tbody>
+        <tr><td>사진 분할·노이즈 제거 (CNN)</td><td>작은 모델, 큰 활성값, 반복 사용</td><td>연산(TOPS), 온칩 SRAM</td></tr>
+        <tr><td>음성 인식·키워드 감지</td><td>상시 동작, 작은 모델</td><td>대기 전력(DSP/NPU 저전력 모드)</td></tr>
+        <tr><td>LLM 프롬프트 처리(prefill)</td><td>토큰 수백 개를 한꺼번에 행렬 곱</td><td>연산(TOPS)</td></tr>
+        <tr><td>LLM 토큰 생성(decode)</td><td>토큰 하나마다 전체 가중치 읽기</td><td>메모리 대역폭, 메모리 용량</td></tr>
+        <tr><td>이미지 생성(디퓨전)</td><td>수십 단계 반복, 큰 모델</td><td>연산 + 지속 전력(열)</td></tr>
+      </tbody>
+    </table></div>
+    <p>그래서 온디바이스 AI 경쟁은 TOPS만이 아니라 <b>DRAM 용량(12~16 GB로 증가)</b>, <b>대역폭(LPDDR5X → LPDDR6)</b>, <b>저비트 양자화</b>의 경쟁이기도 하다. 그리고 결국 같은 3~5 W 지속 예산 안에서 돌아야 한다.</p>
+  </section>
+
+  <!-- =============================================================== 10 -->
+  <section id="modem">
+    <h2>모뎀: 통합할 것인가, 따로 둘 것인가</h2>
+    <p>셀룰러 모뎀(기저대역 프로세서)은 4G/5G 신호의 변조·복조, 채널 부호화, MIMO 처리를 맡는다. 5G 모뎀은 그 자체로 DSP와 전용 가속기를 품은 큰 블록이며, RF 트랜시버(별도 칩)와 연결되어 안테나까지 이어진다(<a href="rf.html">7장</a>). 이 모뎀을 AP 다이 안에 넣을지(통합), 별도 칩으로 둘지(외장)는 오랜 설계 논쟁이다.</p>
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 760 290" role="img" aria-label="모뎀 통합과 외장 비교">
+        <defs><marker id="sc-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--text-dim)"/></marker></defs>
+        <text x="180" y="28" class="t-acc" text-anchor="middle">통합 모뎀</text>
+        <rect x="40" y="50" width="200" height="130" rx="10" class="f-surface"/>
+        <rect x="56" y="66" width="80" height="50" rx="5" class="f-elev"/><text x="96" y="96" class="t" text-anchor="middle">CPU·GPU</text>
+        <rect x="146" y="66" width="80" height="98" rx="5" class="f-acc-soft"/><text x="186" y="120" class="t" text-anchor="middle">모뎀</text>
+        <rect x="56" y="124" width="80" height="40" rx="5" class="f-elev"/><text x="96" y="149" class="t-mono" text-anchor="middle">DRAM 공유</text>
+        <text x="140" y="200" class="t-dim" text-anchor="middle">AP 1개 (DRAM 공유)</text>
+        <rect x="270" y="90" width="80" height="50" rx="6" class="f-elev"/><text x="310" y="120" class="t" text-anchor="middle">RF</text>
+        <path d="M240 115 H268" class="s-line" marker-end="url(#sc-m)"/>
+        <text x="190" y="240" class="t-mono" text-anchor="middle">+ 보드 면적 작음 · 칩 간 링크 없음</text>
+        <text x="190" y="262" class="t-mono" text-anchor="middle">− 다이 커짐 · 공정이 모뎀에 과할 수 있음</text>
+
+        <text x="560" y="28" class="t-acc" text-anchor="middle">외장 모뎀</text>
+        <rect x="410" y="50" width="130" height="130" rx="10" class="f-surface"/>
+        <rect x="426" y="66" width="98" height="98" rx="5" class="f-elev"/><text x="475" y="120" class="t" text-anchor="middle">AP</text>
+        <rect x="570" y="70" width="90" height="90" rx="10" class="f-acc2-soft"/><text x="615" y="112" class="t" text-anchor="middle">모뎀 칩</text><text x="615" y="132" class="t-mono" text-anchor="middle">+ 자체 메모리</text>
+        <path d="M540 115 H568" class="s-line" marker-end="url(#sc-m)"/><text x="554" y="105" class="t-mono" text-anchor="middle">PCIe</text>
+        <rect x="680" y="90" width="66" height="50" rx="6" class="f-elev"/><text x="713" y="120" class="t" text-anchor="middle">RF</text>
+        <path d="M660 115 H678" class="s-line" marker-end="url(#sc-m)"/>
+        <text x="580" y="240" class="t-mono" text-anchor="middle">+ 최적 공정 각각 · 모뎀 교체·재사용 쉬움</text>
+        <text x="580" y="262" class="t-mono" text-anchor="middle">− 보드 면적·전원 레일·링크 전력 추가</text>
+      </svg>
+      <figcaption><b>그림 3-4.</b> 통합 모뎀과 외장 모뎀. 외장 모뎀은 칩 간 고속 링크(PCIe 등)와 별도 전원·메모리가 필요해 보드 위에 대략 1 cm² 이상의 공간이 더 든다.</figcaption>
+    </figure>
+    <div class="table-wrap"><table>
+      <thead><tr><th>관점</th><th>통합 모뎀</th><th>외장 모뎀</th></tr></thead>
+      <tbody>
+        <tr><td>보드 면적</td><td>작다</td><td>모뎀 패키지 + 전원 부품 + 경우에 따라 별도 DRAM</td></tr>
+        <tr><td>전력</td><td>칩 간 링크 없음, 대기 전력 관리 쉬움</td><td>링크 구동 전력, 유휴 시 링크 관리 필요</td></tr>
+        <tr><td>공정</td><td>모뎀도 최신(비싼) 공정으로</td><td>모뎀은 한 세대 이전 공정으로 원가 절감 가능</td></tr>
+        <tr><td>열</td><td>5G 고속 전송 시 AP와 열 예산 공유</td><td>열원이 분산됨</td></tr>
+        <tr><td>제품 전략</td><td>AP와 모뎀 세대를 함께 바꿈</td><td>지역·통신사별로 모뎀만 바꾸거나 자체 모뎀 개발 가능</td></tr>
+      </tbody>
+    </table></div>
+    <p>최근 경향은 보급형·중급형은 거의 모두 통합, 플래그십은 회사마다 다르다. 공정과 패키징 기술이 발달하면서 "한 패키지 안에 다이 두 개"(칩렛) 같은 중간 해법도 늘고 있다.</p>
+  </section>
+
+  <!-- =============================================================== 11 -->
+  <section id="package">
+    <h2>패키징: 다이를 보드에 붙이기</h2>
+    <p>다이는 그 자체로 보드에 납땜할 수 없다. 다이의 범프 간격(수십 µm)과 보드의 패드 간격(0.3–0.4 mm)이 너무 다르기 때문이다. 그 사이를 이어 주는 것이 패키지다. PC CPU는 두꺼운 유기 기판의 FC-BGA를 쓰지만, 폰은 두께가 아까워 다른 방식을 쓴다.</p>
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 760 300" role="img" aria-label="PoP와 InFO-PoP 단면">
+        <text x="190" y="26" class="t-acc" text-anchor="middle">기판형 PoP (FC 기판)</text>
+        <g>
+          <rect x="40" y="56" width="300" height="34" rx="4" fill="var(--text-faint)" opacity=".55"/><text x="190" y="78" class="t" text-anchor="middle">DRAM 패키지 (다이 적층)</text>
+          <g fill="var(--text-dim)"><circle cx="58" cy="98" r="7"/><circle cx="78" cy="98" r="7"/><circle cx="302" cy="98" r="7"/><circle cx="322" cy="98" r="7"/></g>
+          <rect x="40" y="106" width="300" height="16" fill="var(--ok)" opacity=".55"/>
+          <rect x="120" y="86" width="140" height="20" fill="var(--accent-2)" opacity=".85"/><text x="190" y="101" class="t-mono" text-anchor="middle" style="fill:#fff">AP 다이</text>
+          <text x="350" y="119" class="t-mono">기판</text>
+          <g fill="var(--warn)"><circle cx="56" cy="130" r="7"/><circle cx="80" cy="130" r="7"/><circle cx="104" cy="130" r="7"/><circle cx="128" cy="130" r="7"/><circle cx="152" cy="130" r="7"/><circle cx="176" cy="130" r="7"/><circle cx="200" cy="130" r="7"/><circle cx="224" cy="130" r="7"/><circle cx="248" cy="130" r="7"/><circle cx="272" cy="130" r="7"/><circle cx="296" cy="130" r="7"/><circle cx="320" cy="130" r="7"/></g>
+          <rect x="20" y="138" width="340" height="18" class="f-surface"/><text x="190" y="152" class="t-mono" text-anchor="middle">메인보드</text>
+          <text x="190" y="190" class="t-dim" text-anchor="middle">총 높이 ~1.0–1.3 mm</text>
+        </g>
+        <text x="570" y="26" class="t-acc" text-anchor="middle">InFO-PoP (팬아웃)</text>
+        <g>
+          <rect x="420" y="66" width="300" height="30" rx="4" fill="var(--text-faint)" opacity=".55"/><text x="570" y="86" class="t" text-anchor="middle">DRAM 패키지</text>
+          <rect x="420" y="100" width="300" height="20" fill="var(--surface-2)" stroke="var(--border)"/>
+          <rect x="500" y="100" width="140" height="20" fill="var(--accent-2)" opacity=".85"/><text x="570" y="115" class="t-mono" text-anchor="middle" style="fill:#fff">AP 다이</text>
+          <g stroke="var(--warn)" stroke-width="5"><path d="M440 98 V120"/><path d="M460 98 V120"/><path d="M680 98 V120"/><path d="M700 98 V120"/></g>
+          <rect x="420" y="120" width="300" height="6" fill="var(--warn)" opacity=".7"/><text x="728" y="127" class="t-mono">RDL</text>
+          <g fill="var(--warn)"><circle cx="436" cy="133" r="6"/><circle cx="458" cy="133" r="6"/><circle cx="480" cy="133" r="6"/><circle cx="502" cy="133" r="6"/><circle cx="524" cy="133" r="6"/><circle cx="546" cy="133" r="6"/><circle cx="568" cy="133" r="6"/><circle cx="590" cy="133" r="6"/><circle cx="612" cy="133" r="6"/><circle cx="634" cy="133" r="6"/><circle cx="656" cy="133" r="6"/><circle cx="678" cy="133" r="6"/><circle cx="700" cy="133" r="6"/></g>
+          <rect x="400" y="140" width="340" height="18" class="f-surface"/><text x="570" y="154" class="t-mono" text-anchor="middle">메인보드</text>
+          <text x="570" y="190" class="t-dim" text-anchor="middle">기판 대신 얇은 재배선층(RDL) · 몰드 관통 비아</text>
+        </g>
+        <text x="380" y="236" class="t" text-anchor="middle">공통점: DRAM을 AP 바로 위에 올려 배선 길이를 mm 이하로 → 고속·저전력, 보드 면적 절약</text>
+        <text x="380" y="262" class="t-dim" text-anchor="middle">대가: 열이 DRAM을 지나 위로 가야 함 · 두 패키지의 휨(warpage)을 맞춰야 함</text>
+      </svg>
+      <figcaption><b>그림 3-5.</b> 모바일 AP의 대표적 패키지(개략, 두께 과장). 팬아웃(InFO 등)은 두꺼운 유기 기판을 얇은 재배선층으로 바꿔 높이와 전기적 경로를 줄인다. 보드 쪽 이야기는 <a href="board.html#pop">4장 PoP 절</a>에서 3D로 분해해 본다.</figcaption>
+    </figure>
+    <p><span class="term">PoP</span><span class="en">(Package on Package)</span>는 모바일의 상징 같은 구조다. AP 패키지 가장자리에 솔더볼(또는 몰드 관통 비아)을 세우고 그 위에 DRAM 패키지를 얹는다. 신호 경로가 짧아 LPDDR의 고속 동작에 유리하고, 보드 면적은 칩 하나 분량이다. 대가는 열이다. AP의 열이 DRAM을 거쳐 위로 나가야 하고 DRAM은 85~95 °C를 넘으면 리프레시를 더 자주 해야 한다. 그래서 일부 설계는 DRAM을 옆에 나란히 두거나, 열 경로를 보드 쪽으로도 뽑는 시도를 한다.</p>
+  </section>
+
+  <!-- =============================================================== 12 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <p>폰 제조사 입장에서 AP는 직접 설계하든 사 오든 <b>폰 전체 설계의 출발점</b>이다. 칩이 정해지면 PMIC와 전원 레일 구성, 메모리 종류, 보드 면적, 열 설계, 배터리 크기가 줄줄이 결정된다. 핵심 지표와 트레이드오프를 정리하면 다음과 같다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>지표</th><th>왜 중요한가</th><th>얽힌 부품</th></tr></thead>
+      <tbody>
+        <tr><td><b>3–5 W에서의 성능/W</b></td><td>지속 성능과 게임 배터리 시간을 동시에 결정. 최고 클럭보다 중요</td><td>열(베이퍼 챔버), 배터리</td></tr>
+        <tr><td>순간 최대 전력</td><td>PMIC 전류 용량, 배터리 순간 방전, 전원 무결성 설계를 결정</td><td>PMIC, 배터리, 보드 PDN</td></tr>
+        <tr><td>저부하·대기 전력</td><td>하루 사용 시간의 대부분을 차지하는 구간(스크롤, 대기, 음악)</td><td>배터리</td></tr>
+        <tr><td>다이 면적·공정</td><td>칩 원가, 공급 안정성</td><td>BOM, 가격대</td></tr>
+        <tr><td>패키지 크기·높이</td><td>보드 면적과 두께 예산</td><td>메인보드, 두께</td></tr>
+        <tr><td>메모리 대역폭·용량</td><td>AI, 카메라, 게임의 상한</td><td>DRAM 원가, PoP 열</td></tr>
+        <tr><td>모뎀 통합 여부</td><td>보드 면적, 전력, 출시 지역 전략</td><td>RF, 안테나, 보드</td></tr>
+      </tbody>
+    </table></div>
+    <div class="sim" id="sim-design">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>칩 선택이 폰 전체에 미치는 영향</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-design"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>AP 등급</span><div class="seg" id="ds-tier"><button data-value="mid">중급 (4 nm급)</button><button data-value="flag" class="on">플래그십 (3 nm급)</button></div></div>
+          <label class="ctrl"><span>게임 시 SoC 전력 상한 <output id="ds-p-out"></output></span><input type="range" id="ds-p" min="2" max="8" step="0.25" value="6"></label>
+          <div class="ctrl"><span>모뎀</span><div class="seg" id="ds-mdm"><button data-value="int" class="on">통합</button><button data-value="ext">외장</button></div></div>
+          <div class="ctrl"><span>방열</span><div class="seg" id="ds-vc"><button data-value="0">그래파이트</button><button data-value="1" class="on">베이퍼 챔버</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">게임 성능(상대)</span><span class="v" id="ds-perf">—</span></div>
+        <div class="stat"><span class="k">표면 최고 온도</span><span class="v" id="ds-skin">—</span></div>
+        <div class="stat"><span class="k">게임 연속 시간</span><span class="v" id="ds-hours">—</span></div>
+        <div class="stat"><span class="k">AP 관련 원가(상대)</span><span class="v" id="ds-cost">—</span></div>
+      </div>
+      <div class="sim-note">교육용 단순 모델: 배터리 18 Wh(외장 모뎀이면 보드 면적 증가로 −0.5 Wh), 화면 등 나머지 소비 1.6 W, 주변 25 °C. 해볼 것: 전력 상한을 8 W로 올리면 성능은 조금 오르지만 표면 온도가 한계를 넘는다. 중급 칩을 같은 전력에 묶으면 성능 차이가 생각보다 작다. 효율 곡선의 아래쪽에서는 공정 차이보다 전력 상한이 더 큰 변수다.</div>
+    </div>
+    <h3>흔한 실패 사례</h3>
+    <ul>
+      <li><b>벤치마크용 클럭에 맞춘 열 설계.</b> 출시 리뷰에서 순간 점수는 좋지만 10분 뒤 성능이 반토막 나고 "발열 폰" 평판을 얻는다. 지속 예산을 먼저 정하고 클럭 테이블을 맞춰야 한다.</li>
+      <li><b>PDN 여유 부족.</b> 프라임 코어 버스트의 수 A급 전류 계단에서 전압이 순간적으로 떨어져 오동작하거나, 이를 막으려 전압 가드밴드를 올려 전력이 늘어난다(<a href="board.html#pdn">4장</a>).</li>
+      <li><b>배터리 노화 무시.</b> 오래된 배터리는 내부 저항이 커져 순간 최대 전류에서 전압이 크게 떨어진다. 피크 전력을 노화 상태에 맞춰 제한하지 않으면 갑작스러운 꺼짐이 생긴다(<a href="battery.html">5장</a>).</li>
+      <li><b>메모리 용량 과소.</b> 출시 때는 충분했던 8 GB가 2~3년 뒤 온디바이스 AI 기능을 막는다. 폰의 수명 동안의 소프트웨어 요구를 예측해야 한다.</li>
+      <li><b>AP를 열원 근처에 몰아넣기.</b> 카메라 모듈·충전 회로·5G 모뎀 같은 다른 열원과 겹치면 같은 전력에서도 핫스폿이 생긴다. 보드 배치 단계에서 열원 분산을 고려한다.</li>
+    </ul>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>SoC는 CPU·GPU·NPU·ISP·모뎀·DSP·코덱·메모리 컨트롤러·시스템 캐시를 한 다이에 모아 칩 간 통신 에너지를 없앤다. 자주 하는 일은 전용 블록이 수~수십 배 효율적으로 처리한다.</li>
+      <li>칩 원가는 웨이퍼 가격 ÷ (웨이퍼당 다이 수 × 수율)이다. 면적이 커지면 다이 수와 수율이 동시에 줄어 원가가 면적보다 빠르게 오른다.</li>
+      <li>동적 전력은 \(\alpha C V^2 f\)이고 높은 클럭에는 높은 전압이 필요하므로 전력은 대략 \(f^3\), 작업당 에너지는 \(f^2\)에 비례해 늘어난다. 최소 전압 아래에서는 누설 때문에 에너지 최적점이 생긴다.</li>
+      <li>이종 코어는 넓은 성능 범위를 각기 효율적인 코어로 나눠 덮고, 에너지 인지 스케줄러가 요구 성능을 가장 적은 에너지로 내는 코어를 고른다.</li>
+      <li>폰은 표면 온도 43–45 °C 한계 때문에 지속 전력이 3–5 W로 묶인다. 열용량 덕분에 처음 몇 분은 더 쓸 수 있지만 결국 스로틀링된다. 지속 성능은 그 전력에서의 성능/W가 결정한다.</li>
+      <li>LPDDR5X 64비트 버스는 피크 60–85 GB/s 수준이며 모든 블록이 공유한다. 캐시 계층이 지연과 메모리 에너지를 줄인다.</li>
+      <li>NPU의 TOPS는 정밀도(INT8/INT4)에 따라 달라지며, LLM 토큰 생성은 TOPS보다 메모리 대역폭과 용량에 묶인다.</li>
+      <li>칩 선택은 PMIC·보드 면적·배터리·열 설계·원가를 연쇄적으로 결정한다. 모뎀 통합, PoP 패키징 같은 결정은 면적·전력·열 사이의 트레이드오프다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>1. 전압이 주파수에 비례해 오른다고 가정하면, 클럭을 10% 올릴 때 동적 전력은 대략 얼마나 늘어나는가?</p><div class="opts">
+        <button class="opt">10%</button><button class="opt">21%</button><button class="opt" data-correct>33%</button><button class="opt">100%</button>
+      </div><div class="quiz-exp">\(P \propto V^2 f \propto f^3\)이므로 \(1.1^3 \approx 1.33\), 약 33% 증가한다.</div></div>
+      <div class="quiz-q"><p>2. 다이 면적이 두 배가 되면 양품 다이 원가는 어떻게 되는가?</p><div class="opts">
+        <button class="opt">정확히 두 배</button><button class="opt" data-correct>두 배보다 더 많이 오른다</button><button class="opt">두 배보다 적게 오른다</button><button class="opt">변하지 않는다</button>
+      </div><div class="quiz-exp">웨이퍼당 다이 수가 절반 이하(가장자리 손실 증가)로 줄고, 수율 \(e^{-D_0A}\)도 함께 떨어지므로 원가는 두 배를 넘는다.</div></div>
+      <div class="quiz-q"><p>3. 스마트폰 SoC의 지속 전력 예산이 3–5 W 정도로 묶이는 가장 직접적인 이유는?</p><div class="opts">
+        <button class="opt">배터리 최대 방전 전류</button><button class="opt">트랜지스터의 최대 동작 온도</button><button class="opt" data-correct>팬 없이 표면 온도 한계 안에서 버릴 수 있는 열의 양</button><button class="opt">PMIC의 효율</button>
+      </div><div class="quiz-exp">손에 닿는 표면이 43–45 °C를 넘지 않으면서 자연 대류·복사로 버릴 수 있는 열이 폰 크기에서 대략 그 수준이다. 접합 온도 한계는 짧은 버스트에서 먼저 걸리는 별도 제한이다.</div></div>
+      <div class="quiz-q"><p>4. 에너지 인지 스케줄러가 낮은 부하(요구 성능이 작음)의 작업을 효율 코어에 배치하는 이유로 가장 알맞은 것은?</p><div class="opts">
+        <button class="opt">효율 코어가 IPC가 더 높아서</button><button class="opt" data-correct>같은 성능을 낼 때 스위칭 정전 용량이 작아 전력이 훨씬 적어서</button><button class="opt">효율 코어가 더 높은 클럭으로 돌아서</button><button class="opt">프라임 코어는 낮은 클럭으로 돌 수 없어서</button>
+      </div><div class="quiz-exp">큰 코어는 낮은 클럭에서도 C가 크고 누설이 많아, 낮은 성능 구간에서는 작은 코어의 성능-전력 곡선이 아래에 있다.</div></div>
+      <div class="quiz-q"><p>5. LPDDR5X 8,533 MT/s, 64비트 버스의 피크 대역폭은?</p><div class="opts">
+        <button class="opt">8.5 GB/s</button><button class="opt">34 GB/s</button><button class="opt" data-correct>68 GB/s</button><button class="opt">546 GB/s</button>
+      </div><div class="quiz-exp">8,533 × 10⁶ × 64 / 8 ≈ 68.3 GB/s. 실제 유효 대역폭은 이의 60–80%다.</div></div>
+      <div class="quiz-q"><p>6. 30억 파라미터 LLM을 INT4로 양자화해 폰에서 돌린다. 토큰 생성 속도를 가장 직접적으로 올리는 방법은?</p><div class="opts">
+        <button class="opt">NPU의 MAC 수를 두 배로</button><button class="opt">CPU 프라임 코어 클럭을 올린다</button><button class="opt" data-correct>메모리 대역폭을 늘린다</button><button class="opt">ISP를 끈다</button>
+      </div><div class="quiz-exp">디코드 단계는 토큰마다 모든 가중치를 읽어야 하고 바이트당 연산이 적어 메모리 대역폭에 묶인다(루프라인의 기울기 영역).</div></div>
+      <div class="quiz-q"><p>7. 모뎀을 외장 칩으로 둘 때의 장점으로 알맞은 것은?</p><div class="opts">
+        <button class="opt">보드 면적이 줄어든다</button><button class="opt">칩 간 링크 전력이 사라진다</button><button class="opt" data-correct>모뎀을 원가가 낮은 이전 세대 공정으로 만들거나 따로 교체할 수 있다</button><button class="opt">DRAM을 따로 둘 필요가 없어진다</button>
+      </div><div class="quiz-exp">외장 모뎀은 보드 면적과 링크 전력이 늘지만, 공정 선택과 제품 전략의 유연성을 얻는다.</div></div>
+      <div class="quiz-q"><p>8. PoP 구조의 단점으로 가장 알맞은 것은?</p><div class="opts">
+        <button class="opt">DRAM까지 배선이 길어진다</button><button class="opt" data-correct>AP의 열이 DRAM 패키지를 거쳐 빠져나가야 한다</button><button class="opt">보드 면적이 두 배로 든다</button><button class="opt">LPDDR을 쓸 수 없다</button>
+      </div><div class="quiz-exp">DRAM이 AP 바로 위에 있어 배선은 짧고 면적은 작지만, 열 경로를 막고 DRAM 온도를 올린다.</div></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const cssv = (n) => getComputedStyle(document.body).getPropertyValue(n);
+  const font = (sz, mono, w) => (w ? w + " " : "") + sz + "px " + (mono ? cssv("--mono") : cssv("--font"));
+  const alpha = (hex, a) => { const m = /^#?([0-9a-f]{6})$/i.exec((hex || "").trim()); if (!m) return hex; const n = parseInt(m[1], 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+
+  /* =================================================== 1. 폰 안의 위치 (3D) */
+  (function () {
+    const el = $("v-loc");
+    const T = PB.three(el, { camera: [150, 120, 120], target: [0, -10, -25], fov: 35, minDistance: 50, maxDistance: 420 });
+    if (!T) return;
+    const THREE = T.THREE;
+    const P = PB.phone3d(T);
+    const bb = P.byId.boardBottom;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(11, 0.55, 8, 48), new THREE.MeshBasicMaterial({ color: 0xff4d4d }));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.copy(bb.apPos); ring.position.y += 0.4;
+    ring.userData.noPick = true;
+    bb.group.add(ring);
+    const L = T.label("AP (SoC) + DRAM", bb.apPos.clone().add(new THREE.Vector3(24, 2, 6)));
+    L.obj = bb.group;
+    T.onFrame((dt, t) => { const s = 1 + 0.08 * Math.sin(t * 4); ring.scale.set(s, s, s); });
+    const card = $("loc-card");
+    const chips = [...$("loc-chips").querySelectorAll("button")];
+    function select(id) {
+      P.highlight(id);
+      chips.forEach((b) => b.classList.toggle("on", b.dataset.id === id));
+    }
+    function showCard(part) {
+      if (!part) { card.hidden = true; return; }
+      card.innerHTML = PB.partCardHTML(part, "");
+      card.hidden = false;
+      card.querySelector(".x").addEventListener("click", () => (card.hidden = true));
+    }
+    PB.range("loc-ex", (v) => Math.round(v * 100) + " %", (v) => P.setExplode(v));
+    P.setExplode(0.6);
+    select("boardBottom");
+    chips.forEach((b) => b.addEventListener("click", () => { select(b.dataset.id); showCard(P.byId[b.dataset.id]); }));
+    $("loc-xray").addEventListener("change", (e) => P.setXray(e.target.checked));
+    T.pick([P.group], (hit) => {
+      const part = hit ? P.partAt(hit.object) : null;
+      if (part) { select(part.id); showCard(part); } else showCard(null);
+    });
+    $("loc-fly").addEventListener("click", () => {
+      const w = bb.group.localToWorld(bb.apPos.clone());
+      PB.flyTo(T, [w.x + 45, w.y + 70, w.z + 55], [w.x, w.y, w.z], 1.4);
+    });
+  })();
+
+  /* =================================================== 2. 다이 평면도 */
+  (function () {
+    const svg = $("die-svg");
+    const NS = "http://www.w3.org/2000/svg";
+    // [id, 이름, 영문, 분류, css, rects[[x,y,w,h]], 라벨 위치 index, 설명, 전력, 메모]
+    const B = [
+      ["prime", "프라임 코어", "Prime CPU core", "compute", "f-cpu", [[70, 20, 78, 88]], "가장 크고 빠른 CPU 코어 1~2개. 넓은 디코드 폭(8~10), 깊은 비순차 실행 창, 큰 L2(2~3 MB)로 단일 스레드 성능을 끌어올린다. 앱 실행·웹 로딩 같은 짧은 버스트를 맡는다.", "최대 4–6 W", "최고 클럭 3.8–4.3 GHz"],
+      ["perf", "성능 코어", "Performance cores", "compute", "f-cpu", [[152, 20, 56, 88], [212, 20, 56, 88], [272, 20, 56, 88]], "중간 크기의 코어 3~5개. 게임 로직과 멀티스레드 작업의 주력. 프라임 코어보다 클럭과 캐시가 작아 전력 효율이 좋다.", "코어당 1.5–3 W", "2.8–3.5 GHz"],
+      ["eff", "효율 코어", "Efficiency cores", "compute", "f-cpu", [[70, 112, 62, 40], [135, 112, 62, 40], [200, 112, 62, 40], [265, 112, 63, 40]], "작고 단순한(대개 순차 실행) 코어. 백그라운드 동기화, 음악 재생, 화면 꺼짐 상태의 작업을 수십~수백 mW로 처리한다. 최근에는 아예 빼는 설계도 있다.", "코어당 0.1–0.5 W", "1.8–2.2 GHz"],
+      ["l3", "CPU 공유 캐시", "Cluster L3 / L2", "infra", "f-mem", [[70, 156, 258, 44]], "CPU 코어들이 공유하는 캐시(L3 또는 공유 L2). 코어 사이 데이터 공유와 DRAM 접근 감소를 맡는다. SRAM이라 공정 미세화로 잘 줄지 않는다.", "누설 위주", "8–16 MB"],
+      ["slc", "시스템 레벨 캐시", "SLC", "infra", "f-mem", [[70, 204, 258, 66]], "CPU·GPU·NPU·ISP 등 모든 블록이 공유하는 마지막 캐시. 블록 사이의 데이터 교환을 DRAM까지 내려가지 않고 처리해 대역폭과 전력을 아낀다.", "DRAM 접근 대비 수~10배 절약", "8–24 MB"],
+      ["gpu", "GPU", "Graphics Processing Unit", "compute", "f-gpu", [[334, 20, 260, 250]], "수백~수천 개의 연산 유닛(ALU)이 같은 셰이더를 동시에 실행한다. 3D 게임, UI 합성, 이미지 처리, 일부 AI 연산까지 맡는다. 레이 트레이싱 유닛을 넣은 모바일 GPU도 있다.", "게임 시 2–6 W", "FP32 수 TFLOPS"],
+      ["modem", "5G 모뎀", "Baseband modem", "media", "f-mdm", [[600, 20, 180, 250]], "4G/5G 신호의 변조·복조, 채널 디코딩(LDPC·폴라 부호), MIMO 처리. 자체 DSP와 하드웨어 가속기를 품은 거대한 블록이다. 외장 칩으로 분리하기도 한다.", "고속 전송 시 1–3 W", "수 Gbps 다운로드"],
+      ["npu", "NPU", "Neural Processing Unit", "compute", "f-npu", [[70, 276, 170, 130]], "INT8/INT4 MAC 배열과 대용량 온칩 SRAM으로 신경망 추론을 가속한다. 사진 처리, 음성 인식, 번역, 온디바이스 LLM이 여기서 돈다.", "1–5 W", "수십 TOPS (INT8)"],
+      ["isp", "ISP", "Image Signal Processor", "media", "f-isp", [[246, 276, 150, 130]], "이미지 센서의 RAW 데이터를 디모자이크·노이즈 제거·톤 매핑해 사진·영상으로 만든다. 카메라 여러 대의 데이터를 동시에 처리하고, 고정 파이프라인이라 매우 효율적이다.", "0.5–2 W", "Gpixel/s급"],
+      ["codec", "비디오 코덱", "Video codec", "media", "f-isp", [[402, 276, 110, 80]], "H.264/H.265/AV1 등 동영상의 인코딩·디코딩 전용 하드웨어. CPU로 하면 수 W가 드는 일을 수백 mW 이하로 한다.", "0.1–1 W", "8K30 / 4K120급"],
+      ["dsp", "DSP·센서 허브", "DSP / Sensor hub", "media", "f-isp", [[402, 360, 110, 46]], "오디오 처리, 키워드 감지(\"헤이 ○○\"), 걸음 수 같은 상시 센서 처리를 아주 낮은 전력으로 한다. 메인 CPU를 깨우지 않는 것이 핵심이다.", "µW–수십 mW", "항상 켜짐"],
+      ["sec", "보안 영역", "Secure enclave", "infra", "f-sec", [[518, 276, 80, 130]], "암호 키, 생체 정보, 결제 정보를 다루는 격리된 프로세서와 메모리. 주 CPU가 해킹되어도 키가 밖으로 나가지 않도록 하드웨어로 분리한다.", "수 mW", "하드웨어 키 저장"],
+      ["io", "I/O PHY", "UFS · PCIe · MIPI · USB", "infra", "f-mem", [[604, 276, 176, 130]], "UFS 저장장치, 카메라·디스플레이 MIPI, USB, PCIe(외장 모뎀·Wi-Fi) 등의 물리 계층 회로. 아날로그 회로라 공정이 바뀌어도 잘 줄지 않는다.", "링크당 수십~수백 mW", "수~수십 Gbps"],
+      ["mem", "메모리 컨트롤러·LPDDR PHY", "Memory controller / PHY", "infra", "f-mem", [[20, 20, 44, 480], [70, 412, 440, 88]], "LPDDR5X 4채널(64비트)을 구동하는 컨트롤러와 고속 I/O 회로. DRAM 핀과 연결되어야 하므로 다이 가장자리에 길게 놓인다. PoP 위 DRAM과 mm 이하의 배선으로 이어진다.", "트래픽에 비례, ~1 W", "60–85 GB/s"],
+      ["misc", "전원·클럭·제어", "PLL · power ctrl · misc", "infra", "f-mem", [[516, 412, 264, 88]], "클럭을 만드는 PLL, 전원 도메인 스위치, 온도·전압 센서, 디스플레이 컨트롤러, 부트 ROM 등. 칩의 '관리 사무소'다.", "작음", "수십 개의 전원 도메인"],
+    ];
+    const total = 760 * 480;
+    const groups = {};
+    const outline = document.createElementNS(NS, "rect");
+    outline.setAttribute("x", 10); outline.setAttribute("y", 10); outline.setAttribute("width", 780); outline.setAttribute("height", 500);
+    outline.setAttribute("rx", 6); outline.setAttribute("class", "f-surface");
+    svg.appendChild(outline);
+    const areaOf = (b) => b[5].reduce((s, r) => s + r[2] * r[3], 0);
+    B.forEach((b) => {
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "blk " + b[4]);
+      g.dataset.id = b[0];
+      b[5].forEach(([x, y, w, h]) => {
+        const r = document.createElementNS(NS, "rect");
+        r.setAttribute("x", x); r.setAttribute("y", y); r.setAttribute("width", w); r.setAttribute("height", h); r.setAttribute("rx", 3);
+        g.appendChild(r);
+      });
+      const multi = b[5].length > 1;
+      const short = { prime: "프라임", l3: "CPU 공유 캐시", slc: "SLC", mem: "LPDDR PHY · 메모리 컨트롤러", misc: "전원·클럭·제어", io: "I/O PHY", sec: "보안", dsp: "DSP", codec: "비디오 코덱" }[b[0]] || b[1];
+      b[5].forEach(([x, y, w, h], ri) => {
+        const vertical = w < 50 && h > 100;
+        const name = b[0] === "perf" ? "성능" : b[0] === "eff" ? "효율" : vertical ? "LPDDR PHY" : multi && ri === 0 && b[0] === "mem" ? "" : short;
+        if (!name) return;
+        const t = document.createElementNS(NS, "text");
+        const cy = y + h / 2 + (h > 60 && !vertical ? -4 : 5);
+        t.setAttribute("x", x + w / 2); t.setAttribute("y", cy); t.setAttribute("text-anchor", "middle");
+        if (vertical) t.setAttribute("transform", `rotate(-90 ${x + w / 2} ${cy})`);
+        t.textContent = name;
+        g.appendChild(t);
+        if (h > 60 && !vertical && (!multi || ri === (b[0] === "mem" ? 1 : 0))) {
+          const t2 = document.createElementNS(NS, "text");
+          t2.setAttribute("class", "sub"); t2.setAttribute("x", x + w / 2); t2.setAttribute("y", y + h / 2 + 16); t2.setAttribute("text-anchor", "middle");
+          t2.textContent = (areaOf(b) / total * 100).toFixed(0) + "%";
+          g.appendChild(t2);
+        }
+      });
+      g.addEventListener("click", () => select(b[0]));
+      svg.appendChild(g);
+      groups[b[0]] = g;
+    });
+    const modem = PB.seg("die-modem", () => update());
+    const cat = PB.seg("die-cat", () => update());
+    let cur = "gpu";
+    function select(id) { cur = id; update(); }
+    function update() {
+      const ext = modem() === "ext";
+      const c = cat();
+      const dieA = 125 * (ext ? (total - areaOf(B.find((b) => b[0] === "modem"))) / total : 1);
+      B.forEach((b) => {
+        const g = groups[b[0]];
+        const off = (b[0] === "modem" && ext) || (c !== "all" && b[3] !== c);
+        g.classList.toggle("off", off);
+        g.classList.toggle("on", b[0] === cur);
+      });
+      const b = B.find((x) => x[0] === cur);
+      const denom = ext ? total - areaOf(B.find((x) => x[0] === "modem")) : total;
+      const share = b[0] === "modem" && ext ? 0 : areaOf(b) / denom;
+      const col = getComputedStyle(groups[cur].querySelector("rect")).fill;
+      $("die-info").innerHTML = `<h4><i style="background:${col}"></i>${b[1]} <span class="en">(${b[2]})</span></h4><p>${b[0] === "modem" && ext ? "<b>외장 모뎀 선택됨:</b> 이 블록이 다이에서 빠지고 보드 위의 별도 칩이 된다. " : ""}${b[6]}</p><div class="kv"><span><b>면적 비중</b>${(share * 100).toFixed(1)} %</span><span><b>면적</b>~${(share * dieA).toFixed(1)} mm²</span><span><b>전력</b>${b[7]}</span><span><b>규모</b>${b[8]}</span></div>`;
+      PB.stat("die-area", "~" + dieA.toFixed(0) + " mm²");
+      PB.stat("die-share", (share * 100).toFixed(1) + " %");
+      PB.stat("die-tr", "~" + (dieA * 1.4).toFixed(0) + "억 개");
+    }
+    update();
+  })();
+
+  /* =================================================== 3. 웨이퍼·수율 */
+  (function () {
+    let defects = [];
+    const gA = PB.range("wf-a", (v) => v + " mm²", () => cv.redraw());
+    const gD = PB.range("wf-d", (v) => v.toFixed(2) + " /cm²", () => { roll(); cv.redraw(); });
+    const gC = PB.range("wf-c", (v) => "$" + v.toLocaleString(), () => cv.redraw());
+    function roll() {
+      const R = 150, n = PB.poisson(gD() * Math.PI * 15 * 15);
+      defects = [];
+      for (let i = 0; i < n; i++) { const r = R * Math.sqrt(Math.random()), a = Math.random() * 2 * Math.PI; defects.push([r * Math.cos(a), r * Math.sin(a)]); }
+    }
+    roll();
+    $("wf-roll").addEventListener("click", () => { roll(); cv.redraw(); });
+    const cv = PB.canvas($("cv-wafer"), (ctx, w, h) => {
+      const P = PB.palette();
+      const A = gA(), D = gD(), Cw = gC();
+      const s = Math.sqrt(A); // mm
+      const R = 150, Ruse = 147;
+      const cx = w / 2, cy = h / 2 + 4, sc = (Math.min(w, h) / 2 - 18) / R;
+      ctx.fillStyle = P.surface; ctx.strokeStyle = P.border; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, R * sc, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+      // notch
+      ctx.fillStyle = P.bg; ctx.beginPath(); ctx.arc(cx, cy + R * sc, 4, 0, 2 * Math.PI); ctx.fill();
+      let N = 0, good = 0;
+      const nmax = Math.ceil(R / s) + 1;
+      // 그리드 배치: 다이 경계가 중심을 지나도록
+      for (let i = -nmax; i < nmax; i++) for (let j = -nmax; j < nmax; j++) {
+        const x0 = i * s, y0 = j * s, x1 = x0 + s, y1 = y0 + s;
+        const far = Math.max(Math.hypot(x0, y0), Math.hypot(x1, y0), Math.hypot(x0, y1), Math.hypot(x1, y1));
+        const near = Math.hypot(Math.max(x0, Math.min(0, x1)), Math.max(y0, Math.min(0, y1)));
+        if (near > R) continue;
+        const full = far <= Ruse;
+        let bad = false;
+        if (full) { N++; for (const [dx, dy] of defects) if (dx >= x0 && dx < x1 && dy >= y0 && dy < y1) { bad = true; break; } if (!bad) good++; }
+        ctx.fillStyle = !full ? P.grid : bad ? P.bad : P.accent;
+        ctx.globalAlpha = !full ? 1 : bad ? 0.75 : 0.55;
+        ctx.fillRect(cx + x0 * sc + 0.5, cy + y0 * sc + 0.5, s * sc - 1, s * sc - 1);
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = P.text;
+      defects.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(cx + x * sc, cy + y * sc, 1.6, 0, 2 * Math.PI); ctx.fill(); });
+      ctx.font = font(12); ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("300 mm 웨이퍼", 10, 8);
+      ctx.fillStyle = P.accent; ctx.fillRect(10, 28, 10, 10); ctx.fillStyle = P.dim; ctx.fillText("양품", 24, 26);
+      ctx.fillStyle = P.bad; ctx.fillRect(10, 46, 10, 10); ctx.fillStyle = P.dim; ctx.fillText("결함 다이", 24, 44);
+      ctx.fillStyle = P.grid; ctx.fillRect(10, 64, 10, 10); ctx.fillStyle = P.dim; ctx.fillText("가장자리 손실", 24, 62);
+      const Nf = Math.PI * R * R / A - Math.PI * 2 * R / Math.sqrt(2 * A);
+      const Y = Math.exp(-D * A / 100);
+      PB.stat("wf-n", N + ` <small>(식 ${Nf.toFixed(0)})</small>`);
+      PB.stat("wf-good", good + ` <small>(${(good / Math.max(1, N) * 100).toFixed(0)} %)</small>`);
+      PB.stat("wf-y", (Y * 100).toFixed(1) + " %");
+      PB.stat("wf-cost", "$" + (Cw / (N * Y)).toFixed(1));
+    }, { aspect: 0.8, maxHeight: 460 });
+  })();
+
+  /* =================================================== DVFS 공통 모델 */
+  // f = k (V - Vth)^1.4 / V  (GHz)
+  function makeCore(o) {
+    const c = Object.assign({ vth: 0.33, vmin: 0.55, beta: 1.4 }, o);
+    c.k = c.fmax * c.vmax / Math.pow(c.vmax - c.vth, c.beta);
+    c.fOfV = (V, dvt = 0) => c.k * Math.pow(Math.max(0, V - c.vth - dvt), c.beta) / V;
+    c.vOfF = (f, dvt = 0) => {
+      if (c.fOfV(c.vmin, dvt) >= f) return c.vmin;
+      let a = c.vmin, b = 1.5;
+      for (let i = 0; i < 40; i++) { const m = (a + b) / 2; if (c.fOfV(m, dvt) < f) a = m; else b = m; }
+      return (a + b) / 2;
+    };
+    c.pDyn = (f, dvt = 0) => { const V = c.vOfF(f, dvt); return c.ceff * V * V * f; };
+    c.pLeak = (f, T = 50, dvt = 0) => { const V = c.vOfF(f, dvt); return V * c.ileak * Math.pow(2, (T - 25) / 25) * Math.pow(10, -dvt / 0.09); };
+    c.p = (f, T = 50, dvt = 0) => c.pDyn(f, dvt) + c.pLeak(f, T, dvt);
+    return c;
+  }
+  const PRIME = makeCore({ name: "프라임", fmax: 4.2, vmax: 1.05, ceff: 1.08, ileak: 0.05, ipc: 1.0, fmin: 0.6 });
+  const PERF = makeCore({ name: "성능", fmax: 3.3, vmax: 1.0, ceff: 0.55, ileak: 0.025, ipc: 0.78, fmin: 0.5 });
+  const EFF = makeCore({ name: "효율", fmax: 2.1, vmax: 0.92, ceff: 0.11, ileak: 0.005, ipc: 0.42, fmin: 0.3 });
+
+  /* =================================================== 4. DVFS */
+  (function () {
+    const C = PRIME;
+    const gF = PB.range("dv-f", (v) => v.toFixed(2) + " GHz", () => cv.redraw());
+    const gT = PB.range("dv-t", (v) => v + " °C", () => cv.redraw());
+    const gVt = PB.range("dv-vt", (v) => (v > 0 ? "+" : "") + v + " mV", () => cv.redraw());
+    const view = PB.seg("dv-view", () => cv.redraw());
+    const cv = PB.canvas($("cv-dvfs"), (ctx, w, h) => {
+      const P = PB.palette();
+      const f = gF(), T = gT(), dvt = gVt() / 1000;
+      const fmaxAll = 4.2;
+      const fs = []; for (let x = 0.3; x <= fmaxAll + 1e-9; x += 0.025) fs.push(x);
+      const vMaxOk = 1.2;
+      const h1 = Math.round(h * 0.42);
+      const vData = fs.map((x) => [x, C.vOfF(x, dvt)]).filter((d) => d[1] <= vMaxOk);
+      const c1 = PB.chart(ctx, { x: 58, y: 14, w: w - 76, h: h1 - 30 }, {
+        x: [0, 4.4], y: [0.4, 1.25], yLabel: "전압 (V)",
+        series: [{ data: fs.map((x) => [x, C.vOfF(x, 0)]), color: P.faint, width: 1.5, dash: [4, 4] }, { data: vData, color: P.accent, width: 2.5 }],
+        hlines: [{ y: C.vmin, color: P.dim, label: "V_min (SRAM 하한)" }],
+        points: [{ x: f, y: C.vOfF(f, dvt), color: P.accent2, r: 5 }],
+        yFmt: (v) => v.toFixed(1),
+      });
+      const V = C.vOfF(f, dvt);
+      const pd = C.pDyn(f, dvt), pl = C.pLeak(f, T, dvt), pt = pd + pl;
+      const mode = view();
+      const box2 = { x: 58, y: h1 + 18, w: w - 76, h: h - h1 - 62 };
+      if (mode === "p") {
+        const tot = fs.map((x) => [x, C.p(x, T, dvt)]), dyn = fs.map((x) => [x, C.pDyn(x, dvt)]), cube = fs.map((x) => [x, C.pDyn(4.2, 0) * Math.pow(x / 4.2, 3)]);
+        PB.chart(ctx, box2, {
+          x: [0, 4.4], y: [0, 8], xLabel: "클럭 (GHz)", yLabel: "전력 (W)",
+          series: [{ data: cube, color: P.faint, width: 1.2, dash: [3, 4] }, { data: dyn, color: P.accent, width: 2 }, { data: tot, color: P.accent2, width: 2.5 }],
+          points: [{ x: f, y: pt, color: P.accent2, r: 5, label: pt.toFixed(2) + " W" }],
+        });
+        ctx.font = font(11.5); ctx.textAlign = "left"; ctx.textBaseline = "top";
+        ctx.fillStyle = P.accent2; ctx.fillText("● 총 전력(동적+누설)", box2.x + 8, box2.y + 4);
+        ctx.fillStyle = P.accent; ctx.fillText("● 동적 전력", box2.x + 8, box2.y + 20);
+        ctx.fillStyle = P.dim; ctx.fillText("┄ f³ 기준선", box2.x + 8, box2.y + 36);
+      } else {
+        const E = (x) => C.p(x, T, dvt) / x; // nJ per (Gcycle) → 상대
+        const ref = E(2.0);
+        const data = fs.map((x) => [x, E(x) / ref]);
+        let best = data.reduce((a, d) => (d[1] < a[1] ? d : a));
+        PB.chart(ctx, box2, {
+          x: [0, 4.4], y: [0, 3.5], xLabel: "클럭 (GHz)", yLabel: "작업당 에너지 (2 GHz=1)",
+          series: [{ data: data, color: P.accent2, width: 2.5 }, { data: fs.map((x) => [x, C.pDyn(x, dvt) / x / ref]), color: P.accent, width: 1.6, dash: [5, 4] }],
+          points: [{ x: best[0], y: best[1], color: P.ok, r: 5, label: "최소 " + best[0].toFixed(2) + " GHz" }, { x: f, y: E(f) / ref, color: P.accent2, r: 5 }],
+        });
+        ctx.font = font(11.5); ctx.textAlign = "left"; ctx.textBaseline = "top";
+        ctx.fillStyle = P.accent2; ctx.fillText("● 총 에너지 = P/f", box2.x + 8, box2.y + 4);
+        ctx.fillStyle = P.accent; ctx.fillText("┄ 동적만 (누설 제외)", box2.x + 8, box2.y + 20);
+      }
+      PB.stat("dv-v", V.toFixed(3) + " V");
+      PB.stat("dv-p", pd.toFixed(2) + " / " + pl.toFixed(2) + " W");
+      const ppw = (f / pt) / (2.0 / C.p(2.0, 50, 0));
+      PB.stat("dv-ppw", ppw.toFixed(2) + "×");
+      PB.stat("dv-e", ((pt / f) / (C.p(2.0, 50, 0) / 2.0)).toFixed(2) + "×");
+    }, { aspect: 0.72, minHeight: 380, maxHeight: 520 });
+  })();
+
+  /* =================================================== 5. 이종 코어 */
+  (function () {
+    const cores = [PRIME, PERF, EFF];
+    const colorOf = (P, c) => (c === PRIME ? P.bad : c === PERF ? P.accent2 : P.accent);
+    // 성능 x(프라임 GHz 환산)을 낼 때의 전력. 최저 클럭 아래는 듀티로 근사(race-to-idle)
+    function powerFor(c, x) {
+      const f = x / c.ipc;
+      if (f > c.fmax + 1e-9) return null;
+      if (f < c.fmin) return c.p(c.fmin, 45) * (f / c.fmin) + 0.002;
+      return c.p(f, 45);
+    }
+    function best(x) {
+      let b = null, bp = Infinity;
+      cores.forEach((c) => { const p = powerFor(c, x); if (p != null && p < bp) { bp = p; b = c; } });
+      return b ? { c: b, p: bp } : null;
+    }
+    const gD = PB.range("hm-d", (v) => v.toFixed(2), () => { cv.redraw(); });
+    const pol = PB.seg("hm-pol", () => cv2.redraw());
+    const cv = PB.canvas($("cv-hmp"), (ctx, w, h) => {
+      const P = PB.palette();
+      const d = gD();
+      const series = cores.map((c) => {
+        const data = []; for (let x = 0.05; x <= c.fmax * c.ipc + 1e-6; x += 0.02) data.push([x, powerFor(c, x)]);
+        return { data, color: colorOf(P, c), width: 2.5 };
+      });
+      const pts = [];
+      cores.forEach((c) => { const p = powerFor(c, d); if (p != null) pts.push({ x: d, y: p, color: colorOf(P, c), r: 5 }); });
+      const b = best(d);
+      const ch = PB.chart(ctx, null, { x: [0, 4.4], y: [0.01, 10], logY: true, xLabel: "제공 성능 (프라임 코어 GHz 환산)", yLabel: "전력 (W)", series, points: pts, vlines: [{ x: d, color: P.dim, label: "요구 성능" }], yFmt: (v) => (v < 1 ? v.toString() : v.toFixed(0)) });
+      ctx.font = font(12, false, 600); ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      cores.forEach((c, i) => {
+        const xe = c.fmax * c.ipc, pe = powerFor(c, xe);
+        ctx.fillStyle = colorOf(P, c);
+        ctx.fillText(c.name, Math.min(ch.X(xe) + 6, w - 40), ch.Y(pe));
+      });
+      PB.stat("hm-best", b ? `<span style="color:${colorOf(P, b.c)}">${b.c.name} 코어</span>` : "불가");
+      PB.stat("hm-p", b ? (b.p < 1 ? (b.p * 1000).toFixed(0) + " mW" : b.p.toFixed(2) + " W") : "—");
+    }, { aspect: 0.55, minHeight: 300, maxHeight: 420 });
+
+    // 시나리오: [시작, 끝, 요구 성능, 이름, 레인]
+    const TASKS = [
+      [0, 0.7, 3.6, "앱 실행", 0], [0.7, 3.0, 1.1, "스크롤", 0], [3.0, 3.5, 2.8, "페이지 로딩", 0], [3.5, 6.5, 0.7, "읽기", 0], [6.5, 10, 0.15, "화면 꺼짐", 0],
+      [0, 10, 0.12, "음악 재생", 1], [1.5, 2.3, 0.9, "사진 동기화", 1], [7.0, 8.2, 0.6, "메일 동기화", 1],
+    ];
+    function assign(t, policy) {
+      const d = t[2];
+      let c, delivered;
+      if (policy === "big") c = PRIME; else if (policy === "little") c = EFF; else { const b = best(d); c = b ? b.c : PRIME; }
+      const cap = c.fmax * c.ipc;
+      delivered = Math.min(d, cap);
+      return { c, p: powerFor(c, delivered), miss: d > cap + 1e-9 };
+    }
+    const cv2 = PB.canvas($("cv-hmp2"), (ctx, w, h) => {
+      const P = PB.palette();
+      const policy = pol();
+      const x0 = 96, x1 = w - 16, X = (t) => x0 + (t / 10) * (x1 - x0);
+      const lanes = ["UI 스레드", "백그라운드"], laneY = [12, 52], lh = 32;
+      ctx.font = font(12); ctx.textBaseline = "middle"; ctx.textAlign = "right"; ctx.fillStyle = P.dim;
+      lanes.forEach((l, i) => ctx.fillText(l, x0 - 8, laneY[i] + lh / 2));
+      let E = 0, miss = 0;
+      const res = TASKS.map((t) => { const r = assign(t, policy); E += r.p * (t[1] - t[0]); if (r.miss) miss += t[1] - t[0]; return r; });
+      TASKS.forEach((t, i) => {
+        const r = res[i], y = laneY[t[4]];
+        ctx.fillStyle = colorOf(P, r.c); ctx.globalAlpha = 0.85;
+        ctx.fillRect(X(t[0]) + 1, y, X(t[1]) - X(t[0]) - 2, lh);
+        ctx.globalAlpha = 1;
+        if (r.miss) { ctx.fillStyle = P.warn; ctx.globalAlpha = 0.45; ctx.fillRect(X(t[0]) + 1, y + lh - 8, X(t[1]) - X(t[0]) - 2, 8); ctx.globalAlpha = 1; }
+        const wpx = X(t[1]) - X(t[0]);
+        if (wpx > 44) { ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = font(11.5, false, 600); ctx.fillText(t[3], (X(t[0]) + X(t[1])) / 2, y + lh / 2 - (r.miss ? 3 : 0)); }
+      });
+      // 전력 시간축
+      const py0 = 96, ph = h - py0 - 30;
+      const pts = [];
+      for (let t = 0; t <= 10; t += 0.01) {
+        let p = 0.03;
+        TASKS.forEach((tk, i) => { if (t >= tk[0] && t < tk[1]) p += res[i].p; });
+        pts.push([t, p]);
+      }
+      PB.chart(ctx, { x: x0, y: py0, w: x1 - x0, h: ph }, { x: [0, 10], y: [0, 6.5], xLabel: "", yLabel: "", series: [{ data: pts, color: P.text, width: 1.6, fill: P.grid }], xFmt: (v) => v + " s" });
+      ctx.font = font(12); ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("CPU 전력 (W)", x0 + 6, py0 + 2);
+      PB.stat("hm-e", E.toFixed(1) + " J");
+      PB.stat("hm-miss", miss > 0 ? `<span style="color:${P.bad}">${miss.toFixed(1)} s</span>` : "0 s");
+    }, { height: 230 });
+  })();
+
+  /* =================================================== 6. 열 스로틀링 */
+  (function () {
+    const gP = PB.range("th-p", (v) => v.toFixed(1) + " W", () => run());
+    const gTa = PB.range("th-ta", (v) => v + " °C", () => run());
+    const gL = PB.range("th-lim", (v) => v.toFixed(1) + " °C", () => run());
+    const cool = PB.seg("th-cool", () => run());
+    let sim = null, shown = 0;
+    function simulate() {
+      const Pmax = gP(), Ta = gTa(), lim = gL(), mode = cool();
+      const cfg = { none: { R: 5.0, k: 1.45, rjs: 8 }, vc: { R: 5.0, k: 1.12, rjs: 5 }, case: { R: 6.2, k: 1.2, rjs: 5.5 } }[mode];
+      const C = 120; let Tav = Ta, x = 1, t0 = null;
+      const out = [];
+      let Tj = Ta;
+      for (let t = 0; t <= 1800; t++) {
+        const pdyn = 0.85 * Pmax * Math.pow(x, 2.6);
+        const pleak = 0.15 * Pmax * (0.4 + 0.6 * x) * Math.pow(2, (Tj - 60) / 25);
+        const P = pdyn + pleak;
+        Tav += (P - (Tav - Ta) / cfg.R) / C;
+        const Ts = Ta + (Tav - Ta) * cfg.k;
+        Tj = Ts + P * cfg.rjs;
+        out.push({ t, x, Ts, Tj, P });
+        if (Tj > 95) x -= 0.02; else x += PB.clamp(0.004 * (lim - 0.4 - Ts) - 0.02 * (Ts - (out.length > 20 ? out[out.length - 20].Ts : Ts)), -0.01, 0.006);
+        x = PB.clamp(x, 0.2, 1);
+        if (t0 == null && x < 0.985) t0 = t;
+      }
+      return { out, t0, lim };
+    }
+    function run() { sim = simulate(); shown = 0; loop.start(); }
+    $("th-run").addEventListener("click", run);
+    const cv = PB.canvas($("cv-thr"), (ctx, w, h) => {
+      if (!sim) return;
+      const P = PB.palette();
+      const n = Math.min(sim.out.length, Math.max(2, Math.floor(shown)));
+      const d = sim.out.slice(0, n);
+      const h1 = Math.round(h * 0.56);
+      PB.chart(ctx, { x: 52, y: 14, w: w - 70, h: h1 - 28 }, {
+        x: [0, 30], y: [20, 110], yLabel: "온도 (°C)",
+        series: [{ data: d.map((o) => [o.t / 60, o.Tj]), color: P.bad, width: 2 }, { data: d.map((o) => [o.t / 60, o.Ts]), color: P.accent2, width: 2.5 }],
+        hlines: [{ y: sim.lim, color: P.accent2, label: "표면 한계" }, { y: 95, color: P.bad, label: "접합 한계" }],
+        xFmt: () => "",
+      });
+      ctx.font = font(11.5); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillStyle = P.bad; ctx.fillText("● 다이 접합 Tj", 60, 18);
+      ctx.fillStyle = P.accent2; ctx.fillText("● 표면 최고 Ts", 160, 18);
+      PB.chart(ctx, { x: 52, y: h1 + 2, w: w - 70, h: h - h1 - 44 }, {
+        x: [0, 30], y: [0, 110], xLabel: "시간 (분)", yLabel: "클럭 %",
+        series: [{ data: d.map((o) => [o.t / 60, o.x * 100]), color: P.accent, width: 2.5, fill: P.grid }, { data: d.map((o) => [o.t / 60, o.P / gP() * 100]), color: P.dim, width: 1.2, dash: [4, 3] }],
+      });
+      ctx.fillStyle = P.accent; ctx.fillText("● 클럭(성능)", 60, h1 + 6);
+      ctx.fillStyle = P.dim; ctx.fillText("┄ 전력 (요청 대비 %)", 160, h1 + 6);
+      {
+        const last = sim.out.slice(-600), sus = last.reduce((s, o) => s + o.x, 0) / last.length;
+        PB.stat("th-peak", "100 %");
+        PB.stat("th-sus", (sus * 100).toFixed(0) + " % <small>(" + (last.reduce((s, o) => s + o.P, 0) / last.length).toFixed(1) + " W)</small>");
+        PB.stat("th-stab", (sus * 100).toFixed(0) + " %");
+        PB.stat("th-t0", sim.t0 == null ? "없음" : (sim.t0 / 60).toFixed(1) + " 분");
+      }
+    }, { aspect: 0.66, minHeight: 360, maxHeight: 500 });
+    const loop = PB.loop($("cv-thr"), (dt) => {
+      if (!sim) return;
+      shown += dt * 900;
+      cv.redraw();
+      if (shown >= sim.out.length) loop.stop();
+    });
+    run();
+  })();
+
+  /* =================================================== 7. 대역폭 */
+  (function () {
+    const std = PB.seg("bw-std", () => cv.redraw());
+    const ch = PB.seg("bw-ch", () => cv.redraw());
+    const gE = PB.range("bw-eff", (v) => v + " %", () => cv.redraw());
+    ["bw-game", "bw-cam", "bw-llm", "bw-disp"].forEach((id) => $(id).addEventListener("change", () => cv.redraw()));
+    const cv = PB.canvas($("cv-bw"), (ctx, w, h) => {
+      const P = PB.palette();
+      const peak = Number(std()) * Number(ch()) * 16 / 8 / 1000;
+      const eff = peak * gE() / 100;
+      const items = [["CPU·OS 기본", 3, P.dim, true], ["디스플레이 갱신", 2.2, P.accent2, $("bw-disp").checked], ["게임 GPU", 20, P.bad, $("bw-game").checked], ["4K60 HDR 촬영(ISP)", 9, P.warn, $("bw-cam").checked], ["LLM 생성 (3B INT4 · 20 tok/s)", 30, P.blue, $("bw-llm").checked]].filter((i) => i[3]);
+      const need = items.reduce((s, i) => s + i[1], 0);
+      const maxX = Math.max(90, need * 1.05);
+      const x0 = 20, x1 = w - 20, X = (v) => x0 + (v / maxX) * (x1 - x0);
+      // stacked bar
+      const by = 70, bh = 46;
+      let acc = 0;
+      ctx.font = font(12); ctx.textBaseline = "middle";
+      items.forEach((it) => {
+        ctx.fillStyle = it[2]; ctx.globalAlpha = 0.8;
+        ctx.fillRect(X(acc), by, X(acc + it[1]) - X(acc) - 1, bh);
+        ctx.globalAlpha = 1;
+        acc += it[1];
+      });
+      // legend list
+      let ly = by + bh + 26;
+      items.forEach((it) => {
+        ctx.fillStyle = it[2]; ctx.fillRect(x0, ly - 6, 12, 12);
+        ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.fillText(it[0] + "  " + it[1] + " GB/s", x0 + 18, ly);
+        ly += 20;
+      });
+      // capacity lines
+      const line = (v, col, label, dy) => {
+        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.moveTo(X(v), by - 26); ctx.lineTo(X(v), by + bh + 8); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = col; ctx.textAlign = X(v) > w - 140 ? "right" : "left"; ctx.font = font(12, false, 600);
+        ctx.fillText(label, X(v) + (X(v) > w - 140 ? -5 : 5), by - 34 + dy);
+        ctx.font = font(12);
+      };
+      line(peak, P.dim, "피크 " + peak.toFixed(1), 0);
+      line(eff, need > eff ? P.bad : P.ok, "유효 " + eff.toFixed(1) + " GB/s", 16);
+      ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.fillText("요구 대역폭 합계 (GB/s)", x0, 16);
+      if (need > eff) { ctx.fillStyle = P.bad; ctx.font = font(13, false, 700); ctx.textAlign = "right"; ctx.fillText("대역폭 부족 → 프레임 드랍·토큰 속도 저하", w - 20, ly + 4); }
+      PB.stat("bw-peak", peak.toFixed(1) + " GB/s");
+      PB.stat("bw-effv", eff.toFixed(1) + " GB/s");
+      PB.stat("bw-need", `<span style="color:${need > eff ? P.bad : P.text}">${need.toFixed(1)} GB/s</span>`);
+      PB.stat("bw-pw", (Math.min(need, eff) * 8 * 5e-3).toFixed(2) + " W");
+    }, { height: 250 });
+  })();
+
+  /* =================================================== 8. 캐시 지연 */
+  (function () {
+    const wsOf = (s) => 4 * Math.pow(10, s / 100 * 6); // KB
+    const fmtKB = (kb) => (kb < 1024 ? kb.toFixed(0) + " KB" : kb < 1048576 ? (kb / 1024).toFixed(kb < 10240 ? 1 : 0) + " MB" : (kb / 1048576).toFixed(1) + " GB");
+    const gW = PB.range("ca-ws", (v) => fmtKB(wsOf(v)), () => cv.redraw());
+    const gS = PB.range("ca-slc", (v) => (v === 0 ? "없음" : v + " MB"), () => cv.redraw());
+    const gL2 = PB.range("ca-l2", (v) => v + " MB", () => cv.redraw());
+    const pat = PB.seg("ca-pat", () => cv.redraw());
+    function levels() {
+      const L = [["L1", 64, 1.0], ["L2", gL2() * 1024, 4.0]];
+      if (gS() > 0) L.push(["SLC", gS() * 1024, 22]);
+      L.push(["DRAM", Infinity, 125]);
+      return L;
+    }
+    function amat(W, seq) {
+      const L = levels();
+      let prev = 0, lat = 0, where = "DRAM", bestP = 0;
+      L.forEach(([n, c, t]) => { const hit = Math.min(1, c / W); const p = Math.max(0, hit - prev); lat += p * t; if (p > bestP) { bestP = p; where = n; } prev = Math.max(prev, hit); });
+      if (seq) lat = 1.0 + (lat - 1.0) * 0.07;
+      return { lat, where };
+    }
+    const cv = PB.canvas($("cv-cache"), (ctx, w, h) => {
+      const P = PB.palette();
+      const seq = pat() === "seq";
+      const xs = []; for (let s = 0; s <= 100; s += 0.5) xs.push(wsOf(s));
+      const L = levels();
+      const W = wsOf(gW());
+      const cur = amat(W, seq);
+      const ch = PB.chart(ctx, null, {
+        x: [4, 4 * 1e6], y: [0.5, 200], logX: true, logY: true, xLabel: "작업 세트 크기", yLabel: "평균 접근 지연 (ns)",
+        xTicks: [4, 64, 1024, 16384, 262144, 4194304], xFmt: fmtKB, yFmt: (v) => String(v),
+        series: [{ data: xs.map((x) => [x, amat(x, !seq).lat]), color: P.faint, width: 1.5, dash: [4, 4] }, { data: xs.map((x) => [x, amat(x, seq).lat]), color: P.accent, width: 2.5 }],
+        vlines: L.filter((l) => isFinite(l[1])).map((l) => ({ x: l[1], color: P.dim, label: l[0] })),
+        points: [{ x: W, y: cur.lat, color: P.accent2, r: 6 }],
+      });
+      PB.stat("ca-lat", cur.lat.toFixed(1) + " ns");
+      PB.stat("ca-cyc", Math.round(cur.lat * 4) + " 사이클");
+      PB.stat("ca-lvl", seq ? "프리페치로 숨김" : cur.where);
+    }, { aspect: 0.5, minHeight: 300, maxHeight: 400 });
+  })();
+
+  /* =================================================== 9. NPU 루프라인 */
+  (function () {
+    const gM = PB.range("np-mac", (v) => Math.round(Math.pow(2, v)).toLocaleString() + "개", () => cv.redraw());
+    const gF = PB.range("np-f", (v) => v.toFixed(2) + " GHz", () => cv.redraw());
+    const gPar = PB.range("np-par", (v) => v + " B", () => cv.redraw());
+    const prec = PB.seg("np-prec", () => cv.redraw());
+    const gBW = PB.range("np-bw", (v) => v + " GB/s", () => cv.redraw());
+    const cv = PB.canvas($("cv-npu"), (ctx, w, h) => {
+      const P = PB.palette();
+      const bits = Number(prec());
+      const peak8 = 2 * Math.pow(2, gM()) * gF() * 1e9 / 1e12;
+      const peak = peak8 * (8 / bits);
+      const bw = gBW();
+      const roof = (ai) => Math.min(peak, bw * ai / 1000);
+      const xs = []; for (let e = -1; e <= 3.0001; e += 0.02) xs.push(Math.pow(10, e));
+      const aiDec = 2 / (bits / 8), aiPre = Math.min(250, 2 * 256 / (bits / 8)), aiCnn = 120;
+      const ch = PB.chart(ctx, null, {
+        x: [0.1, 1000], y: [0.01, 300], logX: true, logY: true, xLabel: "연산 강도 (연산/바이트)", yLabel: "도달 가능 성능 (TOPS)",
+        series: [{ data: xs.map((x) => [x, Math.min(peak8 * 2, bw * x / 1000)]), color: P.faint, width: 1, dash: [3, 4] }, { data: xs.map((x) => [x, roof(x)]), color: P.accent, width: 3 }],
+        hlines: [{ y: peak, color: P.accent, label: "피크 " + peak.toFixed(0) + " TOPS (" + (bits === 16 ? "FP16" : "INT" + bits) + ")" }],
+        points: [
+          { x: aiDec, y: roof(aiDec), color: P.bad, r: 6, label: "LLM 디코드" },
+          { x: aiCnn, y: roof(aiCnn) * 0.7, color: P.ok, r: 6, label: "사진 CNN" },
+          { x: aiPre, y: roof(aiPre) * 0.6, color: P.blue, r: 6, label: "프롬프트 처리" },
+        ],
+        yFmt: (v) => (v < 1 ? String(v) : v.toFixed(0)),
+      });
+      const ridge = peak / bw * 1000;
+      ctx.fillStyle = P.dim; ctx.font = font(11.5); ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      ctx.fillText("← 대역폭 한계 | 연산 한계 →", Math.max(ch.X(0.1) + 4, Math.min(w - 190, ch.X(ridge) - 70)), ch.Y(0.012));
+      const size = gPar() * bits / 8; // GB
+      const tps = bw / size;
+      const util = tps * 2 * gPar() * 1e9 / (peak * 1e12);
+      PB.stat("np-tops", peak.toFixed(0) + " TOPS");
+      PB.stat("np-size", size.toFixed(1) + " GB");
+      PB.stat("np-tps", tps.toFixed(1) + " 토큰/s");
+      PB.stat("np-util", (util * 100).toFixed(1) + " %");
+    }, { aspect: 0.6, minHeight: 320, maxHeight: 440 });
+  })();
+
+  /* =================================================== 10. 설계 트레이드오프 */
+  (function () {
+    const tier = PB.seg("ds-tier", () => cv.redraw());
+    const gP = PB.range("ds-p", (v) => v.toFixed(2) + " W", () => cv.redraw());
+    const mdm = PB.seg("ds-mdm", () => cv.redraw());
+    const vc = PB.seg("ds-vc", () => cv.redraw());
+    const OTHER = 1.6, TA = 25, RSA = 3.0, LIM = 43;
+    const perfOf = (t, p) => (t === "flag" ? 100 : 78) * Math.pow(Math.min(p, t === "flag" ? 9 : 6) / 5, 0.4);
+    const cv = PB.canvas($("cv-design"), (ctx, w, h) => {
+      const P = PB.palette();
+      const t = tier(), cap = gP(), ext = mdm() === "ext", k = vc() === "1" ? 1.0 : 1.3;
+      const extP = ext ? 0.25 : 0;
+      const pAllowed = Math.max(0.5, ((LIM - TA) / RSA - OTHER - extP) / k);
+      const pEff = Math.min(cap, pAllowed, t === "flag" ? 9 : 6);
+      const skinUn = TA + (Math.min(cap, t === "flag" ? 9 : 6) * k + OTHER + extP) * RSA;
+      const skin = TA + (pEff * k + OTHER + extP) * RSA;
+      const perf = perfOf(t, pEff);
+      const batt = 18 - (ext ? 0.5 : 0);
+      const hours = batt / (pEff + OTHER + extP);
+      const cost = (t === "flag" ? 100 : 55) + (ext ? 10 : 0) + (vc() === "1" ? 3 : 0);
+      const ps = []; for (let p = 0.5; p <= 9; p += 0.05) ps.push(p);
+      const ch = PB.chart(ctx, null, {
+        x: [0, 9], y: [0, 130], xLabel: "SoC 전력 (W)", yLabel: "게임 성능 (상대)",
+        series: [
+          { data: ps.map((p) => [p, perfOf("flag", p)]), color: t === "flag" ? P.accent : P.faint, width: t === "flag" ? 2.5 : 1.5, dash: t === "flag" ? [] : [4, 4] },
+          { data: ps.map((p) => [p, perfOf("mid", p)]), color: t === "mid" ? P.accent : P.faint, width: t === "mid" ? 2.5 : 1.5, dash: t === "mid" ? [] : [4, 4] },
+        ],
+        bands: [{ x0: pAllowed, x1: 9, color: alpha(P.bad, 0.12) }],
+        vlines: [{ x: cap, color: P.dim, label: "상한 " + cap.toFixed(1) + " W" }, { x: pAllowed, color: P.bad }],
+        points: [{ x: pEff, y: perf, color: P.accent2, r: 6, label: perf.toFixed(0) }],
+      });
+      ctx.font = font(12, false, 600); ctx.fillStyle = P.bad; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+      ctx.fillText("열 한계 초과 영역", ch.X(pAllowed) + 6, ch.Y(0) - 6);
+      PB.stat("ds-perf", perf.toFixed(0));
+      PB.stat("ds-skin", skinUn > LIM + 0.05 ? `${skin.toFixed(1)} °C <small style="color:${P.bad}">(스로틀, 무제한 시 ${skinUn.toFixed(0)} °C)</small>` : skin.toFixed(1) + " °C");
+      PB.stat("ds-hours", hours.toFixed(1) + " 시간");
+      PB.stat("ds-cost", cost.toFixed(0));
+    }, { aspect: 0.55, minHeight: 300, maxHeight: 420 });
+  })();
+})();
+</script>
+</body>
+</html>

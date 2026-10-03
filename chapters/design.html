@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스마트폰 설계 플레이그라운드 · PhoneBook</title>
+<meta name="description" content="화면 크기, 두께, 배터리, AP, 디스플레이, 카메라, 프레임 재료를 직접 정하면 무게·사용 시간·발열·카메라 범프·BOM 원가가 실시간으로 따라오는 종합 스마트폰 설계 시뮬레이터.">
+<link rel="canonical" href="https://phonebook.euiyun.com/chapters/design.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="PhoneBook">
+<meta property="og:title" content="스마트폰 설계 플레이그라운드 · PhoneBook">
+<meta property="og:description" content="화면 크기, 두께, 배터리, AP, 디스플레이, 카메라, 프레임 재료를 직접 정하면 무게·사용 시간·발열·카메라 범프·BOM 원가가 실시간으로 따라오는 종합 스마트폰 설계 시뮬레이터.">
+<meta property="og:url" content="https://phonebook.euiyun.com/chapters/design.html">
+<meta property="og:image" content="https://phonebook.euiyun.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"스마트폰 설계 플레이그라운드","name":"스마트폰 설계 플레이그라운드 · PhoneBook","url":"https://phonebook.euiyun.com/chapters/design.html","mainEntityOfPage":"https://phonebook.euiyun.com/chapters/design.html","inLanguage":"ko","isAccessibleForFree":true,"learningResourceType":"interactive textbook chapter","position":13,"image":"https://phonebook.euiyun.com/og.png","dateModified":"2026-10-03","isPartOf":{"@type":"Book","@id":"https://phonebook.euiyun.com/#book","name":"PhoneBook — 인터랙티브 스마트폰 해부 교과서","url":"https://phonebook.euiyun.com/"},"publisher":{"@type":"Organization","name":"PhoneBook","url":"https://phonebook.euiyun.com/"},"description":"화면 크기, 두께, 배터리, AP, 디스플레이, 카메라, 프레임 재료를 직접 정하면 무게·사용 시간·발열·카메라 범프·BOM 원가가 실시간으로 따라오는 종합 스마트폰 설계 시뮬레이터."},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"PhoneBook","item":"https://phonebook.euiyun.com/"},{"@type":"ListItem","position":2,"name":"13 스마트폰 설계 플레이그라운드","item":"https://phonebook.euiyun.com/chapters/design.html"}]}]}</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  [hidden] { display: none !important; }
+  figure.diagram svg .t { font-size: 15px; }
+  figure.diagram svg .t-dim { font-size: 14px; }
+  figure.diagram svg .t-mono { font-size: 13px; }
+  figure.diagram svg .t-acc { font-size: 15px; }
+  .pg-presets { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--border); align-items: center; }
+  .pg-presets .lbl { font-size: 13px; color: var(--text-dim); margin-right: 4px; }
+  .pg-presets .btn { font-size: 13px; padding: 6px 11px; }
+  .pg-presets .btn.on { border-color: var(--accent); color: var(--accent); font-weight: 700; background: var(--accent-soft); }
+  #sim-pg .sim-view.three { height: auto; min-height: 420px; }
+  #sim-pg .sim-readout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 720px) { #sim-pg .sim-readout { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  #sim-pg .sim-controls { max-height: 640px; overflow-y: auto; }
+  .sim-controls .grp { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--text-faint); border-bottom: 1px dashed var(--border); padding-bottom: 4px; margin-top: 4px; }
+  .pg-views { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; background: var(--border); border-top: 1px solid var(--border); }
+  @media (min-width: 720px) { .pg-views { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+  .pg-views > div { background: var(--canvas-bg); position: relative; min-width: 0; }
+  .pg-views canvas { display: block; width: 100%; }
+  .pg-views .cap { position: absolute; left: 12px; top: 8px; font-size: 12px; color: var(--text-faint); pointer-events: none; }
+  .pg-warn { padding: 10px 18px; font-size: 14px; border-top: 1px solid var(--border); color: var(--text); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .pg-warn:empty { display: none; }
+  .pg-warn div + div { margin-top: 3px; }
+  details.model { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-elev); margin: 12px 0; }
+  details.model > summary { cursor: pointer; padding: 12px 16px; font-weight: 700; font-size: 15px; list-style: none; display: flex; justify-content: space-between; gap: 10px; }
+  details.model > summary::after { content: "펼치기 ▾"; font-weight: 400; font-size: 12.5px; color: var(--text-faint); white-space: nowrap; }
+  details.model[open] > summary::after { content: "접기 ▴"; }
+  details.model > div { padding: 0 16px 12px; font-size: 15px; }
+  .ck-list { padding: 8px 18px 14px; display: grid; gap: 6px; }
+  .ck-item { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-elev); font-size: 14px; line-height: 1.5; }
+  .ck-item input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; }
+  .ck-item b { display: block; color: var(--text); }
+  .ck-item span.d { color: var(--text-dim); font-size: 13.5px; }
+  .ck-item .auto { font-family: var(--mono); font-size: 11.5px; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+  .ck-item .auto.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+  .ck-item .auto.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+  .ck-item .auto.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 13%, transparent); }
+  .ck-item .auto.na { color: var(--text-faint); background: var(--surface); }
+  .ck-item.done { opacity: .62; }
+  .ck-cat { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--accent); margin-top: 8px; }
+  .ck-prog { height: 8px; background: var(--surface); border-radius: 4px; overflow: hidden; margin: 12px 18px 0; }
+  .ck-prog i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  .flow-svg .stage { cursor: pointer; }
+  .flow-svg .stage rect { fill: var(--bg-elev); stroke: var(--border); stroke-width: 1.5; transition: fill .15s; }
+  .flow-svg .stage:hover rect, .flow-svg .stage.on rect { fill: var(--accent-soft); stroke: var(--accent); }
+  .flow-info { padding: 12px 16px; margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 14.5px; line-height: 1.6; min-height: 5em; }
+  .flow-info b.hd { display: block; font-size: 15.5px; margin-bottom: 2px; color: var(--text); }
+  .imap .node { cursor: pointer; }
+  .imap .node circle { fill: var(--bg-elev); stroke: var(--accent); stroke-width: 2; }
+  .imap .node.on circle { fill: var(--accent); }
+  .imap .node.on text { fill: #fff; }
+  .imap .edge { stroke: var(--border); stroke-width: 2; transition: stroke .15s, opacity .15s; }
+  .imap .edge.on { stroke: var(--accent-2); stroke-width: 3.5; }
+  .imap.focus .edge:not(.on) { opacity: .25; }
+  .cmp td.num { font-family: var(--mono); font-size: 13.5px; white-space: nowrap; text-align: right; }
+  .cmp td.up { color: var(--ok); } .cmp td.dn { color: var(--bad); }
+</style>
+</head>
+<body data-chapter="design">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 13</div>
+    <h1>스마트폰 설계 플레이그라운드</h1>
+    <p class="lead">지금까지 열두 장에 걸쳐 폰을 부품별로 뜯어 보았다. 이제 거꾸로, 빈 종이에서 폰 한 대를 설계해 보자. 화면 크기와 두께를 정하는 순간 배터리 자리가 정해지고, 배터리가 사용 시간을, AP와 표면적이 발열을, 카메라 센서가 범프를, 그리고 이 모든 것이 무게와 원가를 정한다. <b>스마트폰 설계는 하나의 거대한 연립 방정식</b>이다.</p>
+    <ul class="objectives">
+      <li>제품 정의부터 양산(EVT·DVT·PVT)까지 스마트폰 개발 흐름을 설명할 수 있다.</li>
+      <li>두께·부피 예산으로 배터리 용량과 카메라 범프를 추정할 수 있다.</li>
+      <li>설계 변수(크기·두께·AP·디스플레이·카메라·재료)가 무게·사용 시간·발열·원가에 미치는 영향을 정량적으로 비교할 수 있다.</li>
+      <li>파레토 전선으로 '더 나은 설계'와 '다른 우선순위의 설계'를 구분할 수 있다.</li>
+      <li>열·안테나·낙하·방수·EMI·인증·수리성 체크리스트로 설계를 점검할 수 있다.</li>
+    </ul>
+  </header>
+
+  <!-- ============================================================ 1. 흐름 -->
+  <section id="flow">
+    <h2>폰 한 대가 만들어지기까지</h2>
+    <p>플래그십 스마트폰 한 모델의 개발은 보통 출시 1.5–2년 전에 시작된다. 수백 명의 엔지니어가 참여하지만 큰 흐름은 단순하다. <b>무엇을 만들지 정하고 → 큰 구조를 정하고 → 공간을 나누고 → 부품을 상세 설계하고 → 시제품으로 검증</b>한다. 그리고 이 과정은 한 방향으로만 흐르지 않는다. 검증에서 문제가 나오면 앞 단계로 되돌아간다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 640 300" class="flow-svg" role="img" aria-label="스마트폰 개발 흐름">
+        <defs>
+          <marker id="dz-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--text-dim)"/></marker>
+          <marker id="dz-ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" style="fill:var(--accent-2)"/></marker>
+        </defs>
+        <g class="stage" data-k="0"><rect x="10" y="40" width="112" height="64" rx="10"/><text x="66" y="67" text-anchor="middle" class="t">제품 정의</text><text x="66" y="88" text-anchor="middle" class="t-mono">PRD·목표</text></g>
+        <g class="stage" data-k="1"><rect x="136" y="40" width="112" height="64" rx="10"/><text x="192" y="67" text-anchor="middle" class="t">아키텍처</text><text x="192" y="88" text-anchor="middle" class="t-mono">칩셋·배치</text></g>
+        <g class="stage" data-k="2"><rect x="262" y="40" width="112" height="64" rx="10"/><text x="318" y="67" text-anchor="middle" class="t">부피 예산</text><text x="318" y="88" text-anchor="middle" class="t-mono">두께·면적</text></g>
+        <g class="stage" data-k="3"><rect x="388" y="40" width="112" height="64" rx="10"/><text x="444" y="67" text-anchor="middle" class="t">상세 설계</text><text x="444" y="88" text-anchor="middle" class="t-mono">회로·기구·SW</text></g>
+        <g class="stage" data-k="4"><rect x="514" y="40" width="116" height="64" rx="10"/><text x="572" y="67" text-anchor="middle" class="t">EVT</text><text x="572" y="88" text-anchor="middle" class="t-mono">기능 검증</text></g>
+        <g class="stage" data-k="5"><rect x="514" y="160" width="116" height="64" rx="10"/><text x="572" y="187" text-anchor="middle" class="t">DVT</text><text x="572" y="208" text-anchor="middle" class="t-mono">신뢰성·인증</text></g>
+        <g class="stage" data-k="6"><rect x="368" y="160" width="116" height="64" rx="10"/><text x="426" y="187" text-anchor="middle" class="t">PVT</text><text x="426" y="208" text-anchor="middle" class="t-mono">양산 공정 검증</text></g>
+        <g class="stage" data-k="7"><rect x="222" y="160" width="116" height="64" rx="10"/><text x="280" y="187" text-anchor="middle" class="t">양산 (MP)</text><text x="280" y="208" text-anchor="middle" class="t-mono">램프업·출시</text></g>
+        <path d="M122 72 H134" class="s-line" marker-end="url(#dz-ar)"/><path d="M248 72 H260" class="s-line" marker-end="url(#dz-ar)"/>
+        <path d="M374 72 H386" class="s-line" marker-end="url(#dz-ar)"/><path d="M500 72 H512" class="s-line" marker-end="url(#dz-ar)"/>
+        <path d="M572 104 V158" class="s-line" marker-end="url(#dz-ar)"/><path d="M514 192 H486" class="s-line" marker-end="url(#dz-ar)"/><path d="M368 192 H340" class="s-line" marker-end="url(#dz-ar)"/>
+        <path d="M560 160 C 520 130, 470 125, 444 106" style="stroke:var(--accent-2);fill:none;stroke-width:1.8;stroke-dasharray:5 4" marker-end="url(#dz-ar2)"/>
+        <path d="M596 40 C 586 8, 360 6, 326 38" style="stroke:var(--accent-2);fill:none;stroke-width:1.8;stroke-dasharray:5 4" marker-end="url(#dz-ar2)"/>
+        <text x="420" y="146" text-anchor="end" class="t-dim" style="fill:var(--accent-2)">문제 발견 → 수정</text>
+        <text x="20" y="262" class="t-dim">← 시간: 출시 약 18–24개월 전부터. EVT·DVT·PVT는 각각 수백~수천 대의 시제품 빌드.</text>
+        <rect x="20" y="276" width="600" height="6" rx="3" class="f-surface"/>
+        <rect x="20" y="276" width="250" height="6" rx="3" class="f-acc"/>
+        <rect x="270" y="276" width="350" height="6" rx="3" style="fill:var(--accent-2)"/>
+        <text x="145" y="298" text-anchor="middle" class="t-mono">설계 중심</text><text x="445" y="298" text-anchor="middle" class="t-mono">검증·양산 준비 중심</text>
+      </svg>
+      <figcaption><b>그림 13-1.</b> 스마트폰 개발 흐름(클릭하면 단계 설명). 점선은 되돌아가는 고리: 시제품에서 발열·안테나·낙하 문제가 나오면 상세 설계, 때로는 부피 예산까지 다시 연다. 늦게 발견할수록 비용이 기하급수적으로 커진다.</figcaption>
+    </figure>
+    <div class="flow-info" id="flow-info">단계를 클릭해 보자.</div>
+  </section>
+
+  <!-- ============================================================ 2. 정의 -->
+  <section id="definition">
+    <h2>제품 정의: 무엇을 최적화하나</h2>
+    <p>모든 것을 최고로 만들 수는 없다. 그래서 첫 단계는 <b>누구를 위한 폰인가</b>를 정하고, 그 사용자에게 중요한 지표 몇 개에 순위를 매기는 것이다. 이 순위가 이후 수천 개의 결정에서 '판정 기준'이 된다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>세그먼트</th><th>최우선</th><th>양보하는 것</th><th>대표 사양 감각</th></tr></thead>
+      <tbody>
+        <tr><td><b>울트라 플래그십</b></td><td>카메라, 성능, 화면</td><td>무게, 원가</td><td>6.8–6.9″, 210–235 g, 망원 잠망경, 대형 센서</td></tr>
+        <tr><td><b>컴팩트 플래그십</b></td><td>한 손 사용, 프리미엄</td><td>배터리, 지속 성능</td><td>6.1–6.3″, 165–190 g</td></tr>
+        <tr><td><b>얇은 디자인 폰</b></td><td>두께, 무게, 디자인</td><td>배터리, 카메라 수, 발열</td><td>6–7 mm 이하, 카메라 1–2개</td></tr>
+        <tr><td><b>보급형</b></td><td>원가, 배터리</td><td>카메라, 성능, 소재</td><td>6.5–6.7″, LTPS, 플라스틱 프레임</td></tr>
+        <tr><td><b>게이밍</b></td><td>지속 성능, 배터리, 터치 응답</td><td>두께, 무게, 카메라</td><td>큰 배터리, 방열 강화, 고주사율</td></tr>
+      </tbody>
+    </table></div>
+    <p>사양을 정할 때는 부품이 서로 어떻게 얽혀 있는지를 늘 의식해야 한다. 아래 지도에서 부품 하나를 눌러 보자. 하나를 바꾸면 선으로 이어진 모든 것이 영향을 받는다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 640 360" class="imap" id="imap" role="img" aria-label="설계 변수 상호작용 지도"><g id="imap-e"></g><g id="imap-n"></g></svg>
+      <figcaption><b>그림 13-2.</b> 설계 변수의 상호작용 지도(클릭). 선 하나하나가 앞 장들에서 배운 물리 법칙이다.</figcaption>
+    </figure>
+    <div class="flow-info" id="imap-info">노드를 클릭하면 연결된 관계가 강조된다.</div>
+  </section>
+
+  <!-- ============================================================ 3. 부피 예산 -->
+  <section id="budget">
+    <h2>부피 예산: 0.1 mm 전쟁</h2>
+    <p>아키텍처가 정해지면 <b>두께 스택</b>과 <b>평면 배치</b>로 공간을 나눈다. 두께 방향으로는 화면 쪽에서부터 커버 유리, 디스플레이, 미드플레이트, 그리고 배터리·보드 층, 무선 충전 코일, 후면 유리가 쌓인다. 배터리는 "남는 두께"를 차지한다. 그래서 다른 층에서 0.1 mm를 아낄 때마다 배터리가 두꺼워진다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 640 300" role="img" aria-label="두께 스택">
+        <g font-family="var(--mono)">
+          <rect x="140" y="20" width="360" height="16" rx="3" style="fill:var(--blue);opacity:.35"/><text x="130" y="33" text-anchor="end" class="t-dim">커버 유리 0.55–0.7</text>
+          <rect x="140" y="38" width="360" height="20" style="fill:var(--accent);opacity:.4"/><text x="130" y="53" text-anchor="end" class="t-dim">OLED 모듈 0.7–0.9</text>
+          <rect x="140" y="60" width="360" height="12" style="fill:var(--text-faint);opacity:.6"/><text x="130" y="70" text-anchor="end" class="t-dim">미드플레이트 0.4–0.5</text>
+          <rect x="140" y="74" width="120" height="96" rx="3" style="fill:var(--green);opacity:.35"/><text x="200" y="126" text-anchor="middle" class="t-dim">보드 샌드위치</text>
+          <rect x="266" y="74" width="234" height="96" rx="6" class="f-acc2-soft"/><text x="383" y="120" text-anchor="middle" class="t">배터리 = 나머지</text><text x="383" y="140" text-anchor="middle" class="t-mono">4–5.5 mm</text>
+          <rect x="266" y="172" width="234" height="12" style="fill:var(--warn);opacity:.5"/><text x="510" y="182" class="t-dim">무선충전 0.3–0.5</text>
+          <rect x="140" y="186" width="360" height="16" rx="3" style="fill:var(--blue);opacity:.35"/><text x="130" y="199" text-anchor="end" class="t-dim">후면 유리 0.5–0.7</text>
+          <rect x="150" y="202" width="70" height="40" rx="6" style="fill:var(--blue);opacity:.25;stroke:var(--blue)"/><text x="230" y="230" class="t-dim">카메라 범프</text>
+          <line x1="520" y1="20" x2="520" y2="202" class="s-acc"/><line x1="514" y1="20" x2="526" y2="20" class="s-acc"/><line x1="514" y1="202" x2="526" y2="202" class="s-acc"/>
+          <text x="530" y="110" class="t-acc">T</text>
+          <text x="510" y="96" class="t-dim">스웰링 여유</text><text x="510" y="114" class="t-dim">~0.3 mm</text>
+        </g>
+        <text x="320" y="282" text-anchor="middle" class="t-dim">카메라 모듈은 T에 들어가지 못하는 만큼 뒤로 튀어나온다(범프).</text>
+      </svg>
+      <figcaption><b>그림 13-3.</b> 대표적인 두께 스택(mm, 단면 과장). 배터리 두께 = 폰 두께 − 고정 층들의 합 − 스웰링 여유. 다음 시뮬레이터에서 각 층을 조절해 보자.</figcaption>
+    </figure>
+    <div class="sim" id="sim-stack">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>두께 스택 → 배터리 두께·용량</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-stack"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>폰 두께 T <output id="sk-t-out"></output></span><input type="range" id="sk-t" min="6" max="10" step="0.05" value="8.0"></label>
+          <label class="ctrl"><span>커버 유리 <output id="sk-cg-out"></output></span><input type="range" id="sk-cg" min="0.4" max="0.8" step="0.05" value="0.6"></label>
+          <label class="ctrl"><span>OLED 모듈 <output id="sk-dp-out"></output></span><input type="range" id="sk-dp" min="0.5" max="1.1" step="0.05" value="0.8"></label>
+          <label class="ctrl"><span>미드플레이트 <output id="sk-mp-out"></output></span><input type="range" id="sk-mp" min="0.3" max="0.8" step="0.05" value="0.45"></label>
+          <label class="ctrl"><span>후면 유리 <output id="sk-bg-out"></output></span><input type="range" id="sk-bg" min="0.4" max="0.8" step="0.05" value="0.6"></label>
+          <label class="ctrl"><span>스웰링·조립 여유 <output id="sk-sw-out"></output></span><input type="range" id="sk-sw" min="0.1" max="0.6" step="0.05" value="0.35"></label>
+          <label class="check"><input type="checkbox" id="sk-wc" checked> 무선 충전 코일(0.45 mm)</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">배터리 두께</span><span class="v" id="sk-o-t">—</span></div>
+        <div class="stat"><span class="k">배터리 부피(면적 60×80 mm)</span><span class="v" id="sk-o-v">—</span></div>
+        <div class="stat"><span class="k">에너지 / 용량</span><span class="v" id="sk-o-e">—</span></div>
+        <div class="stat"><span class="k">층 0.1 mm의 가치</span><span class="v" id="sk-o-mm">—</span></div>
+      </div>
+      <div class="sim-note">에너지 밀도 680 Wh/L(셀 + 파우치), 공칭 3.87 V. 해볼 것: 커버 유리를 0.1 mm 얇게 하면 배터리가 약 90 mAh 늘어난다. 이것이 디스플레이 회사가 패널을 0.05 mm라도 얇게 만들려고 애쓰는 이유다. 반대로 무선 충전을 빼면 약 0.45 mm, 즉 수백 mAh가 생긴다.</div>
+    </div>
+    <p>평면 방향도 같다. 대표적인 6.1–6.9″ 폰의 내부 평면적 100–120 cm² 중 메인보드가 15–20 %, 카메라 모듈이 5–10 %, 하단 모듈(스피커·USB-C·진동 모터)이 8–10 %를 차지하고, 배터리가 55–65 %를 가져간다. 메인보드를 두 층으로 쌓는 샌드위치 구조(4장)가 등장한 것도 평면적을 배터리에 양보하기 위해서다.</p>
+  </section>
+
+  <!-- ============================================================ 4. 모델 -->
+  <section id="model">
+    <h2>플레이그라운드의 계산 모델</h2>
+    <p>플레이그라운드는 앞 장들의 1차 근사식을 엮은 <b>교육용 모델</b>이다. 실제 제품과 ±10–20 % 정도 차이가 날 수 있지만, 변수 사이의 <b>방향과 크기 감각</b>을 익히기에는 충분하다. 각 식의 근거를 펼쳐 보자.</p>
+    <details class="model"><summary>① 외형 치수와 내부 부피</summary><div>
+      <p>화면은 19.5:9 비율로 가정한다. 대각 \(D\)(인치)에서 화면 폭·높이를 구하고, 베젤과 프레임 두께를 더해 외형을 정한다.</p>
+      <div class="formula">$$w_s = 25.4D\cdot\frac{9}{\sqrt{9^2+19.5^2}},\quad h_s = 25.4D\cdot\frac{19.5}{\sqrt{9^2+19.5^2}},\quad W=w_s+5.5,\ L=h_s+6.2$$
+        <div class="where">6.1″ → 약 70 × 147 mm, 6.9″ → 약 78 × 165 mm. 외형 부피는 둥근 모서리를 고려해 \(0.96\,WLT\).</div></div>
+    </div></details>
+    <details class="model"><summary>② 배터리: 부피 비율 → Wh → mAh</summary><div>
+      <p>사용자가 정한 비율 \(r\)만큼 외형 부피를 배터리에 주되, 두께 스택과 평면 배치가 허락하는 최대치를 넘을 수 없다.</p>
+      <div class="formula">$$V_b = \min\!\left(r\,V_{\text{body}},\ A_{\text{free}}\,t_{b,\max}\right),\quad t_{b,\max}=T-3.05-0.45[\text{무선충전}],\quad E = 0.68\ \tfrac{\text{Wh}}{\text{cm}^3}\cdot V_b$$
+        <div class="where">\(A_{\text{free}}\): 내부 평면적에서 보드(1,550–1,700 mm²), 카메라(센서·개수에 따라 150–1,000 mm²), 하단 모듈(850 mm²), 플렉스·여유(6 %)를 뺀 면적. 용량 mAh = Wh / 3.87 V. 셀 무게는 280 Wh/kg(5장, 실리콘-탄소 음극 기준).</div></div>
+    </div></details>
+    <details class="model"><summary>③ 무게</summary><div>
+      <div class="formula">$$m = m_{\text{disp}} + m_{\text{back}} + m_{\text{frame}} + \frac{E}{0.265} + m_{\text{board}} + m_{\text{cam}} + m_{\text{wc}} + m_{\text{misc}}$$
+        <div class="where">화면+커버 0.0027 g/mm²(화면 면적), 후면 유리 0.6 mm × 2.5 g/cm³, 프레임 = 레일(둘레 × T × 1.3 mm) × 레일 밀도 + 미드플레이트(0.45 mm, 포켓 가공으로 70 %) × Al 밀도. Ti는 레일만 Ti, 플라스틱은 레일 2 mm. 보드 16–19 g, 카메라: 메인 4–13 g(센서 크기), 초광각 3 g, 망원 3.5 g, 잠망경 8 g. 무선충전 6 g, 기타(스피커·햅틱·USB·센서·플렉스·접착제·베이퍼 챔버) 14–17 g.</div></div>
+    </div></details>
+    <details class="model"><summary>④ 전력과 사용 시간</summary><div>
+      <div class="formula">$$P_{\text{disp}} = \frac{A_s}{A_{6.1''}}\,(0.12 + 0.00115\,L_v)\,k_{\text{LTPO}},\qquad t = \frac{0.92\,E}{P_{\text{disp}} + P_{\text{SoC}} + P_{\text{radio}} + P_{\text{base}}}$$
+        <div class="where">\(L_v\): 휘도(nit), \(k_{\text{LTPO}}\): 정지 화면이 많을수록 0.8, 동영상 0.95, 게임 1.0(LTPS는 1). SoC 경부하 전력은 등급별 효율 배수(보급 1.3, 상급 1.1, 플래그십 1.0)를 곱한다. 0.92는 변환 손실. 시나리오: 동영상(Wi‑Fi, 200 nit), 웹·SNS(5G, 250 nit), 게임(지속 성능), 야외 내비(GPS+5G, 최대 1,000 nit). '혼합'은 웹 40 %, 동영상 35 %, 내비 15 %, 게임 10 %의 화면 켜짐 시간 가중.</div></div>
+    </div></details>
+    <details class="model"><summary>⑤ 발열과 지속 성능</summary><div>
+      <div class="formula">$$P_{\text{sus}} = \eta\,h\,A_{\text{surf}}\,(T_{\text{skin}}-T_{\text{amb}}),\qquad \text{지속 성능} = \text{피크}\times\min\!\left(1,\frac{P_{\text{sus}}-P_{\text{disp}}-0.4}{P_{\text{AP,demand}}}\right)^{0.6}$$
+        <div class="where">\(h\approx12\) W/m²·K(자연 대류+복사), \(A_{\text{surf}}\): 앞뒤면+측면, 표면 한계 43 °C, 주변 25 °C. 열 확산 효율 \(\eta\): 기본 0.55 + 베이퍼 챔버 0.12 + 프레임(Al +0.08, Ti 0, 플라스틱 −0.05). 성능이 전력의 0.6제곱에 비례하는 것은 DVFS에서 전압과 주파수를 함께 낮추기 때문이다(3장·11장). AP 게임 부하: 보급 3.5 W, 상급 4.5 W, 플래그십 5.5 W.</div></div>
+    </div></details>
+    <details class="model"><summary>⑥ 카메라 범프와 카메라 점수</summary><div>
+      <div class="formula">$$H_{\text{cam}} \approx 0.62\,d_{\text{sensor}} + 1.3\ \text{mm},\qquad \text{범프} = \max(0.7,\ H_{\text{cam}} - (T-1.55)) + 0.3$$
+        <div class="where">\(d_{\text{sensor}}\): 센서 대각(1/2″ ≈ 8.0, 1/1.56″ ≈ 10.2, 1/1.3″ ≈ 12.3, 1″형 ≈ 15.9 mm). 렌즈 전장(TTL)이 센서 대각에 비례하기 때문이다(8장). 잠망경은 광로를 옆으로 눕혀 높이 약 6.6 mm. 0.3 mm는 렌즈 커버 장식링.</div></div>
+    </div></details>
+    <details class="model"><summary>⑦ BOM 원가</summary><div>
+      <p>공개된 분해 원가 분석들의 경향을 단순화한 대략치(USD)다. 디스플레이 $30–45 × 면적비 (+고휘도 프리미엄), AP $25/65/150, 메모리·저장 $25/45/75, 모뎀·RF $18/30/40, 카메라(메인 $5–30, 초광각 $5, 망원 $7, 잠망경 $18), 배터리 $0.45/Wh, 프레임 Al $10 / Ti $32 / 플라스틱 $4, 유리 $9, 무선충전 $6, 보드·PMIC·수동소자 $18–30, 오디오·센서 $8–16, 기타 $10, 조립·시험 $12–18. 마케팅·로열티·유통·마진은 포함하지 않는다(소비자 가격은 대개 BOM의 2–3배).</p>
+    </div></details>
+  </section>
+
+  <!-- ============================================================ 5. 플레이그라운드 -->
+  <section id="playground">
+    <h2>설계 플레이그라운드</h2>
+    <p>이제 직접 설계해 보자. 프리셋 하나를 불러온 뒤 <b>한 번에 변수 하나씩</b> 바꿔 보는 것이 가장 배우기 좋다. 왼쪽 3D 모델은 화면 크기와 두께에 맞춰 늘고 줄며, 배터리(강조 표시)는 실제로 들어간 부피에 비례해 커진다. 아래 그래프와 수치는 모두 실시간으로 갱신된다. (폴더블은 힌지·이중 디스플레이 때문에 모델이 크게 달라 다루지 않는다.)</p>
+    <div class="sim" id="sim-pg">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>스마트폰 설계 플레이그라운드</h3></div>
+      <div class="pg-presets" id="pg-presets">
+        <span class="lbl">프리셋</span>
+        <button class="btn" data-p="ultra">울트라 플래그십</button>
+        <button class="btn on" data-p="compact">컴팩트 플래그십</button>
+        <button class="btn" data-p="thin">얇은 폰</button>
+        <button class="btn" data-p="budget">보급형</button>
+        <button class="btn" data-p="gaming">게이밍폰</button>
+      </div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v3d-pg"><div class="hint">드래그: 회전 · 색 강조: 배터리</div></div>
+        <div class="sim-controls">
+          <div class="grp">외형</div>
+          <label class="ctrl"><span>화면 크기 <output id="pg-size-out"></output></span><input type="range" id="pg-size" min="6.1" max="6.9" step="0.05" value="6.1"></label>
+          <label class="ctrl"><span>두께 <output id="pg-thick-out"></output></span><input type="range" id="pg-thick" min="7" max="9.5" step="0.05" value="7.8"></label>
+          <div class="ctrl"><span>프레임 재료</span><div class="seg" id="pg-frame"><button data-value="al" class="on">알루미늄</button><button data-value="ti">티타늄</button><button data-value="pc">플라스틱</button></div></div>
+          <div class="grp">에너지</div>
+          <label class="ctrl"><span>배터리 부피 비율 <output id="pg-batt-out"></output></span><input type="range" id="pg-batt" min="0.22" max="0.42" step="0.005" value="0.3"></label>
+          <label class="check"><input type="checkbox" id="pg-wc" checked> 무선 충전</label>
+          <div class="grp">칩 · 화면</div>
+          <div class="ctrl"><span>AP 등급</span><div class="seg" id="pg-tier"><button data-value="budget">보급</button><button data-value="upper">상급</button><button data-value="flag" class="on">플래그십</button></div></div>
+          <div class="ctrl"><span>디스플레이 백플레인</span><div class="seg" id="pg-disp"><button data-value="ltps">LTPS</button><button data-value="ltpo" class="on">LTPO</button></div></div>
+          <label class="ctrl"><span>피크 휘도 <output id="pg-peak-out"></output></span><input type="range" id="pg-peak" min="1000" max="3000" step="100" value="2500"></label>
+          <div class="grp">카메라</div>
+          <label class="ctrl"><span>후면 카메라 수 <output id="pg-cams-out"></output></span><input type="range" id="pg-cams" min="1" max="4" step="1" value="3"></label>
+          <div class="ctrl"><span>메인 센서</span><div class="seg" id="pg-sensor"><button data-value="s">1/2″</button><button data-value="m">1/1.56″</button><button data-value="l" class="on">1/1.3″</button><button data-value="xl">1″</button></div></div>
+          <label class="check"><input type="checkbox" id="pg-peri"> 잠망경 망원(3개 이상일 때 망원 대체)</label>
+          <label class="ctrl"><span>3D 분해 <output id="pg-ex-out"></output></span><input type="range" id="pg-ex" min="0" max="1" step="0.01" value="0.25"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">무게</span><span class="v" id="pg-o-mass">—</span></div>
+        <div class="stat"><span class="k">외형 W×L×T</span><span class="v" id="pg-o-dim">—</span></div>
+        <div class="stat"><span class="k">배터리</span><span class="v" id="pg-o-bat">—</span></div>
+        <div class="stat"><span class="k">혼합 사용(화면 켜짐)</span><span class="v" id="pg-o-sot">—</span></div>
+        <div class="stat"><span class="k">지속 성능 / 피크</span><span class="v" id="pg-o-perf">—</span></div>
+        <div class="stat"><span class="k">지속 가능 전력</span><span class="v" id="pg-o-psus">—</span></div>
+        <div class="stat"><span class="k">카메라 범프</span><span class="v" id="pg-o-bump">—</span></div>
+        <div class="stat"><span class="k">BOM 원가(대략)</span><span class="v" id="pg-o-bom">—</span></div>
+      </div>
+      <div class="pg-views">
+        <div><span class="cap">종합 레이더(바깥일수록 좋음 · 점선 = 프리셋 기준)</span><canvas id="cv-radar"></canvas></div>
+        <div><span class="cap">내부 부피 배분(cm³)</span><canvas id="cv-tree"></canvas></div>
+        <div><span class="cap">시나리오별 사용 시간</span><canvas id="cv-hours"></canvas></div>
+        <div><span class="cap">무게 · 원가 구성</span><canvas id="cv-break"></canvas></div>
+      </div>
+      <div class="pg-warn" id="pg-warn"></div>
+      <div class="sim-note">해볼 것: ① '컴팩트'에서 두께만 7.0 mm로 줄여 배터리·범프·지속 성능이 어떻게 변하는지 보자. ② 프레임을 티타늄으로 바꾸면 무게는 늘지만 레이더의 '성능'(열 확산)도 살짝 떨어진다. ③ 배터리 비율을 끝까지 올리면 '공간 부족' 경고가 뜬다. 부피 비율만으로는 배터리를 키울 수 없고 두께·면적이 함께 허락해야 한다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 6. 얇게 -->
+  <section id="thin">
+    <h2>트레이드오프 사례: 1 mm 얇게 만들면</h2>
+    <p>"더 얇게"는 디자인 팀의 영원한 요구다. 그 대가를 정량적으로 보자. 아래 시뮬레이터는 <b>지금 플레이그라운드의 설계</b>를 기준으로, 다른 조건은 그대로 두고 두께만 줄였을 때의 변화를 계산한다. 배터리 부피 비율을 유지하더라도 배터리가 들어갈 '두께'가 사라지므로 용량이 줄고, 카메라는 더 튀어나오며, 열을 내보낼 측면적과 열용량도 줄어든다. 프레임 강성은 두께의 2–3제곱으로 떨어진다(<a href="mechanical.html">12장</a>).</p>
+    <div class="sim" id="sim-thin">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>얇게 만들기의 비용 계산서</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-thin"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>얇게 할 양 <output id="th-d-out"></output></span><input type="range" id="th-d" min="0.1" max="2.5" step="0.05" value="1.0"></label>
+          <label class="check"><input type="checkbox" id="th-keep"> 배터리 용량을 지키려 화면을 키운다(면적으로 보상)</label>
+          <p style="margin:0;font-size:13px;color:var(--text-dim)" id="th-base">기준: —</p>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin:0;border-radius:0;border-left:0;border-right:0"><table class="cmp" id="th-tbl"></table></div>
+      <div class="sim-note">막대는 기준 설계 대비 변화율. 초록 = 좋아짐, 빨강 = 나빠짐. 해볼 것: 2 mm를 줄이면 배터리 두께 여유가 거의 사라져 비율과 상관없이 용량이 급감하는 지점이 있다.</div>
+    </div>
+    <div class="callout"><strong>실제 '얇은 폰'들이 택하는 해법</strong>
+      <p>카메라를 1–2개로 줄이고 카메라·보드를 상단 '플래토(plateau)'에 모아 그 부분만 두껍게 만든다. 배터리는 고밀도 실리콘-탄소 음극 셀로 보상하고, 무선 충전 코일·스피커를 얇은 것으로 바꾼다. 열은 티타늄 대신 알루미늄·구리 판으로 퍼뜨린다. 그래도 지속 성능과 사용 시간은 같은 세대 일반 플래그십보다 불리한 경우가 많다.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 7. 파레토 -->
+  <section id="pareto">
+    <h2>파레토 전선: 더 좋은 설계 vs 다른 설계</h2>
+    <p>설계 변수를 무작위로 수천 번 뽑아 각각을 평가하면 '설계 공간'이 점구름으로 보인다. 그 가장자리, 즉 <b>같은 무게에서 사용 시간이 가장 긴 설계들</b>을 이은 선이 <span class="term">파레토 전선</span><span class="en">(Pareto front)</span>이다. 전선 안쪽의 설계는 무게와 사용 시간 둘 다에서 개선할 여지가 있는 '열등한' 설계이고, 전선 위의 설계끼리는 우열이 아니라 <b>우선순위의 차이</b>다.</p>
+    <div class="sim" id="sim-par">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>무작위 설계 3,000개: 사용 시간 vs 무게</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-par"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>점 색</span><div class="seg" id="par-col"><button data-value="cost" class="on">원가</button><button data-value="cam">카메라</button><button data-value="perf">지속 성능</button></div></div>
+          <div class="ctrl"><span>최대 원가 필터 <output id="par-max-out"></output></span><input type="range" id="par-max" min="150" max="650" step="10" value="650"></div>
+          <label class="check"><input type="checkbox" id="par-front" checked> 파레토 전선 표시</label>
+          <button class="btn" id="par-regen">다시 뽑기</button>
+          <p style="margin:0;font-size:13px;color:var(--text-dim)">점을 클릭하면 그 설계가 플레이그라운드로 불러와진다. 큰 주황 점 = 현재 설계.</p>
+        </div>
+      </div>
+      <div class="mx-info" id="par-info" style="padding:12px 18px;border-top:1px solid var(--border);font-size:14px;min-height:3.2em">—</div>
+      <div class="sim-note">해볼 것: 원가 필터를 $250으로 내리면 전선이 어떻게 물러나는지 보자. '카메라' 색으로 바꾸면 좋은 카메라 설계가 대부분 전선 오른쪽 아래(무겁고 사용 시간이 덜한 쪽)에 몰려 있음을 볼 수 있다. 카메라도 무게와 부피를 먹는다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 8. 열 -->
+  <section id="thermal">
+    <h2>열과 지속 성능: 시간 축으로 보기</h2>
+    <p>플레이그라운드의 '지속 성능'은 정상 상태 값이다. 실제로는 폰의 <b>열용량</b>(무게 × 비열) 덕분에 처음 몇 분은 피크 성능을 내다가, 표면이 한계 온도에 닿으면 스로틀링이 시작된다(<a href="thermal.html">11장</a>). 1차 RC 열 회로로 보면</p>
+    <div class="formula">$$C\,\frac{dT_s}{dt} = P(t) - \frac{T_s - T_a}{R},\qquad R = \frac{1}{\eta h A},\quad C \approx m\,c_p,\ c_p\approx0.85\ \text{J/g·K}$$
+      <div class="where">표면 온도 \(T_s\)가 43 °C에 닿으면 거버너가 AP 전력을 줄여 \(T_s\)를 유지한다. 시정수 \(\tau=RC\)는 대략 수 분~10분대.</div></div>
+    <div class="sim" id="sim-heat">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>30분 게임: 온도와 성능 (현재 설계 기준)</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-heat"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>부하</span><div class="seg" id="ht-load"><button data-value="game" class="on">3D 게임</button><button data-value="bench">벤치마크</button><button data-value="video">4K 녹화</button></div></div>
+          <label class="ctrl"><span>주변 온도 <output id="ht-amb-out"></output></span><input type="range" id="ht-amb" min="10" max="40" step="1" value="25"></label>
+          <label class="check"><input type="checkbox" id="ht-case"> 두꺼운 케이스(열저항 +30 %)</label>
+          <label class="check"><input type="checkbox" id="ht-chg"> 충전하면서 사용(+1.5 W)</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">스로틀 시작</span><span class="v" id="ht-o-t">—</span></div>
+        <div class="stat"><span class="k">30분 후 성능</span><span class="v" id="ht-o-p">—</span></div>
+        <div class="stat"><span class="k">열 시정수 RC</span><span class="v" id="ht-o-tau">—</span></div>
+        <div class="stat"><span class="k">30분 소모 배터리</span><span class="v" id="ht-o-e">—</span></div>
+      </div>
+      <div class="sim-note">한계 표면 온도 43 °C. 해볼 것: 주변 35 °C 여름날에는 스로틀이 훨씬 빨리 오고 성능이 크게 떨어진다. 충전하면서 게임하면 충전 회로의 발열까지 더해진다(6장).</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 9. 전력 -->
+  <section id="power">
+    <h2>전력 예산: 사용 시간은 어디로 새나</h2>
+    <p>같은 배터리라도 쓰는 방식에 따라 사용 시간이 세 배 이상 달라진다. 화면 밝기, 네트워크 종류, 주사율이 소비 전력의 큰 몫을 정한다. 아래는 현재 설계의 배터리로 계산한 전력 분해다.</p>
+    <div class="sim" id="sim-pw">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>부품별 전력 분해와 사용 시간</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-pw"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>화면 밝기 <output id="pw-nit-out"></output></span><input type="range" id="pw-nit" min="50" max="1500" step="10" value="250"></label>
+          <div class="ctrl"><span>콘텐츠</span><div class="seg" id="pw-app"><button data-value="read" class="on">읽기·SNS</button><button data-value="video">동영상</button><button data-value="game">게임</button><button data-value="cam">카메라</button></div></div>
+          <div class="ctrl"><span>네트워크</span><div class="seg" id="pw-net"><button data-value="wifi">Wi‑Fi</button><button data-value="lte">LTE</button><button data-value="5g" class="on">5G</button><button data-value="weak">5G 약전계</button></div></div>
+          <div class="ctrl"><span>주사율</span><div class="seg" id="pw-hz"><button data-value="60">60 Hz 고정</button><button data-value="120">120 Hz 고정</button><button data-value="adapt" class="on">가변(LTPO)</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">총 전력</span><span class="v" id="pw-o-p">—</span></div>
+        <div class="stat"><span class="k">이 상태로 사용 시간</span><span class="v" id="pw-o-h">—</span></div>
+        <div class="stat"><span class="k">가장 큰 소비처</span><span class="v" id="pw-o-top">—</span></div>
+      </div>
+      <div class="sim-note">약전계(셀 경계, 지하)에서는 PA 출력과 재전송이 늘어 모뎀·RF 전력이 몇 배로 커진다(7장). LTPS 패널에서 '가변'을 고르면 60–120 Hz 사이 전환만 하는 것으로 계산한다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 10. 검증 -->
+  <section id="verify">
+    <h2>검증: EVT·DVT·PVT와 인증</h2>
+    <p>설계가 끝나면 시제품을 만들어 검증한다. 단계마다 목적이 다르다. <b>EVT</b><span class="en">(Engineering Validation Test)</span>는 '기능이 되는가', <b>DVT</b><span class="en">(Design Validation Test)</span>는 '설계가 모든 사양·신뢰성·인증을 만족하는가', <b>PVT</b><span class="en">(Production Validation Test)</span>는 '양산 라인에서 같은 품질로 대량으로 만들 수 있는가'를 확인한다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 640 250" role="img" aria-label="검증 단계별 시험">
+        <rect x="20" y="20" width="190" height="210" rx="12" class="f-acc-soft"/>
+        <rect x="225" y="20" width="190" height="210" rx="12" class="f-acc2-soft"/>
+        <rect x="430" y="20" width="190" height="210" rx="12" class="f-surface"/>
+        <text x="115" y="48" text-anchor="middle" class="t-acc">EVT</text>
+        <text x="320" y="48" text-anchor="middle" class="t" style="fill:var(--accent-2);font-weight:700">DVT</text>
+        <text x="525" y="48" text-anchor="middle" class="t" style="font-weight:700">PVT</text>
+        <g class="t-dim">
+          <text x="34" y="80" class="t-dim">· 전원·부팅·통신</text><text x="34" y="104" class="t-dim">· 화면·카메라 동작</text><text x="34" y="128" class="t-dim">· 1차 열·안테나 측정</text><text x="34" y="152" class="t-dim">· 회로 수정(리스핀)</text><text x="34" y="176" class="t-dim">· 수십~수백 대</text>
+          <text x="239" y="80" class="t-dim">· 낙하·굽힘·텀블</text><text x="239" y="104" class="t-dim">· IP68, 온습도, 염수</text><text x="239" y="128" class="t-dim">· SAR·EMC·무선 인증</text><text x="239" y="152" class="t-dim">· 배터리 안전(UN38.3)</text><text x="239" y="176" class="t-dim">· 수백~수천 대</text>
+          <text x="444" y="80" class="t-dim">· 실제 양산 라인·지그</text><text x="444" y="104" class="t-dim">· 공정 능력 Cpk</text><text x="444" y="128" class="t-dim">· 수율·택트 타임</text><text x="444" y="152" class="t-dim">· 출하 검사 기준</text><text x="444" y="176" class="t-dim">· 수천 대 이상</text>
+        </g>
+        <text x="320" y="214" text-anchor="middle" class="t-mono">설계 변경 비용: EVT ≪ DVT ≪ PVT ≪ 출시 후 리콜</text>
+      </svg>
+      <figcaption><b>그림 13-4.</b> 검증 단계별 주요 활동. 금형(사출·프레스)과 CNC 지그는 DVT 전후로 확정되므로 그 이후의 기구 변경은 비싸고 느리다.</figcaption>
+    </figure>
+    <div class="table-wrap"><table>
+      <thead><tr><th>인증·규제</th><th>무엇을 보나</th><th>설계 영향</th></tr></thead>
+      <tbody>
+        <tr><td><b>FCC</b>(미국) / <b>CE·RED</b>(EU)</td><td>무선 송신 출력, 불요 방사(스퓨리어스), EMC</td><td>RF 필터·차폐 캔, 클록 스펙트럼 확산, 케이블 배선</td></tr>
+        <tr><td><b>SAR</b></td><td>인체 흡수 전력(미국 1.6 W/kg·1 g 평균, EU 2.0 W/kg·10 g 평균, 머리·몸 기준)</td><td>안테나 위치, 근접 센서로 출력 낮추기(백오프), 다중 안테나 시분할</td></tr>
+        <tr><td><b>배터리 안전</b> (IEC 62133, UN38.3)</td><td>과충전·단락·압괴·운송 시험</td><td>보호 회로, 셀 고정, 스웰링 공간</td></tr>
+        <tr><td><b>보청기 호환(HAC)</b>, 접근성</td><td>수화부 자기장, 간섭</td><td>리시버 설계, 자석 배치</td></tr>
+        <tr><td><b>환경·수리성</b> (RoHS, REACH, 에코디자인)</td><td>유해 물질, 부품 공급, 배터리 교체</td><td>재료 선택, 접착 방식, 모듈화</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============================================================ 11. 체크리스트 -->
+  <section id="checklist">
+    <h2>설계 체크리스트</h2>
+    <p>경험 많은 팀은 같은 실수를 반복하지 않기 위해 체크리스트를 쓴다. 아래 항목은 앞 장들의 '설계 시 무엇이 중요한가'를 모은 것이다. 오른쪽 배지는 <b>현재 플레이그라운드 설계</b>를 자동 점검한 결과다(모델이 판단할 수 있는 항목만). 확인한 항목은 체크해 두자.</p>
+    <div class="sim" id="sim-ck">
+      <div class="sim-head"><span class="sim-tag">CHECK</span><h3>스마트폰 설계 점검표</h3></div>
+      <div class="ck-prog"><i id="ck-bar"></i></div>
+      <div style="padding:6px 18px 0;font-size:13px;color:var(--text-dim)" id="ck-sum">—</div>
+      <div class="ck-list" id="ck-list"></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 12. 결론 -->
+  <section id="good">
+    <h2>좋은 스마트폰 설계란</h2>
+    <p>플레이그라운드를 만지다 보면 깨닫게 된다. 모든 지표를 최대로 만드는 설계는 없다. 좋은 설계는 다음 네 가지를 갖춘다.</p>
+    <div class="flow">
+      <div><b>명확한 우선순위</b>누구를 위한 폰인지 정하고, 그 사용자가 매일 느끼는 지표(사용 시간, 무게, 카메라)에 자원을 몰아준다.</div>
+      <div><b>파레토 전선 위</b>같은 비용·무게로 더 나은 대안이 없는 설계. 버려지는 부피, 쓸데없는 무게, 쓰이지 않는 성능이 없다.</div>
+      <div><b>여유(margin)</b>열·공차·노화·낙하·약전계처럼 최악의 조건에서도 버틴다. 신품 시험만 통과하는 설계는 2년 뒤 실패한다.</div>
+      <div><b>시스템으로 생각</b>배터리 0.1 mm, 안테나 분할선 1 mm, 열 0.5 W가 서로 연결되어 있음을 알고 부품 경계를 넘어 최적화한다.</div>
+    </div>
+    <p>스마트폰은 인류가 가장 많이 만든 정밀 기계 중 하나다. 10억 대가 넘는 기기가 매년 출하되고, 그 하나하나가 수백 개의 트레이드오프 끝에 나온 답이다. 이제 폰을 손에 쥐면, 그 무게와 두께, 카메라 범프의 높이, 뜨거워지는 위치 속에서 설계자들의 선택이 보일 것이다.</p>
+    <div class="callout tip"><strong>더 공부하려면</strong>
+      <p>각 부품의 깊은 이야기는 앞 장들에 있다: <a href="anatomy.html">1장 해부</a>, <a href="display.html">2장 디스플레이</a>, <a href="soc.html">3장 AP</a>, <a href="board.html">4장 보드</a>, <a href="battery.html">5장 배터리</a>, <a href="power.html">6장 전력</a>, <a href="rf.html">7장 안테나</a>, <a href="camera.html">8장 카메라</a>, <a href="sensors.html">9장 센서</a>, <a href="audio.html">10장 오디오</a>, <a href="thermal.html">11장 열</a>, <a href="mechanical.html">12장 기구</a>. 카메라 센서 설계는 자매 사이트 <a href="https://sensorbook.euiyun.com/chapters/design.html">SensorBook의 센서 설계 플레이그라운드</a>에서 더 깊게 다룬다.</p>
+    </div>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>스마트폰 개발은 제품 정의 → 아키텍처 → 부피 예산 → 상세 설계 → EVT·DVT·PVT → 양산으로 흐르며, 검증 결과가 앞 단계로 되돌아간다. 늦게 발견한 문제일수록 비싸다.</li>
+      <li>배터리는 '남는 공간'을 차지한다. 두께 스택에서 0.1 mm를 아끼면 배터리 면적 50–65 cm² 기준 약 90–110 mAh가 생긴다.</li>
+      <li>두께를 줄이면 배터리 용량, 카메라 범프, 지속 성능(표면적·열용량), 강성이 함께 나빠진다. 1 mm 얇게의 대가는 대략 배터리 −10–20 %, 범프 +1 mm, 강성 −30 %.</li>
+      <li>지속 성능은 표면적 × 열 확산 효율 × 허용 온도 차로 정해지는 3–6 W의 열 예산이 결정한다. AP 피크 성능만으로는 게임 성능을 알 수 없다.</li>
+      <li>화면 밝기·네트워크 상태·주사율이 사용 시간을 크게 바꾼다. 디스플레이와 모뎀이 대개 가장 큰 소비처다.</li>
+      <li>무작위 설계의 파레토 전선은 '열등한 설계'와 '다른 우선순위의 설계'를 구분해 준다. 좋은 설계는 전선 위에서 우선순위에 맞는 점을 고른 것이다.</li>
+      <li>체크리스트(열·안테나·낙하·방수·EMI·인증·수리성)와 충분한 여유가 '시험 통과'와 '오래 쓰는 폰'을 가른다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>Q1. DVT 단계의 주된 목적은?</p><div class="opts">
+        <button class="opt">회로가 처음으로 부팅되는지 확인</button><button class="opt" data-correct>설계가 사양·신뢰성(낙하·방수)·인증을 모두 만족하는지 검증</button><button class="opt">양산 라인의 택트 타임과 수율 확인</button><button class="opt">제품 콘셉트와 가격대 결정</button>
+      </div><div class="quiz-exp">EVT는 기능, DVT는 설계(신뢰성·인증 포함), PVT는 양산 공정 검증이다.</div></div>
+      <div class="quiz-q"><p>Q2. 배터리 면적이 50 cm²일 때 커버 유리를 0.1 mm 얇게 해 그만큼 배터리를 두껍게 하면, 680 Wh/L·3.87 V 기준 늘어나는 용량은?</p><div class="opts">
+        <button class="opt">약 9 mAh</button><button class="opt" data-correct>약 90 mAh</button><button class="opt">약 900 mAh</button><button class="opt">변화 없음</button>
+      </div><div class="quiz-exp">50 cm² × 0.01 cm = 0.5 cm³ → 0.34 Wh → 0.34/3.87 ≈ 0.088 Ah ≈ 88 mAh. 면적이 60×80 mm(48 cm²)급이면 비슷하다. 면적이 더 넓은 큰 폰일수록 0.1 mm의 가치가 커진다.</div></div>
+      <div class="quiz-q"><p>Q3. 같은 AP를 쓰는 두 폰 중 지속 게임 성능이 더 좋을 가능성이 높은 것은?</p><div class="opts">
+        <button class="opt">더 얇고 티타늄 프레임인 6.1″ 폰</button><button class="opt" data-correct>더 크고 알루미늄 프레임·베이퍼 챔버가 있는 6.8″ 폰</button><button class="opt">배터리 용량이 큰 쪽(크기 무관)</button><button class="opt">피크 휘도가 높은 쪽</button>
+      </div><div class="quiz-exp">지속 가능 전력 \(P_{\text{sus}}=\eta h A\Delta T\)는 표면적 \(A\)와 열 확산 효율 \(\eta\)에 비례한다. 큰 폰, 열전도 좋은 프레임, 베이퍼 챔버가 유리하다.</div></div>
+      <div class="quiz-q"><p>Q4. 메인 센서를 1/1.3″에서 1″형으로 키우면 두께가 같을 때 주로 무엇이 일어나나?</p><div class="opts">
+        <button class="opt">렌즈 전장이 짧아져 범프가 줄어든다</button><button class="opt" data-correct>렌즈 전장(TTL)이 센서 대각에 비례해 길어져 카메라 범프가 커진다</button><button class="opt">무게가 줄어든다</button><button class="opt">배터리 용량이 늘어난다</button>
+      </div><div class="quiz-exp">같은 화각이면 초점 거리와 렌즈 전장이 센서 대각에 비례한다. 대각 12.3 → 15.9 mm면 TTL이 2 mm 이상 늘어 범프로 나온다(8장).</div></div>
+      <div class="quiz-q"><p>Q5. 파레토 전선 위에 있는 두 설계 A(가볍고 사용 시간 짧음)와 B(무겁고 사용 시간 김)에 대한 설명으로 옳은 것은?</p><div class="opts">
+        <button class="opt">A가 B보다 열등하다</button><button class="opt">B가 A보다 열등하다</button><button class="opt" data-correct>둘 다 열등하지 않으며 우선순위의 차이일 뿐이다</button><button class="opt">둘 다 전선 안쪽 설계보다 나쁘다</button>
+      </div><div class="quiz-exp">파레토 최적 설계끼리는 한 지표를 개선하려면 다른 지표를 희생해야 한다. 어느 쪽이 '좋은가'는 제품 정의(우선순위)가 정한다.</div></div>
+      <div class="quiz-q"><p>Q6. 약전계(신호가 약한 곳)에서 배터리가 빨리 닳는 주된 이유는?</p><div class="opts">
+        <button class="opt">화면 밝기가 자동으로 올라가서</button><button class="opt" data-correct>PA 송신 출력과 재전송·탐색이 늘어 모뎀·RF 전력이 커져서</button><button class="opt">GPS가 꺼져서</button><button class="opt">배터리 내부 저항이 갑자기 커져서</button>
+      </div><div class="quiz-exp">기지국까지 경로 손실이 크면 단말 송신 출력을 최대 수준(~23 dBm 이상)까지 올리고, 연결이 끊겼다 이어지며 탐색·재전송이 늘어난다(7장).</div></div>
+      <div class="quiz-q"><p>Q7. SAR 규제를 만족시키기 위한 설계 수단이 아닌 것은?</p><div class="opts">
+        <button class="opt">안테나를 머리에서 먼 하단에 배치</button><button class="opt">근접 센서로 몸에 닿을 때 송신 출력 낮추기</button><button class="opt" data-correct>배터리 용량을 늘리기</button><button class="opt">여러 안테나를 번갈아 써서 흡수 지점 분산</button>
+      </div><div class="quiz-exp">SAR는 인체에 흡수되는 RF 전력이다. 배터리 용량과는 직접 관계가 없다.</div></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const F = PB.fmt;
+  const font = () => getComputedStyle(document.body).getPropertyValue("--font");
+  const mono = () => getComputedStyle(document.body).getPropertyValue("--mono");
+  function alpha(c, a) {
+    c = (c || "").trim();
+    if (c[0] === "#") { let h = c.slice(1); if (h.length === 3) h = h.split("").map((x) => x + x).join(""); const n = parseInt(h, 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; }
+    const m = c.match(/rgba?\(([^)]+)\)/); if (m) { const p = m[1].split(",").map((s) => s.trim()); return `rgba(${p[0]},${p[1]},${p[2]},${a})`; }
+    return c;
+  }
+  function txt(ctx, s, x, y, o = {}) {
+    ctx.font = (o.bold ? "700 " : "") + (o.size || 12) + "px " + (o.mono ? mono() : font());
+    ctx.fillStyle = o.color || PB.color("text-dim"); ctx.textAlign = o.align || "left"; ctx.textBaseline = o.base || "alphabetic";
+    ctx.fillText(s, x, y);
+  }
+  function lazy(el, fn) {
+    if (!window.IntersectionObserver) return fn();
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); fn(); } }, { rootMargin: "300px" });
+    io.observe(el);
+  }
+  const SERIES = () => { const p = PB.palette(); return [p.accent, p.accent2, PB.color("blue"), p.ok, p.warn, p.bad, "#8e6bd8", p.dim, p.faint]; };
+  /* ============================================================ 모델 */
+  const TIER = {
+    budget: { n: "보급", eff: 1.3, demand: 3.5, peak: 40, board: 1700, mboard: 16, ap: 25, mem: 25, rf: 18, pcb: 18, aud: 8, asm: 12, isp: 0, vc: false },
+    upper: { n: "상급", eff: 1.1, demand: 4.5, peak: 68, board: 1600, mboard: 17, ap: 65, mem: 45, rf: 30, pcb: 24, aud: 12, asm: 15, isp: 4, vc: true },
+    flag: { n: "플래그십", eff: 1.0, demand: 5.5, peak: 100, board: 1550, mboard: 19, ap: 150, mem: 75, rf: 40, pcb: 30, aud: 16, asm: 18, isp: 8, vc: true },
+  };
+  const SENSOR = { s: { n: "1/2″", diag: 8.0, area: 150, m: 4, cost: 5, sc: 40 }, m: { n: "1/1.56″", diag: 10.2, area: 200, m: 6, cost: 10, sc: 58 }, l: { n: "1/1.3″", diag: 12.3, area: 280, m: 9, cost: 18, sc: 75 }, xl: { n: "1″형", diag: 15.9, area: 380, m: 13, cost: 30, sc: 88 } };
+  const FRAMEM = { al: { n: "알루미늄", rho: 2.8, rail: 1.3, cost: 10, eta: 0.08 }, ti: { n: "티타늄", rho: 4.43, rail: 1.3, cost: 32, eta: 0 }, pc: { n: "플라스틱", rho: 1.43, rail: 2.0, cost: 4, eta: -0.05 } };
+  const A61 = 64.9 * 140.6;
+  function evaluate(d) {
+    const k = Math.sqrt(81 + 380.25), D = d.size * 25.4;
+    const sw = (D * 9) / k, sh = (D * 19.5) / k, W = sw + 5.5, L = sh + 6.2, T = d.thick;
+    const As = sw * sh, rel = As / A61;
+    const Vbody = (0.96 * W * L * T) / 1000;
+    const tier = TIER[d.tier], sen = SENSOR[d.sensor], fm = FRAMEM[d.frame];
+    // cameras
+    const nc = d.cams, peri = d.peri && nc >= 3;
+    const cams = [{ n: "메인", area: sen.area, m: sen.m, cost: sen.cost }];
+    if (nc >= 2) cams.push({ n: "초광각", area: 110, m: 3, cost: 5 });
+    if (nc >= 3) cams.push(peri ? { n: "잠망경", area: 380, m: 8, cost: 18 } : { n: "망원", area: 120, m: 3.5, cost: 7 });
+    if (nc >= 4) cams.push(peri ? { n: "망원", area: 120, m: 3.5, cost: 7 } : { n: "보조", area: 90, m: 2, cost: 4 });
+    const camArea = cams.reduce((a, c) => a + c.area, 0);
+    const camMass = cams.reduce((a, c) => a + c.m, 0);
+    const Hcam = 0.62 * sen.diag + 1.3;
+    const Hmax = Math.max(Hcam, peri ? 6.6 : 0);
+    const bump = Math.max(0.7, Hmax - (T - 1.55)) + 0.3;
+    // battery
+    const tb = T - 3.05 - (d.wc ? 0.45 : 0);
+    const Ain = (W - 3) * (L - 3);
+    const Afree = Ain - tier.board - camArea - 850 - 0.06 * Ain;
+    const Vmax = Math.max(0, (Afree * tb) / 1000);
+    const Vreq = d.batt * Vbody;
+    const Vb = Math.min(Vreq, Vmax);
+    const Wh = 0.68 * Vb, mAh = (Wh / 3.87) * 1000;
+    // mass
+    const perim = 2 * (W + L) - 8 * 10.5 + 2 * Math.PI * 10.5;
+    const mDisp = As * 0.0027, mBack = (W * L * 0.6 * 2.5) / 1000;
+    const mRail = (perim * T * fm.rail * fm.rho) / 1000, mMid = (Ain * 0.45 * 2.8 * 0.7) / 1000;
+    const mFrame = mRail + mMid;
+    const mBatt = Wh / 0.28;
+    const mWc = d.wc ? 6 : 0, mMisc = 14 + (tier.vc ? 3 : 0);
+    const mass = mDisp + mBack + mFrame + mBatt + tier.mboard + camMass + mWc + mMisc;
+    // power
+    const ltpo = d.disp === "ltpo";
+    const pd = (nit, kl) => rel * (0.12 + 0.00115 * nit) * (ltpo ? kl : 1);
+    const base = 0.12;
+    const sc = {
+      video: pd(200, 0.95) + 0.25 * tier.eff + 0.15 + base,
+      web: pd(250, 0.8) + 0.7 * tier.eff + 0.6 + base,
+      nav: pd(Math.min(d.peak, 1000), 0.9) + 0.5 * tier.eff + 0.5 + 0.15 + base,
+    };
+    // thermal
+    const Asurf = (2 * W * L + 2 * (W + L) * T) * 1e-6;
+    const eta = 0.55 + (tier.vc ? 0.12 : 0) + fm.eta + (T - 8) * 0.01;
+    const Psus = eta * 12 * Asurf * 18;
+    const pdGame = pd(300, 1);
+    const apSus = Math.max(0.3, Psus - pdGame - 0.4);
+    const ratio = Math.min(1, apSus / tier.demand);
+    const perfSus = tier.peak * Math.pow(ratio, 0.6);
+    sc.game = pdGame + Math.min(tier.demand, apSus) + 0.4 + base;
+    const hours = {}; Object.keys(sc).forEach((k) => (hours[k] = (0.92 * Wh) / sc[k]));
+    const Pmix = 0.4 * sc.web + 0.35 * sc.video + 0.15 * sc.nav + 0.1 * sc.game;
+    const sot = (0.92 * Wh) / Pmix;
+    // camera score
+    let cam = sen.sc + (nc >= 2 ? 6 : 0) + (nc >= 3 ? (peri ? 14 : 6) : 0) + (nc >= 4 ? 3 : 0) + tier.isp;
+    cam = Math.min(100, cam);
+    // cost
+    const bom = {
+      "디스플레이": (ltpo ? 45 : 30) * rel + Math.max(0, (d.peak - 1500) / 1000) * 6,
+      "AP": tier.ap, "메모리·저장": tier.mem, "모뎀·RF": tier.rf,
+      "카메라": cams.reduce((a, c) => a + c.cost, 0),
+      "배터리": 0.45 * Wh, "프레임·유리": fm.cost * (0.85 + 0.15 * rel) + 9,
+      "보드·전원": tier.pcb + (tier.vc ? 3 : 0) + (d.wc ? 6 : 0), "오디오·센서·기타": tier.aud + 10, "조립·시험": tier.asm,
+    };
+    const cost = Object.values(bom).reduce((a, b) => a + b, 0);
+    // volumes (cm3)
+    const vol = {
+      "배터리": Vb, "화면+커버": (As * 1.35) / 1000, "프레임": (perim * T * fm.rail + Ain * 0.45) / 1000,
+      "보드": (tier.board * 3.2) / 1000, "카메라": (camArea * Math.min(Hmax, T - 1.55)) / 1000,
+      "하단 모듈": (850 * T * 0.75) / 1000, "후면 유리": (W * L * 0.6) / 1000, "무선충전": d.wc ? (50 * 55 * 0.45) / 1000 : 0,
+    };
+    const used = Object.values(vol).reduce((a, b) => a + b, 0);
+    vol["여유·기타"] = Math.max(0, Vbody - used);
+    // radar
+    const port = PB.clamp(100 - (mass - 140) * 0.6 - (T - 7) * 6 - bump * 2.5, 0, 100);
+    const radar = { perf: PB.clamp(0.4 * tier.peak + 0.6 * perfSus, 0, 100), batt: PB.clamp((sot / 13) * 100, 0, 100), cam, port, value: PB.clamp(100 - (cost - 140) / 4.5, 0, 100) };
+    return { d, W, L, T, sw, sh, As, rel, Vbody, Vb, Vreq, Vmax, tb, Afree, Wh, mAh, mass, parts: { "화면+커버": mDisp, "후면 유리": mBack, "프레임": mFrame, "배터리": mBatt, "보드": tier.mboard, "카메라": camMass, "무선충전": mWc, "기타": mMisc }, sc, hours, sot, Psus, apSus, ratio, perfSus, peak: tier.peak, bump, Hcam, cams, peri, cam, bom, cost, vol, radar, eta, Asurf, tier, limited: Vreq > Vmax + 1e-9 };
+  }
+
+  /* ============================================================ 1. 개발 흐름 */
+  (function () {
+    const INFO = [
+      ["제품 정의", "목표 고객·가격대·출시 시점과 핵심 사양(화면 크기, 카메라 구성, 배터리, 무게 목표)을 정한 제품 요구 문서(PRD)를 만든다. 경쟁 제품 분석과 '이번 세대의 한 가지 이야기'(예: 망원, 얇음, 배터리)를 고른다."],
+      ["아키텍처", "AP·모뎀·메모리 칩셋을 고르고, 보드 형태(단층/샌드위치), 카메라·배터리·스피커의 큰 배치, 프레임 재료와 하우징 구조를 정한다. 이 단계의 결정이 나머지를 거의 다 묶는다."],
+      ["부피 예산", "두께 스택과 평면 배치를 0.05 mm 단위로 나누는 '공간 협상'. 배터리·카메라·안테나 클리어런스·열 경로가 서로 자리를 다툰다. 3D CAD 위에서 부품 외곽(keep-out)을 확정한다."],
+      ["상세 설계", "회로도·PCB 레이아웃, 기구 3D 설계와 공차 해석, 안테나 튜닝, 열 시뮬레이션, 소프트웨어(드라이버·카메라 튜닝). 각 팀이 병렬로 일하며 매주 통합한다."],
+      ["EVT", "첫 실물 빌드. 전원이 들어오고 모든 기능이 동작하는지, 회로 실수가 없는지 본다. 보드 리스핀(재설계)이 흔하다. 열·안테나 1차 측정."],
+      ["DVT", "양산에 가까운 부품과 금형으로 만든 빌드로 낙하·방수·온습도·수명·EMC·SAR·무선 인증 시험을 한다. 대부분의 '설계 확정'이 여기서 이뤄진다."],
+      ["PVT", "실제 양산 라인·지그·작업자로 수천 대를 만들어 공정 능력(Cpk), 수율, 택트 타임을 확인한다. 출하 검사 기준과 수리 절차를 확정한다."],
+      ["양산 (MP)", "램프업. 초기 수율을 끌어올리며 생산량을 수백만 대 규모로 늘린다. 출시 후에도 현장 불량 데이터를 보고 공정·부품을 개선한다."],
+    ];
+    const st = [...document.querySelectorAll(".flow-svg .stage")];
+    st.forEach((g) => g.addEventListener("click", () => {
+      const k = +g.dataset.k; st.forEach((q) => q.classList.toggle("on", q === g));
+      $("flow-info").innerHTML = `<b class="hd">${INFO[k][0]}</b>${INFO[k][1]}`;
+    }));
+  })();
+
+  /* ============================================================ 2. 상호작용 지도 */
+  (function () {
+    const N = [
+      ["size", "화면 크기", 90, 70], ["thick", "두께", 90, 290], ["batt", "배터리", 320, 180], ["ap", "AP", 550, 70],
+      ["heat", "열", 550, 290], ["cam", "카메라", 210, 330], ["ant", "안테나", 440, 330], ["mass", "무게", 200, 50],
+      ["cost", "원가", 440, 30], ["time", "사용 시간", 600, 180], ["frame", "프레임 재료", 40, 180], ["disp", "디스플레이", 320, 50],
+    ];
+    const E = [
+      ["size", "batt", "화면이 커지면 평면적이 늘어 배터리 자리가 커진다(면적 ∝ D²)."],
+      ["size", "mass", "화면·유리·프레임 둘레가 함께 커져 무게가 늘어난다."],
+      ["size", "heat", "표면적이 커져 지속 가능한 발열(W)이 늘어난다."],
+      ["thick", "batt", "배터리 두께 = 두께 − 고정 층. 0.1 mm ≈ 90–110 mAh."],
+      ["thick", "cam", "두께가 얇을수록 카메라 범프가 커진다."],
+      ["thick", "heat", "측면적·열용량이 줄어 스로틀이 빨라진다."],
+      ["thick", "mass", "두꺼우면 프레임·배터리가 무거워진다."],
+      ["batt", "time", "사용 시간 ∝ Wh / 평균 전력."],
+      ["batt", "mass", "배터리는 단일 부품 중 가장 무겁다(~260–280 Wh/kg)."],
+      ["ap", "heat", "AP 피크 전력 5–12 W, 하지만 지속 가능한 것은 3–5 W."],
+      ["ap", "time", "공정·코어 효율이 경부하 전력을 정한다."],
+      ["ap", "cost", "플래그십 AP는 단일 부품으로 가장 비싸다."],
+      ["disp", "time", "디스플레이는 대부분의 시나리오에서 1–2위 소비처."],
+      ["disp", "cost", "LTPO·고휘도(탠덤) 패널은 비싸다."],
+      ["cam", "mass", "대형 센서·잠망경 모듈은 수십 g."],
+      ["cam", "cost", "카메라 모듈 합이 AP에 버금가는 경우도 있다."],
+      ["cam", "batt", "카메라가 평면적을 먹어 배터리가 작아진다."],
+      ["ant", "frame", "금속 프레임은 분할선으로 안테나가 된다. 재료가 손실을 바꾼다."],
+      ["ant", "cam", "카메라·금속 부품은 안테나 클리어런스를 깎는다."],
+      ["frame", "mass", "Ti는 Al보다 1.6배 무겁다."],
+      ["frame", "heat", "Al 열전도 ~150, Ti ~7 W/m·K."],
+      ["frame", "cost", "Ti는 가공 시간이 수 배."],
+      ["heat", "time", "뜨거우면 배터리 효율·수명이 나빠지고, 스로틀로 사용 경험이 떨어진다."],
+      ["batt", "cost", "셀 원가 ∝ Wh, 고속 충전·Si-C는 프리미엄."],
+    ];
+    const NS = "http://www.w3.org/2000/svg", eg = $("imap-e"), ng = $("imap-n"), pos = {};
+    const RING = ["size", "mass", "cost", "disp", "time", "ap", "heat", "ant", "cam", "thick", "frame"];
+    RING.forEach((id, i) => { const a = -Math.PI / 2 - 0.45 + (i * 2 * Math.PI) / RING.length; pos[id] = [320 + 266 * Math.cos(a), 180 + 140 * Math.sin(a)]; });
+    pos.batt = [320, 182];
+    N.forEach((n) => { n[2] = pos[n[0]][0]; n[3] = pos[n[0]][1]; });
+    const edges = E.map(([a, b, t]) => {
+      const l = document.createElementNS(NS, "path");
+      const [x1, y1] = pos[a], [x2, y2] = pos[b], mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = x2 - x1, dy = y2 - y1;
+      const k = a === "batt" || b === "batt" ? 0 : 0.16;
+      l.setAttribute("d", `M${x1.toFixed(1)} ${y1.toFixed(1)} Q${(mx - dy * k).toFixed(1)} ${(my + dx * k).toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`);
+      l.setAttribute("class", "edge"); l.style.fill = "none"; eg.appendChild(l); return { a, b, t, l };
+    });
+    const nodes = N.map(([id, name, x, y]) => {
+      const g = document.createElementNS(NS, "g"); g.setAttribute("class", "node");
+      const r = Math.max(34, name.length * 8 + 10);
+      g.innerHTML = `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.min(r, 36)}" /><text x="${x.toFixed(1)}" y="${(y + 5).toFixed(1)}" text-anchor="middle" class="t" style="font-size:${name.length > 4 ? 13 : 15}px">${name}</text>`;
+      ng.appendChild(g);
+      g.addEventListener("click", () => sel(id, name, g));
+      return g;
+    });
+    function sel(id, name, g) {
+      $("imap").classList.add("focus");
+      nodes.forEach((n) => n.classList.toggle("on", n === g));
+      const rel = edges.filter((e) => e.a === id || e.b === id);
+      edges.forEach((e) => e.l.classList.toggle("on", rel.includes(e)));
+      const nm = Object.fromEntries(N.map(([i, n]) => [i, n]));
+      $("imap-info").innerHTML = `<b class="hd">${name} — ${rel.length}개의 연결</b>` + rel.map((e) => `· <b>${nm[e.a === id ? e.b : e.a]}</b>: ${e.t}`).join("<br>");
+    }
+  })();
+
+  /* ============================================================ 3. 두께 스택 */
+  (function () {
+    const ids = ["sk-t", "sk-cg", "sk-dp", "sk-mp", "sk-bg", "sk-sw"];
+    const g = {}; ids.forEach((id) => (g[id] = PB.range(id, (v) => v.toFixed(2) + " mm", () => upd())));
+    $("sk-wc").addEventListener("change", () => upd());
+    const AREA = 60 * 80;
+    let st = {};
+    function upd() {
+      const T = g["sk-t"](), wc = $("sk-wc").checked ? 0.45 : 0;
+      const layers = [["커버 유리", g["sk-cg"](), "blue"], ["OLED", g["sk-dp"](), "accent"], ["미드플레이트", g["sk-mp"](), "text-faint"], ["스웰링 여유", g["sk-sw"](), "bad"]];
+      const fixedBot = [["무선충전", wc, "warn"], ["후면 유리", g["sk-bg"](), "blue"]];
+      const used = layers.concat(fixedBot).reduce((a, l) => a + l[1], 0) + 0.25; // 접착·폼 0.25
+      const tb = T - used;
+      const V = Math.max(0, (AREA * tb) / 1000), Wh = 0.68 * V, mAh = (Wh / 3.87) * 1000;
+      st = { T, layers, fixedBot, tb };
+      PB.stat("sk-o-t", `<span style="color:${tb < 3 ? "var(--bad)" : "var(--text)"}">${F(tb, 3)}</span><small>mm</small>`);
+      PB.stat("sk-o-v", F(V, 3) + "<small>cm³</small>");
+      PB.stat("sk-o-e", F(Wh, 3) + "<small>Wh</small> / " + Math.round(mAh).toLocaleString() + "<small>mAh</small>");
+      PB.stat("sk-o-mm", "+" + Math.round((AREA * 0.1 / 1000) * 0.68 / 3.87 * 1000) + "<small>mAh</small>");
+      cv.redraw();
+    }
+    const cv = PB.canvas($("cv-stack"), (ctx, w, h) => {
+      if (!st.layers) return;
+      const pal = PB.palette();
+      const top = 24, bot = h - 30, sc = (bot - top) / 10;
+      const x0 = Math.min(150, w * 0.32), x1 = w - 20;
+      let y = top, lastLab = -99;
+      const drawL = ([n, t, c], hatch) => {
+        const hh = t * sc; if (hh <= 0) return;
+        ctx.fillStyle = alpha(PB.color(c), hatch ? 0.18 : 0.45); ctx.fillRect(x0, y, x1 - x0, hh);
+        ctx.strokeStyle = alpha(PB.color(c), 0.9); ctx.strokeRect(x0 + 0.5, y + 0.5, x1 - x0 - 1, hh - 1);
+        const ly = Math.max(y + hh / 2 + 4, lastLab + 13); lastLab = ly;
+        txt(ctx, n + " " + t.toFixed(2), x0 - 8, ly, { align: "right", size: 11.5 });
+        y += hh;
+      };
+      st.layers.forEach((l, i) => drawL(l, i === 3));
+      y += 0.25 * sc * 0.5;
+      const tb = Math.max(0, st.tb), bh = tb * sc;
+      ctx.fillStyle = alpha(pal.accent2, 0.3); ctx.fillRect(x0, y, x1 - x0, bh); ctx.strokeStyle = pal.accent2; ctx.lineWidth = 2; ctx.strokeRect(x0 + 1, y + 1, x1 - x0 - 2, Math.max(0, bh - 2)); ctx.lineWidth = 1;
+      txt(ctx, "배터리 " + F(tb, 3) + " mm", (x0 + x1) / 2, y + bh / 2 + 5, { align: "center", size: 14, bold: true, color: pal.text });
+      y += bh + 0.25 * sc * 0.5;
+      st.fixedBot.forEach((l) => drawL(l, false));
+      // T marker
+      ctx.strokeStyle = pal.dim; ctx.beginPath(); ctx.moveTo(x0 - 4, top + st.T * sc); ctx.lineTo(x1, top + st.T * sc); ctx.stroke();
+      txt(ctx, "T = " + st.T.toFixed(2) + " mm (위 → 화면 쪽)", x1, top - 8, { align: "right", size: 11.5, mono: true });
+    }, { aspect: 0.62, minHeight: 300, maxHeight: 420 });
+    upd();
+  })();
+
+  /* ============================================================ 4. 플레이그라운드 */
+  const PRESETS = {
+    ultra: { size: 6.9, thick: 8.2, batt: 0.3, tier: "flag", disp: "ltpo", peak: 3000, cams: 4, sensor: "xl", peri: true, frame: "ti", wc: true },
+    compact: { size: 6.1, thick: 7.8, batt: 0.3, tier: "flag", disp: "ltpo", peak: 2500, cams: 3, sensor: "l", peri: false, frame: "al", wc: true },
+    thin: { size: 6.6, thick: 7.0, batt: 0.27, tier: "flag", disp: "ltpo", peak: 2500, cams: 1, sensor: "l", peri: false, frame: "ti", wc: true },
+    budget: { size: 6.7, thick: 8.4, batt: 0.33, tier: "budget", disp: "ltps", peak: 1200, cams: 3, sensor: "s", peri: false, frame: "pc", wc: false },
+    gaming: { size: 6.8, thick: 9.2, batt: 0.35, tier: "flag", disp: "ltps", peak: 2000, cams: 2, sensor: "m", peri: false, frame: "al", wc: false },
+  };
+  let D = Object.assign({}, PRESETS.compact), R = evaluate(D), REF = R;
+  const listeners = [];
+  const onDesign = (f) => listeners.push(f);
+  const ctl = {};
+  let loading = false;
+  ctl.size = PB.range("pg-size", (v) => v.toFixed(2) + "″", (v) => set("size", v));
+  ctl.thick = PB.range("pg-thick", (v) => v.toFixed(2) + " mm", (v) => set("thick", v));
+  ctl.batt = PB.range("pg-batt", (v) => Math.round(v * 1000) / 10 + " %", (v) => set("batt", v));
+  ctl.peak = PB.range("pg-peak", (v) => v.toLocaleString() + " nit", (v) => set("peak", v));
+  ctl.cams = PB.range("pg-cams", (v) => v + "개", (v) => set("cams", v));
+  ctl.frame = PB.seg("pg-frame", (v) => set("frame", v));
+  ctl.tier = PB.seg("pg-tier", (v) => set("tier", v));
+  ctl.disp = PB.seg("pg-disp", (v) => set("disp", v));
+  ctl.sensor = PB.seg("pg-sensor", (v) => set("sensor", v));
+  $("pg-wc").addEventListener("change", (e) => set("wc", e.target.checked));
+  $("pg-peri").addEventListener("change", (e) => set("peri", e.target.checked));
+  const presetBtns = [...document.querySelectorAll("#pg-presets .btn")];
+  presetBtns.forEach((b) => b.addEventListener("click", () => { presetBtns.forEach((q) => q.classList.toggle("on", q === b)); load(PRESETS[b.dataset.p], true); }));
+  function set(k, v) { if (loading) return; D[k] = v; if (!loading) presetBtns.forEach((q) => q.classList.remove("on")); update(); }
+  function load(p, asRef) {
+    loading = true;
+    D = Object.assign({}, p);
+    ctl.size.set(p.size); ctl.thick.set(p.thick); ctl.batt.set(p.batt); ctl.peak.set(p.peak); ctl.cams.set(p.cams);
+    ctl.frame.set(p.frame, false); ctl.tier.set(p.tier, false); ctl.disp.set(p.disp, false); ctl.sensor.set(p.sensor, false);
+    $("pg-wc").checked = p.wc; $("pg-peri").checked = p.peri;
+    loading = false;
+    if (asRef) REF = evaluate(D);
+    update();
+  }
+  window.__pgLoad = (p) => { presetBtns.forEach((q) => q.classList.remove("on")); load(p, false); };
+  function update() {
+    R = evaluate(D);
+    PB.stat("pg-o-mass", Math.round(R.mass) + "<small>g</small>");
+    PB.stat("pg-o-dim", `${Math.round(R.W)}×${Math.round(R.L)}×${R.T.toFixed(1)}<small>mm</small>`);
+    PB.stat("pg-o-bat", F(R.Wh, 3) + "<small>Wh</small> " + Math.round(R.mAh).toLocaleString() + "<small>mAh</small>");
+    PB.stat("pg-o-sot", F(R.sot, 3) + "<small>h</small>");
+    PB.stat("pg-o-perf", Math.round(R.perfSus) + " / " + R.peak + `<small>(${Math.round((R.perfSus / R.peak) * 100)}%)</small>`);
+    PB.stat("pg-o-psus", F(R.Psus, 3) + "<small>W</small>");
+    PB.stat("pg-o-bump", `<span style="color:${R.bump > 4 ? "var(--bad)" : R.bump > 2.8 ? "var(--warn)" : "var(--text)"}">${F(R.bump, 2)}</span><small>mm</small>`);
+    PB.stat("pg-o-bom", "$" + Math.round(R.cost));
+    const w = [];
+    if (R.limited) w.push(`⚠ 공간 부족: 요청한 배터리 ${F(R.Vreq, 3)} cm³ 중 ${F(R.Vmax, 3)} cm³만 들어간다(배터리 두께 한계 ${F(R.tb, 2)} mm). 두께를 늘리거나 카메라·무선충전을 줄여야 한다.`);
+    if (R.bump > 4) w.push(`⚠ 카메라 범프 ${F(R.bump, 2)} mm: 책상 위에서 흔들리고 케이스가 두꺼워진다. 센서를 줄이거나 두께를 늘리자.`);
+    if (R.mass > 225) w.push(`⚠ 무게 ${Math.round(R.mass)} g: 한 손 사용이 힘든 수준(220 g 이상).`);
+    if (R.ratio < 0.5) w.push(`⚠ 지속 가능한 AP 전력 ${F(R.apSus, 2)} W가 게임 부하 ${R.tier.demand} W의 절반 미만: 심한 스로틀링.`);
+    if (D.frame === "ti" && !R.tier.vc) w.push("⚠ 티타늄 프레임 + 베이퍼 챔버 없음: 열이 한곳에 몰려 핫스팟이 생긴다.");
+    if (D.peri && D.cams < 3) w.push("ℹ 잠망경은 카메라 3개 이상일 때만 들어간다(현재 무시됨).");
+    if (D.tier === "flag" && D.frame === "pc") w.push("ℹ 플래그십 AP + 플라스틱 프레임: 열 확산이 불리하다.");
+    if (R.tb < 3.4) w.push(`⚠ 배터리 두께 한계 ${F(R.tb, 2)} mm: 너무 얇은 셀은 Wh/L가 떨어지고 스웰링 여유도 빠듯하다.`);
+    $("pg-warn").innerHTML = w.map((s) => `<div>${s}</div>`).join("");
+    cvR.redraw(); cvT.redraw(); cvH.redraw(); cvB.redraw();
+    if (apply3d) apply3d();
+    listeners.forEach((f) => f());
+  }
+  // ---- 레이더
+  const RAD = [["perf", "성능"], ["batt", "사용 시간"], ["cam", "카메라"], ["port", "휴대성"], ["value", "원가"]];
+  const cvR = PB.canvas($("cv-radar"), (ctx, w, h) => {
+    const pal = PB.palette();
+    const cx = w / 2, cy = h / 2 + 12, r = Math.min(w, h) * 0.32;
+    const ang = (i) => -Math.PI / 2 + (i * 2 * Math.PI) / RAD.length;
+    ctx.strokeStyle = pal.grid; ctx.lineWidth = 1;
+    [0.25, 0.5, 0.75, 1].forEach((f) => { ctx.beginPath(); RAD.forEach((_, i) => { const x = cx + r * f * Math.cos(ang(i)), y = cy + r * f * Math.sin(ang(i)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.closePath(); ctx.stroke(); });
+    RAD.forEach(([k, n], i) => {
+      ctx.strokeStyle = pal.grid; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + r * Math.cos(ang(i)), cy + r * Math.sin(ang(i))); ctx.stroke();
+      const lx = cx + (r + 18) * Math.cos(ang(i)), ly = cy + (r + 18) * Math.sin(ang(i));
+      txt(ctx, n, lx, ly - 2, { align: Math.abs(Math.cos(ang(i))) < 0.2 ? "center" : Math.cos(ang(i)) > 0 ? "left" : "right", size: 12.5, color: pal.text, bold: true });
+      txt(ctx, String(Math.round(R.radar[k])), lx, ly + 13, { align: Math.abs(Math.cos(ang(i))) < 0.2 ? "center" : Math.cos(ang(i)) > 0 ? "left" : "right", size: 11.5, mono: true, color: pal.accent });
+    });
+    const poly = (rad, stroke, fill, dash) => {
+      ctx.beginPath(); RAD.forEach(([k], i) => { const f = PB.clamp(rad[k], 2, 100) / 100; const x = cx + r * f * Math.cos(ang(i)), y = cy + r * f * Math.sin(ang(i)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.closePath();
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); } ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.setLineDash(dash || []); ctx.stroke(); ctx.setLineDash([]);
+    };
+    poly(REF.radar, pal.dim, null, [5, 4]);
+    poly(R.radar, pal.accent, alpha(pal.accent, 0.22));
+  }, { aspect: 0.8, minHeight: 280, maxHeight: 380 });
+  // ---- 트리맵
+  function treemap(items, x, y, w, h, out) {
+    if (!items.length) return;
+    if (items.length === 1) { out.push(Object.assign({ x, y, w, h }, items[0])); return; }
+    const tot = items.reduce((a, b) => a + b.v, 0);
+    let acc = 0, k = 0;
+    while (k < items.length - 1 && acc + items[k].v < tot / 2) { acc += items[k].v; k++; }
+    if (k === 0) { acc = items[0].v; k = 1; }
+    const f = acc / tot, A = items.slice(0, k), B = items.slice(k);
+    if (w >= h) { treemap(A, x, y, w * f, h, out); treemap(B, x + w * f, y, w * (1 - f), h, out); }
+    else { treemap(A, x, y, w, h * f, out); treemap(B, x, y + h * f, w, h * (1 - f), out); }
+  }
+  const VCOL = { "배터리": "accent2", "화면+커버": "blue", "프레임": "dim", "보드": "ok", "카메라": "violet", "하단 모듈": "warn", "후면 유리": "faint", "무선충전": "bad", "여유·기타": "grid" };
+  const cvT = PB.canvas($("cv-tree"), (ctx, w, h) => {
+    const pal = PB.palette();
+    const cmap = { accent2: pal.accent2, blue: PB.color("blue"), dim: pal.dim, ok: pal.ok, violet: "#8e6bd8", warn: pal.warn, faint: pal.faint, bad: pal.bad, grid: pal.border };
+    const items = Object.entries(R.vol).filter(([, v]) => v > 0.05).map(([n, v]) => ({ n, v })).sort((a, b) => b.v - a.v);
+    const out = []; treemap(items, 10, 30, w - 20, h - 40, out);
+    const tot = R.Vbody;
+    out.forEach((b) => {
+      ctx.fillStyle = alpha(cmap[VCOL[b.n]] || pal.dim, b.n === "여유·기타" ? 0.5 : 0.55);
+      ctx.fillRect(b.x + 1, b.y + 1, b.w - 2, b.h - 2);
+      ctx.font = "700 12px " + font(); const tw = ctx.measureText(b.n).width; ctx.font = "11px " + mono(); const tw2 = ctx.measureText(F(b.v, 3) + " cm³ · 00%").width;
+      if (b.w > Math.max(tw, tw2) + 10 && b.h > 38) {
+        txt(ctx, b.n, b.x + 6, b.y + 17, { size: 12, color: pal.text, bold: true });
+        txt(ctx, F(b.v, 3) + " cm³ · " + Math.round((b.v / tot) * 100) + "%", b.x + 6, b.y + 32, { size: 11, mono: true, color: pal.text });
+      } else if (b.w > tw + 8 && b.h > 18) txt(ctx, b.n, b.x + 4, b.y + 14, { size: 11, color: pal.text });
+    });
+    txt(ctx, "외형 " + F(tot, 3) + " cm³", w - 10, 20, { align: "right", size: 11.5, mono: true });
+  }, { aspect: 0.8, minHeight: 280, maxHeight: 380 });
+  // ---- 사용 시간
+  const SCN = [["video", "동영상 (Wi‑Fi)"], ["web", "웹·SNS (5G)"], ["nav", "야외 내비"], ["game", "3D 게임"]];
+  const cvH = PB.canvas($("cv-hours"), (ctx, w, h) => {
+    const pal = PB.palette();
+    const rows = SCN.map(([k, n]) => [n, R.hours[k], REF.hours[k], R.sc[k]]).concat([["혼합(화면 켜짐)", R.sot, REF.sot, null]]);
+    const x0 = Math.min(130, w * 0.32), x1 = w - 60, top = 34, rh = (h - top - 14) / rows.length;
+    const max = 30;
+    rows.forEach(([n, v, ref, p], i) => {
+      const y = top + i * rh;
+      txt(ctx, n, x0 - 8, y + rh / 2 + 4, { align: "right", size: 12, color: pal.text });
+      ctx.fillStyle = pal.surface; ctx.fillRect(x0, y + rh * 0.2, x1 - x0, rh * 0.6);
+      ctx.fillStyle = i === rows.length - 1 ? pal.accent2 : pal.accent;
+      ctx.fillRect(x0, y + rh * 0.2, ((x1 - x0) * Math.min(v, max)) / max, rh * 0.6);
+      const rx = x0 + ((x1 - x0) * Math.min(ref, max)) / max;
+      ctx.strokeStyle = pal.text; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(rx, y + rh * 0.1); ctx.lineTo(rx, y + rh * 0.9); ctx.stroke(); ctx.setLineDash([]);
+      txt(ctx, F(v, 3) + " h", x1 + 6, y + rh / 2 + 2, { size: 12, mono: true, color: pal.text });
+      if (p) txt(ctx, F(p, 2) + " W", x1 + 6, y + rh / 2 + 15, { size: 10.5, mono: true });
+    });
+  }, { aspect: 0.62, minHeight: 240, maxHeight: 320 });
+  // ---- 무게·원가 구성
+  const cvB = PB.canvas($("cv-break"), (ctx, w, h) => {
+    const pal = PB.palette(), cols = SERIES();
+    const bar = (title, obj, unit, y, hh) => {
+      const ent = Object.entries(obj).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+      const tot = ent.reduce((a, b) => a + b[1], 0);
+      txt(ctx, title + " " + (unit === "$" ? "$" + Math.round(tot) : Math.round(tot) + " g"), 12, y - 6, { size: 12.5, bold: true, color: pal.text });
+      let x = 12; const W = w - 24;
+      ent.forEach(([n, v], i) => {
+        const ww = (W * v) / tot;
+        ctx.fillStyle = alpha(cols[i % cols.length], 0.7); ctx.fillRect(x, y, ww - 1, hh);
+        ctx.font = "11px " + font(); const need = Math.max(ctx.measureText(n).width, 30) + 8;
+        if (ww > need) { txt(ctx, n, x + 4, y + 15, { size: 11, color: pal.text }); txt(ctx, unit === "$" ? "$" + Math.round(v) : Math.round(v) + "g", x + 4, y + 29, { size: 10.5, mono: true, color: pal.text }); }
+        x += ww;
+      });
+      const small = ent.filter(([n, v]) => { ctx.font = "11px " + font(); return (W * v) / tot <= Math.max(ctx.measureText(n).width, 30) + 8; }).map(([n, v]) => `${n} ${unit === "$" ? "$" + Math.round(v) : Math.round(v) + "g"}`).join(" · ");
+      if (small) { ctx.save(); ctx.font = "11px " + font(); let s = small; while (ctx.measureText(s).width > W && s.length > 4) s = s.slice(0, -2); ctx.restore(); txt(ctx, s === small ? s : s + "…", 12, y + hh + 14, { size: 11 }); }
+    };
+    const hh = Math.min(40, (h - 124) / 2);
+    bar("무게", R.parts, "g", 52, hh);
+    bar("BOM", R.bom, "$", 52 + hh + 56, hh);
+  }, { aspect: 0.62, minHeight: 240, maxHeight: 320 });
+
+  // ---- 3D
+  let apply3d = null;
+  lazy($("v3d-pg"), function () {
+    const T = PB.three($("v3d-pg"), { camera: [150, 120, 190], target: [0, 0, 0], fov: 35, minDistance: 90, maxDistance: 420 });
+    if (!T) return;
+    const P = PB.phone3d(T);
+    P.highlight("battery");
+    const ex = PB.range("pg-ex", (v) => Math.round(v * 100) + " %", (v) => { P.setExplode(v); apply3d(); });
+    P.setExplode(ex());
+    const bat = P.byId.battery, cam = P.byId.cameras, fr = P.byId.frame, wcP = P.byId.wireless;
+    const bc = bat.localCenter.clone(), cc = cam.localCenter.clone();
+    const ring = fr.meshes[0].material;
+    const FR = { al: [0x9ea3ab, 0.88, 0.3], ti: [0x8c877f, 0.75, 0.38], pc: [0x2c3036, 0.05, 0.65] };
+    const CS = { s: 0.8, m: 0.9, l: 1.0, xl: 1.12 };
+    apply3d = function () {
+      const sx = R.W / 71.5, sz = R.L / 147, sy = R.T / 8;
+      P.group.scale.set(sx, sy, sz);
+      const tbEff = Math.max(0.5, R.Vb > 0 ? Math.min(R.tb, (R.Vb * 1000) / Math.max(1, R.Afree)) : 0.5);
+      const area = (R.Vb * 1000) / tbEff / (sx * sz);
+      const s = PB.clamp(Math.sqrt(area / (64.5 * 72)), 0.55, 1.25);
+      const ty = PB.clamp(tbEff / 4.35 / sy, 0.5, 1.35);
+      bat.group.scale.set(s, ty, s);
+      const c = CS[D.sensor];
+      cam.group.scale.setScalar(c);
+      P.setOffset("battery", { x: bc.x * (1 - s), y: bc.y * (1 - ty), z: bc.z * (1 - s) });
+      P.setOffset("cameras", { x: cc.x * (1 - c), y: cc.y * (1 - c), z: cc.z * (1 - c) });
+      const f = FR[D.frame]; ring.color.setHex(f[0]); ring.metalness = f[1]; ring.roughness = f[2];
+      wcP.group.children.forEach((o) => (o.visible = !!D.wc));
+    };
+    apply3d();
+  });
+
+  /* ============================================================ 5. 얇게 */
+  (function () {
+    const dd = PB.range("th-d", (v) => "−" + v.toFixed(2) + " mm", () => upd());
+    $("th-keep").addEventListener("change", () => upd());
+    function upd() {
+      const base = R, d0 = D;
+      const d1 = Object.assign({}, d0, { thick: Math.max(5, d0.thick - dd()) });
+      if ($("th-keep").checked) { let s = d1.size; for (let i = 0; i < 40; i++) { const r = evaluate(Object.assign({}, d1, { size: s })); if (r.Wh >= base.Wh || s >= 7.4) break; s += 0.02; } d1.size = s; }
+      const r = evaluate(d1);
+      const stiff = Math.pow(d1.thick / d0.thick, 2.5);
+      $("th-base").textContent = `기준: ${d0.size.toFixed(2)}″, ${d0.thick.toFixed(2)} mm → 얇은 안: ${d1.size.toFixed(2)}″, ${d1.thick.toFixed(2)} mm`;
+      const rows = [
+        ["배터리 에너지", base.Wh, r.Wh, "Wh", 1],
+        ["혼합 사용 시간", base.sot, r.sot, "h", 1],
+        ["지속 가능 전력", base.Psus, r.Psus, "W", 1],
+        ["지속 성능", base.perfSus, r.perfSus, "", 1],
+        ["카메라 범프", base.bump, r.bump, "mm", -1],
+        ["무게", base.mass, r.mass, "g", -1],
+        ["프레임 굽힘 강성", 1, stiff, "×", 1],
+        ["열용량(무게×비열)", base.mass * 0.85, r.mass * 0.85, "J/K", 1],
+        ["화면 크기", base.d.size, d1.size, "″", 0],
+      ];
+      st = rows;
+      $("th-tbl").innerHTML = `<thead><tr><th>항목</th><th class="num">기준</th><th class="num">얇은 안</th><th class="num">변화</th></tr></thead><tbody>` +
+        rows.map(([n, a, b, u, good]) => { const ch = (b - a) / Math.abs(a || 1) * 100; const cls = Math.abs(ch) < 0.5 || good === 0 ? "" : (ch > 0) === (good > 0) ? "up" : "dn"; return `<tr><td>${n}</td><td class="num">${F(a, 3)} ${u}</td><td class="num">${F(b, 3)} ${u}</td><td class="num ${cls}">${ch >= 0 ? "+" : ""}${F(ch, 2)} %</td></tr>`; }).join("") + "</tbody>";
+      cv.redraw();
+    }
+    let st = [];
+    const cv = PB.canvas($("cv-thin"), (ctx, w, h) => {
+      if (!st.length) return;
+      const pal = PB.palette();
+      const rows = st.filter((r) => r[4] !== 0);
+      const x0 = Math.min(140, w * 0.36), x1 = w - 16, mid = (x0 + x1) / 2, rh = (h - 40) / rows.length;
+      const max = 60;
+      txt(ctx, "기준 대비 변화(%)", mid, 18, { align: "center", size: 12, color: pal.text, bold: true });
+      ctx.strokeStyle = pal.axis; ctx.beginPath(); ctx.moveTo(mid, 26); ctx.lineTo(mid, h - 10); ctx.stroke();
+      [-50, -25, 25, 50].forEach((v) => { const x = mid + ((x1 - mid) * v) / max; ctx.strokeStyle = pal.grid; ctx.beginPath(); ctx.moveTo(x, 26); ctx.lineTo(x, h - 10); ctx.stroke(); txt(ctx, (v > 0 ? "+" : "") + v, x, h - 1, { align: "center", size: 10, mono: true }); });
+      rows.forEach(([n, a, b, u, good], i) => {
+        const ch = PB.clamp(((b - a) / Math.abs(a || 1)) * 100, -max, max);
+        const y = 30 + i * rh;
+        const ok = (ch > 0) === (good > 0);
+        ctx.fillStyle = alpha(Math.abs(ch) < 0.5 ? pal.dim : ok ? pal.ok : pal.bad, 0.75);
+        const xa = mid, xb = mid + ((x1 - mid) * ch) / max;
+        ctx.fillRect(Math.min(xa, xb), y + rh * 0.2, Math.abs(xb - xa), rh * 0.6);
+        txt(ctx, n, x0 - 6, y + rh / 2 + 4, { align: "right", size: 11.5, color: pal.text });
+      });
+    }, { aspect: 0.62, minHeight: 280, maxHeight: 380 });
+    onDesign(upd);
+    upd();
+  })();
+
+  /* ============================================================ 6. 파레토 */
+  (function () {
+    let pts = [], front = [], hover = null;
+    const colM = PB.seg("par-col", () => cv.redraw());
+    const maxC = PB.range("par-max", (v) => "$" + v, () => { computeFront(); cv.redraw(); });
+    $("par-front").addEventListener("change", () => cv.redraw());
+    $("par-regen").addEventListener("click", () => { gen(); cv.redraw(); });
+    const pick = (a) => a[Math.floor(Math.random() * a.length)];
+    function gen() {
+      pts = [];
+      for (let i = 0; i < 3000; i++) {
+        const d = { size: +(6.1 + Math.random() * 0.8).toFixed(2), thick: +(7 + Math.random() * 2.5).toFixed(2), batt: +(0.22 + Math.random() * 0.2).toFixed(3), tier: pick(["budget", "upper", "flag"]), disp: pick(["ltps", "ltpo"]), peak: 1000 + 100 * Math.floor(Math.random() * 21), cams: 1 + Math.floor(Math.random() * 4), sensor: pick(["s", "m", "l", "xl"]), peri: Math.random() < 0.4, frame: pick(["al", "ti", "pc"]), wc: Math.random() < 0.6 };
+        const r = evaluate(d);
+        pts.push({ d, m: r.mass, h: r.sot, c: r.cost, cam: r.cam, perf: r.perfSus });
+      }
+      computeFront();
+    }
+    function computeFront() {
+      const lim = maxC();
+      const ok = pts.filter((p) => p.c <= lim).sort((a, b) => a.m - b.m);
+      front = []; let best = -1;
+      ok.forEach((p) => { if (p.h > best) { best = p.h; front.push(p); } });
+    }
+    let C = null;
+    const cv = PB.canvas($("cv-par"), (ctx, w, h) => {
+      if (!pts.length) return;
+      const pal = PB.palette(), lim = maxC();
+      C = PB.chart(ctx, null, { x: [140, 260], y: [4, 16], xLabel: "무게 (g)", yLabel: "혼합 사용 시간 (h)" });
+      const mode = colM();
+      const col = (p) => {
+        const t = mode === "cost" ? PB.clamp((p.c - 150) / 450, 0, 1) : mode === "cam" ? PB.clamp((p.cam - 40) / 60, 0, 1) : PB.clamp((p.perf - 20) / 80, 0, 1);
+        return `hsla(${Math.round(190 - 170 * t)}, 70%, ${PB.isDark() ? 60 : 45}%, 0.55)`;
+      };
+      ctx.save(); ctx.beginPath(); ctx.rect(C.box.x, C.box.y, C.box.w, C.box.h); ctx.clip();
+      pts.forEach((p) => { if (p.c > lim) { ctx.fillStyle = alpha(pal.faint, 0.15); } else ctx.fillStyle = col(p); ctx.fillRect(C.X(p.m) - 1.6, C.Y(p.h) - 1.6, 3.2, 3.2); });
+      if ($("par-front").checked && front.length) {
+        ctx.strokeStyle = pal.text; ctx.lineWidth = 2; ctx.beginPath();
+        front.forEach((p, i) => (i ? ctx.lineTo(C.X(p.m), C.Y(p.h)) : ctx.moveTo(C.X(p.m), C.Y(p.h)))); ctx.stroke();
+        front.forEach((p) => { ctx.fillStyle = pal.text; ctx.beginPath(); ctx.arc(C.X(p.m), C.Y(p.h), 2.6, 0, 7); ctx.fill(); });
+      }
+      if (hover) { ctx.strokeStyle = pal.text; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(C.X(hover.m), C.Y(hover.h), 6, 0, 7); ctx.stroke(); }
+      ctx.fillStyle = pal.accent2; ctx.strokeStyle = pal.bg; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(C.X(R.mass), C.Y(R.sot), 7, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      // legend
+      const lx = C.box.x + C.box.w - 150, ly = C.box.y + 8;
+      for (let i = 0; i < 100; i++) { ctx.fillStyle = `hsl(${Math.round(190 - 170 * (i / 100))}, 70%, ${PB.isDark() ? 60 : 45}%)`; ctx.fillRect(lx + i * 1.4, ly, 1.5, 8); }
+      const lab = { cost: ["$150", "$600"], cam: ["카메라↓", "↑"], perf: ["성능↓", "↑"] }[mode];
+      txt(ctx, lab[0], lx - 4, ly + 8, { align: "right", size: 10.5 }); txt(ctx, lab[1], lx + 144, ly + 8, { size: 10.5 });
+    }, { aspect: 0.62, minHeight: 300, maxHeight: 460 });
+    function near(ev) {
+      if (!C) return null;
+      const r = cv.canvas.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, lim = maxC();
+      let best = null, bd = 100;
+      pts.forEach((p) => { if (p.c > lim) return; const d = (C.X(p.m) - x) ** 2 + (C.Y(p.h) - y) ** 2; if (d < bd) { bd = d; best = p; } });
+      return best;
+    }
+    const desc = (p) => `${p.d.size.toFixed(2)}″ · ${p.d.thick.toFixed(2)} mm · 배터리 ${Math.round(p.d.batt * 100)}% · ${TIER[p.d.tier].n} · ${p.d.disp.toUpperCase()} · 카메라 ${p.d.cams}개(${SENSOR[p.d.sensor].n}${p.d.peri && p.d.cams >= 3 ? ", 잠망경" : ""}) · ${FRAMEM[p.d.frame].n}${p.d.wc ? " · 무선충전" : ""} → <b>${Math.round(p.m)} g, ${F(p.h, 3)} h, $${Math.round(p.c)}</b>`;
+    cv.canvas.addEventListener("mousemove", (ev) => { const p = near(ev); if (p !== hover) { hover = p; cv.redraw(); if (p) $("par-info").innerHTML = "가리킨 설계: " + desc(p); } });
+    cv.canvas.addEventListener("click", (ev) => { const p = near(ev); if (!p) return; window.__pgLoad(p.d); $("par-info").innerHTML = "불러옴: " + desc(p) + ` <a href="#playground">플레이그라운드에서 보기 ↑</a>`; });
+    gen();
+    $("par-info").innerHTML = "점에 마우스를 올리거나 클릭해 보자.";
+    onDesign(() => cv.redraw());
+    cv.redraw();
+  })();
+
+  /* ============================================================ 7. 열 시간 응답 */
+  (function () {
+    const load = PB.seg("ht-load", () => run());
+    const amb = PB.range("ht-amb", (v) => v + " °C", () => run());
+    ["ht-case", "ht-chg"].forEach((id) => $(id).addEventListener("change", () => run()));
+    let sim = null;
+    function run() {
+      const r = R, Ta = amb();
+      const Rth = (1 / (r.eta * 12 * r.Asurf)) * ($("ht-case").checked ? 1.3 : 1);
+      const C = r.mass * 0.85;
+      const L = load();
+      const disp = r.rel * (0.12 + 0.00115 * 300);
+      const demand = L === "bench" ? r.tier.demand * 1.5 : L === "video" ? 2.2 + (r.tier.isp ? 0.3 : 0.8) : r.tier.demand;
+      const other = (L === "video" ? 0.9 : 0.4) + ($("ht-chg").checked ? 1.5 : 0);
+      const Tlim = 43, dt = 1, N = 1800;
+      let Ts = Ta + 2, E = 0, tThr = null;
+      const temp = [], perf = [];
+      for (let i = 0; i <= N; i++) {
+        let ap = demand;
+        const need = (Tlim - Ts) / Rth * 1 + 0; // 정상 상태 제한
+        if (Ts >= Tlim - 0.05) { ap = Math.max(0.3, Math.min(demand, (Tlim - Ta) / Rth - disp - other)); if (tThr == null) tThr = i; }
+        const P = ap + disp + other;
+        Ts += ((P - (Ts - Ta) / Rth) / C) * dt;
+        Ts = Math.min(Ts, Tlim + 0.02);
+        E += (P - ($("ht-chg").checked ? 1.5 : 0)) * dt;
+        if (i % 10 === 0) { temp.push([i / 60, Ts]); perf.push([i / 60, 100 * Math.pow(ap / demand, 0.6)]); }
+      }
+      sim = { temp, perf, tThr, Ta, tau: Rth * C, E, last: perf[perf.length - 1][1] };
+      PB.stat("ht-o-t", tThr == null ? "없음" : F(tThr / 60, 2) + "<small>분</small>");
+      PB.stat("ht-o-p", Math.round(sim.last) + "<small>%</small>");
+      PB.stat("ht-o-tau", F(sim.tau / 60, 2) + "<small>분</small>");
+      PB.stat("ht-o-e", Math.round((E / 3600 / r.Wh) * 100) + "<small>%</small>");
+      cv.redraw();
+    }
+    const cv = PB.canvas($("cv-heat"), (ctx, w, h) => {
+      if (!sim) return;
+      const pal = PB.palette();
+      const h1 = Math.round(h * 0.5);
+      PB.chart(ctx, { x: 58, y: 14, w: w - 74, h: h1 - 36 }, { x: [0, 30], y: [Math.min(20, sim.Ta - 2), 46], yLabel: "표면 °C", series: [{ data: sim.temp, color: pal.bad, width: 2.4 }], hlines: [{ y: 43, color: pal.warn, label: "한계 43 °C" }] });
+      PB.chart(ctx, { x: 58, y: h1 + 6, w: w - 74, h: h - h1 - 6 - 44 }, { x: [0, 30], y: [0, 105], xLabel: "시간 (분)", series: [{ data: sim.perf, color: pal.accent, width: 2.4, fill: alpha(pal.accent, 0.12) }], vlines: sim.tThr != null ? [{ x: sim.tThr / 60, color: pal.dim, label: "스로틀 시작" }] : [] });
+      txt(ctx, "성능 %", w - 20, h - 60, { size: 11.5, align: "right" });
+    }, { aspect: 0.62, minHeight: 320, maxHeight: 440 });
+    onDesign(run);
+    run();
+  })();
+
+  /* ============================================================ 8. 전력 분해 */
+  (function () {
+    const nit = PB.range("pw-nit", (v) => v + " nit", () => upd());
+    const app = PB.seg("pw-app", () => upd()), net = PB.seg("pw-net", () => upd()), hz = PB.seg("pw-hz", () => upd());
+    let st = null;
+    function upd() {
+      const r = R, ltpo = r.d.disp === "ltpo";
+      const a = app(), H = hz();
+      const hzF = H === "60" ? 0.85 : H === "120" ? 1.12 : ltpo ? (a === "read" ? 0.78 : a === "video" ? 0.9 : 1.05) : (a === "game" ? 1.12 : 0.95);
+      const apl = { read: 1, video: 0.85, game: 1.0, cam: 0.9 }[a];
+      const disp = r.rel * (0.12 + 0.00115 * nit()) * hzF * apl;
+      const soc = { read: 0.55, video: 0.25, game: Math.min(r.tier.demand, r.apSus), cam: 1.6 }[a] * (a === "game" ? 1 : r.tier.eff);
+      const netP = { wifi: 0.15, lte: 0.45, "5g": 0.6, weak: 1.6 }[net()] * ({ read: 1, video: 0.8, game: 0.7, cam: 0.3 }[a]);
+      const extra = { read: 0.05, video: 0.15, game: 0.3, cam: 0.9 }[a];
+      const parts = [["디스플레이", disp], ["SoC(CPU·GPU·NPU·ISP)", soc], ["모뎀·RF", netP], [a === "cam" ? "카메라 센서·모듈" : a === "game" ? "오디오·햅틱·터치" : "오디오·센서", extra], ["메모리·PMIC 등 기본", 0.12]];
+      const tot = parts.reduce((s, p) => s + p[1], 0);
+      st = { parts, tot };
+      PB.stat("pw-o-p", F(tot, 3) + "<small>W</small>");
+      PB.stat("pw-o-h", F((0.92 * r.Wh) / tot, 3) + "<small>h</small>");
+      const top = parts.slice().sort((x, y) => y[1] - x[1])[0];
+      PB.stat("pw-o-top", top[0].split("(")[0] + ` <small>${Math.round((top[1] / tot) * 100)}%</small>`);
+      cv.redraw();
+    }
+    const cv = PB.canvas($("cv-pw"), (ctx, w, h) => {
+      if (!st) return;
+      const pal = PB.palette(), cols = SERIES();
+      const max = Math.max(4, Math.ceil(st.tot));
+      const x0 = 20, x1 = w - 20, y = 40, hh = 46;
+      txt(ctx, "총 " + F(st.tot, 3) + " W · 배터리 " + F(R.Wh, 3) + " Wh", x0, 24, { size: 12.5, bold: true, color: pal.text });
+      let x = x0;
+      st.parts.forEach(([n, v], i) => { const ww = ((x1 - x0) * v) / max; ctx.fillStyle = alpha(cols[i], 0.75); ctx.fillRect(x, y, Math.max(1, ww - 1), hh); x += ww; });
+      for (let k = 0; k <= max; k++) { const xx = x0 + ((x1 - x0) * k) / max; ctx.strokeStyle = pal.grid; ctx.beginPath(); ctx.moveTo(xx, y + hh + 2); ctx.lineTo(xx, y + hh + 8); ctx.stroke(); txt(ctx, k + " W", xx, y + hh + 20, { align: "center", size: 10.5, mono: true }); }
+      st.parts.forEach(([n, v], i) => {
+        const yy = y + hh + 44 + i * 24;
+        ctx.fillStyle = alpha(cols[i], 0.75); ctx.fillRect(x0, yy - 11, 14, 14);
+        txt(ctx, n, x0 + 22, yy, { size: 12.5, color: pal.text });
+        txt(ctx, F(v, 3) + " W · " + Math.round((v / st.tot) * 100) + "%", x1, yy, { size: 12, mono: true, align: "right" });
+      });
+    }, { aspect: 0.55, minHeight: 270, maxHeight: 320 });
+    onDesign(upd);
+    upd();
+  })();
+
+  /* ============================================================ 9. 체크리스트 */
+  (function () {
+    const CK = [
+      ["열", "지속 가능 전력이 목표 부하를 감당하나", "게임·카메라 4K·충전 중 사용에서 표면 43 °C를 넘지 않고 성능 60 % 이상 유지(11장).", (r) => r.ratio >= 0.7 ? ["ok", "지속 " + Math.round(r.ratio * 100) + "%"] : r.ratio >= 0.5 ? ["warn", Math.round(r.ratio * 100) + "%"] : ["bad", Math.round(r.ratio * 100) + "%"]],
+      ["열", "핫스팟 확산 경로", "AP → 베이퍼 챔버·그래파이트 → 미드플레이트 → 화면·후면. 열전도 나쁜 프레임이면 보강.", (r) => r.d.frame === "al" && r.tier.vc ? ["ok", "Al+VC"] : r.tier.vc ? ["warn", "VC 있음"] : ["warn", "VC 없음"]],
+      ["안테나", "분할선·클리어런스·손 효과", "하단 주 안테나 튜너 여유, 카메라·스피커 금속과의 간격, SAR 백오프 전략(7장).", (r) => r.d.frame === "pc" ? ["ok", "플라스틱"] : r.d.frame === "ti" ? ["warn", "Ti 손실↑"] : ["ok", "금속 분할"]],
+      ["안테나", "무선 충전·NFC와 안테나 공존", "코일·페라이트·자석이 후면 안테나 영역과 겹치지 않게.", (r) => r.d.wc ? ["warn", "점검 필요"] : ["na", "해당 없음"]],
+      ["낙하", "유리·코너·내부 고정", "다자세 1–1.5 m 낙하, 프레임 립, 무거운 부품 고정, 카메라 범프 보호(12장).", (r) => r.mass > 220 ? ["warn", Math.round(r.mass) + " g"] : ["ok", Math.round(r.mass) + " g"]],
+      ["낙하", "카메라 범프 보호", "범프 커버 유리 강도, 범프 테두리 금속 링, 책상 흔들림.", (r) => r.bump > 4 ? ["bad", F(r.bump, 2) + " mm"] : r.bump > 2.8 ? ["warn", F(r.bump, 2) + " mm"] : ["ok", F(r.bump, 2) + " mm"]],
+      ["방수", "IP68 씰링과 노화 여유", "접착 씰 폭, 가스켓 압축률 15–30 %, 통기 멤브레인, 열수축 부압(12장).", () => ["na", "수동"]],
+      ["EMI", "차폐 캔·클록·고속 신호", "디스플레이 MIPI·카메라 링크·DDR이 RF 대역에 잡음을 넣지 않게(디센스 점검)(4장).", () => ["na", "수동"]],
+      ["인증", "FCC/CE·SAR·배터리 안전", "출력·스퓨리어스·SAR·UN38.3 시험을 DVT 일정에 맞춰 예약.", () => ["na", "수동"]],
+      ["배터리", "스웰링 여유와 셀 두께", "수명 말기 수 % 팽창 공간, 너무 얇은 셀 회피(5장).", (r) => r.tb < 3.4 ? ["bad", "셀 " + F(r.tb, 2) + " mm"] : ["ok", "셀 ≤" + F(r.tb, 2) + " mm"]],
+      ["배터리", "공간 충돌 없음", "요청한 배터리 부피가 두께·면적 안에 들어가나.", (r) => r.limited ? ["bad", "공간 부족"] : ["ok", "여유 " + F(r.Vmax - r.Vb, 2) + " cm³"]],
+      ["수리성", "배터리·화면·포트 교체 경로", "당김 탭/전기 분리 접착, 후면 우선 개봉, 포트 서브보드, 부품 공급(12장).", () => ["na", "수동"]],
+      ["사용성", "무게와 한 손 사용", "200 g 이하가 이상적, 220 g 이상이면 확실한 이유가 필요.", (r) => r.mass > 220 ? ["bad", Math.round(r.mass) + " g"] : r.mass > 200 ? ["warn", Math.round(r.mass) + " g"] : ["ok", Math.round(r.mass) + " g"]],
+      ["사용 시간", "하루 사용 보장", "혼합 사용 화면 켜짐 7 h 이상이면 대부분의 사용자가 하루를 버틴다.", (r) => r.sot >= 8 ? ["ok", F(r.sot, 2) + " h"] : r.sot >= 6.5 ? ["warn", F(r.sot, 2) + " h"] : ["bad", F(r.sot, 2) + " h"]],
+    ];
+    const list = $("ck-list");
+    let html = "", last = "";
+    CK.forEach(([cat, t, d], i) => {
+      if (cat !== last) { html += `<div class="ck-cat">${cat}</div>`; last = cat; }
+      html += `<label class="ck-item" id="ck-${i}"><input type="checkbox" data-i="${i}"><span><b>${t}</b><span class="d">${d}</span></span><span class="auto na" id="ck-a-${i}">—</span></label>`;
+    });
+    list.innerHTML = html;
+    const boxes = [...list.querySelectorAll("input")];
+    boxes.forEach((b) => b.addEventListener("change", () => { $("ck-" + b.dataset.i).classList.toggle("done", b.checked); upd(); }));
+    function upd() {
+      let bad = 0, warn = 0;
+      CK.forEach((c, i) => { const [s, m] = c[3](R); const el = $("ck-a-" + i); el.className = "auto " + s; el.textContent = m; if (s === "bad") bad++; if (s === "warn") warn++; });
+      const done = boxes.filter((b) => b.checked).length;
+      $("ck-bar").style.width = (done / CK.length) * 100 + "%";
+      $("ck-sum").innerHTML = `확인 ${done}/${CK.length} · 자동 점검: <span style="color:var(--bad)">위험 ${bad}</span> · <span style="color:var(--warn)">주의 ${warn}</span> (현재 설계: ${R.d.size.toFixed(2)}″, ${R.d.thick.toFixed(2)} mm, ${TIER[R.d.tier].n})`;
+    }
+    onDesign(upd);
+    upd();
+  })();
+
+  load(PRESETS.compact, true);
+})();
+</script>
+</body>
+</html>
