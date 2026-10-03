@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>카메라 모듈 · PhoneBook</title>
 <meta name="description" content="렌즈·IR 필터·이미지 센서·VCM·OIS로 된 스마트폰 카메라 모듈을 3D로 분해하고, 카메라 범프가 생기는 이유, 광량과 피사계 심도, 잠망경 망원, AF·OIS, 멀티프레임 촬영을 시뮬레이터로 익힌다.">
+<link rel="canonical" href="https://phonebook.euiyun.com/chapters/camera.html">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="PhoneBook">
+<meta property="og:title" content="카메라 모듈 · PhoneBook">
+<meta property="og:description" content="렌즈·IR 필터·이미지 센서·VCM·OIS로 된 스마트폰 카메라 모듈을 3D로 분해하고, 카메라 범프가 생기는 이유, 광량과 피사계 심도, 잠망경 망원, AF·OIS, 멀티프레임 촬영을 시뮬레이터로 익힌다.">
+<meta property="og:url" content="https://phonebook.euiyun.com/chapters/camera.html">
+<meta property="og:image" content="https://phonebook.euiyun.com/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"카메라 모듈","name":"카메라 모듈 · PhoneBook","url":"https://phonebook.euiyun.com/chapters/camera.html","mainEntityOfPage":"https://phonebook.euiyun.com/chapters/camera.html","inLanguage":"ko","isAccessibleForFree":true,"learningResourceType":"interactive textbook chapter","position":8,"image":"https://phonebook.euiyun.com/og.png","dateModified":"2026-10-03","isPartOf":{"@type":"Book","@id":"https://phonebook.euiyun.com/#book","name":"PhoneBook — 인터랙티브 스마트폰 해부 교과서","url":"https://phonebook.euiyun.com/"},"publisher":{"@type":"Organization","name":"PhoneBook","url":"https://phonebook.euiyun.com/"},"description":"렌즈·IR 필터·이미지 센서·VCM·OIS로 된 스마트폰 카메라 모듈을 3D로 분해하고, 카메라 범프가 생기는 이유, 광량과 피사계 심도, 잠망경 망원, AF·OIS, 멀티프레임 촬영을 시뮬레이터로 익힌다."},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"PhoneBook","item":"https://phonebook.euiyun.com/"},{"@type":"ListItem","position":2,"name":"08 카메라 모듈","item":"https://phonebook.euiyun.com/chapters/camera.html"}]}]}</script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
@@ -517,7 +529,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
 /* ============================================================ 2. 모듈 3D */
 (function () {
   const el = document.getElementById("v-mod");
-  const T = PB.three(el, { camera: [50, 24, 66], target: [0, 1, 0], fov: 40, minDistance: 20, maxDistance: 200 });
+  const T = PB.three(el, { camera: [50, 24, 66], target: [0, 1, 0], fov: 34, minDistance: 20, maxDistance: 200 });
   if (!T) return;
   const THREE = T.THREE;
   const root = new THREE.Group(); T.scene.add(root);
@@ -617,7 +629,8 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
   const rays = new THREE.LineSegments(rayGeo, new THREE.LineBasicMaterial({ color: 0xffb020 }));
   rays.visible = false; root.add(rays);
   // labels
-  const labels = PARTS.map((P, i) => { const L = T.label(P.name.replace("렌즈 L1", "렌즈 L1–L6"), i % 2 ? [8.5, 0, -6] : [-8.5, 0, 6]); L.obj = P.g; L.skip = /렌즈 L[2-6]/.test(P.name); return L; });
+  root.updateMatrixWorld(true);
+  const labels = PARTS.map((P, i) => { const cy = new THREE.Box3().setFromObject(P.g).getCenter(new THREE.Vector3()).y; const L = T.label(P.name.replace("렌즈 L1", "렌즈 L1–L6"), i % 2 ? [8.5, cy, -6] : [-8.5, cy, 6]); L.obj = P.g; L.skip = /렌즈 L[2-6]/.test(P.name); return L; });
   const info = document.getElementById("md-info"), chips = document.getElementById("md-chips");
   chips.innerHTML = PARTS.map((P, i) => `<button data-i="${i}">${P.name}</button>`).join("");
   function select(i) {
@@ -636,7 +649,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
       P.g.position.set(moving ? ois[0] : 0, P.k * GAP * ex + (moving ? af : 0), moving ? ois[1] : 0);
       if (P.radial) P.g.scale.set(1 + ex * 0.5, 1, 1 + ex * 0.5);
     });
-    root.position.y = -(14 * GAP * ex) / 2 - 5;
+    root.position.y = -(14 * GAP * ex) / 2 - 7;
     labels.forEach((L) => L.setVisible(labCb.checked && ex > 0.3 && !L.skip));
     rays.visible = rayCb.checked;
     rays.position.y = 0;
@@ -849,7 +862,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
       ctx.fillStyle = "#2a3550"; ctx.fillRect(Xm(sx), Y(cy - Math.min(d * 0.6, TH - 2.5) / 2), 0.5 * s, Math.min(d * 0.6, TH - 2.5) * s);
       for (let k = -1; k <= 1; k++) {
         const xin = px + ph / 2 + k * ph * 0.3;
-        dots([[xin, TH + 6], [xin, cy + (xin - px - ph / 2)], [g1, cy + k * ph * 0.3], [sx, cy]], 4, col);
+        dots([[xin, TH + 6], [xin, cy - k * ph * 0.3], [g1, cy - k * ph * 0.3], [sx, cy]], 4, col);
       }
       ctx.fillStyle = P.dim; ctx.font = `11px ${FONT()}`; ctx.textAlign = "left"; ctx.textBaseline = "top";
       ctx.fillText("프리즘", Xm(px), Y(TH) + 4); ctx.fillText("센서", Xm(sx) - 8, Y(TH) + 4);
