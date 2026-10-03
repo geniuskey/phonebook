@@ -517,7 +517,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
 /* ============================================================ 2. 모듈 3D */
 (function () {
   const el = document.getElementById("v-mod");
-  const T = PB.three(el, { camera: [44, 20, 56], target: [0, 0, 0], fov: 40, minDistance: 20, maxDistance: 200 });
+  const T = PB.three(el, { camera: [50, 24, 66], target: [0, 1, 0], fov: 40, minDistance: 20, maxDistance: 200 });
   if (!T) return;
   const THREE = T.THREE;
   const root = new THREE.Group(); T.scene.add(root);
@@ -572,7 +572,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
   const LENS = [
     [1.55, 0.9, 0.14, 0.02, 10.1], [1.9, 0.5, -0.06, 0.06, 9.1], [2.2, 0.45, 0.04, -0.04, 8.2],
     [2.55, 0.5, -0.05, 0.05, 7.2], [2.9, 0.5, 0.03, -0.09, 6.1], [3.25, 0.45, -0.04, 0.06, 4.8]];
-  const mLens = T.material(0xbfe6ff, { transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.15, depthWrite: false, side: THREE.DoubleSide });
+  const mLens = T.material(0x4fa3e8, { transparent: true, opacity: 0.72, roughness: 0.08, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide, emissive: 0x0b3a66, emissiveIntensity: 0.6 });
   const lensDesc = [
     "1번 렌즈: 양(+)의 굴절력으로 빛을 모은다. 가장 작고, 조리개(스톱)가 이 근처에 놓인다. 일부 모듈은 이 자리에 유리 렌즈를 써서 온도 안정성과 해상력을 높인다(1G+nP).",
     "2번 렌즈: 고굴절·고분산 플라스틱으로 1번 렌즈의 색수차를 상쇄하는 음(−)의 렌즈.",
@@ -603,7 +603,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
   const cg = new THREE.ExtrudeGeometry(cs, { depth: 0.25, bevelEnabled: false, curveSegments: 32 }); cg.rotateX(-Math.PI / 2);
   mesh(can, cg, mCan, 0, 11.2, 0);
   [[6.1, 0, 0.2, 12.4], [-6.1, 0, 0.2, 12.4], [0, 6.1, 12.4, 0.2], [0, -6.1, 12.4, 0.2]].forEach(([x, z, sx, sz]) => mesh(can, box, mCan, x, 5.9, z).scale.set(sx, 10.6, sz));
-  PARTS.forEach((P) => { P.mats.forEach((m) => { m.userData.em = m.emissive ? m.emissive.getHex() : 0; }); });
+  PARTS.forEach((P) => { P.mats.forEach((m) => { m.userData.em = m.emissive ? m.emissive.getHex() : 0; m.userData.ei = m.emissiveIntensity; }); });
   // rays
   const rayGeo = new THREE.BufferGeometry();
   const rp = [];
@@ -621,7 +621,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
   const info = document.getElementById("md-info"), chips = document.getElementById("md-chips");
   chips.innerHTML = PARTS.map((P, i) => `<button data-i="${i}">${P.name}</button>`).join("");
   function select(i) {
-    PARTS.forEach((P, j) => P.mats.forEach((m) => { if (m.emissive) { m.emissive.setHex(j === i ? 0x2dd4bf : m.userData.em); m.emissiveIntensity = j === i ? 0.4 : 1; } }));
+    PARTS.forEach((P, j) => P.mats.forEach((m) => { if (m.emissive) { m.emissive.setHex(j === i ? 0x2dd4bf : m.userData.em); m.emissiveIntensity = j === i ? 0.4 : m.userData.ei; } }));
     [...chips.children].forEach((b, j) => b.classList.toggle("on", j === i));
     const P = PARTS[i]; const hex = "#" + P.color.toString(16).padStart(6, "0");
     info.innerHTML = `<h4><i style="background:${hex}"></i>${P.name} <span class="th">${P.th}</span></h4><p>${P.desc}</p>`;
