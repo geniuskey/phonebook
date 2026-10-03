@@ -1,0 +1,1167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<title>스마트폰 해부: 분해와 조립 · PhoneBook</title>
+<meta name="description" content="8 mm 두께 안에 든 14개 부품을 3D로 분해하고 한 단계씩 다시 조립한다. 각 부품의 자리와 역할, 두께·부피·전력·원가 예산으로 스마트폰 설계의 큰 그림을 잡는다.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  #v-explode { height: 560px; }
+  #v-assembly { height: 520px; }
+  #v-section { height: 460px; }
+  @media (max-width: 640px) { #v-explode { height: 420px; } #v-assembly { height: 400px; } #v-section { height: 360px; } }
+  .viewer-tools { position: absolute; right: 10px; top: 10px; display: flex; gap: 6px; z-index: 2; }
+  .viewer-tools .seg { background: color-mix(in srgb, var(--bg-elev) 88%, transparent); }
+  .parts-panel { padding: 14px 18px; border-top: 1px solid var(--border); }
+  .parts-panel h5 { margin: 0 0 8px; font-size: 12px; letter-spacing: .1em; color: var(--text-faint); }
+  .play-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .play-row .btn { padding: 7px 12px; }
+  .stage-hud { position: absolute; left: 12px; top: 10px; font-family: var(--mono); font-size: 11.5px; color: var(--text-faint); z-index: 2; pointer-events: none; letter-spacing: .08em; }
+  .stack-legend { display: grid; gap: 4px; font-size: 13px; }
+  .bd { width: 100%; }
+  .bd .blk rect { fill: var(--bg-elev); stroke: var(--border); stroke-width: 1.4; transition: fill .15s, stroke .15s; }
+  .bd .blk text { pointer-events: none; }
+  .bd .blk { cursor: pointer; }
+  .bd .blk.on rect { fill: var(--accent-soft); stroke: var(--accent); }
+  .bd .blk.dim { opacity: .35; }
+  .bd .ln { fill: none; stroke: var(--text-faint); stroke-width: 1.6; transition: opacity .15s; }
+  .bd .ln.pwr { stroke: var(--accent-2); stroke-dasharray: 5 4; }
+  .bd .ln.on { stroke: var(--accent); stroke-width: 3; }
+  .bd .ln.pwr.on { stroke: var(--accent-2); stroke-width: 3; }
+  .bd .ln.dim { opacity: .15; }
+  .bd .bus { font-family: var(--mono); font-size: 10.5px; fill: var(--text-faint); }
+  .bd .bus.on { fill: var(--accent); font-weight: 700; }
+  .bd-info { min-height: 3.4em; padding: 12px 18px; border-top: 1px solid var(--border); font-size: 14.5px; color: var(--text-dim); }
+  .bd-info b { color: var(--text); }
+  .cn-node { cursor: pointer; }
+  .tl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+</style>
+</head>
+<body data-chapter="anatomy">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 01</div>
+    <h1>스마트폰 해부: 분해와 조립</h1>
+    <p class="lead">손바닥만 한 유리 판 하나. 두께는 8 mm, 무게는 200 g 남짓. 그 안에 컴퓨터와 카메라 세 대, 무전기 십여 대, 배터리, 스피커, 나침반이 들어 있습니다. 이 장에서는 폰을 한 겹씩 벗겨 내고 다시 조립하면서, 각 부품이 <em>왜 그 자리에</em> 있는지 큰 그림을 잡습니다.</p>
+    <ul class="objectives">
+      <li>스마트폰을 이루는 14개 주요 부품의 위치와 역할을 3D로 익힌다.</li>
+      <li>공장에서 폰이 조립되는 순서와 그 순서가 정해진 이유를 이해한다.</li>
+      <li>두께·부피·전력·원가라는 네 가지 '예산'으로 폰 설계를 바라보는 법을 배운다.</li>
+      <li>부품들이 신호와 전력으로 어떻게 연결되는지 블록 다이어그램으로 본다.</li>
+      <li>스마트폰 설계에서 서로 부딪치는 제약들(두께 vs 배터리, 금속 vs 안테나 …)을 파악한다.</li>
+    </ul>
+  </header>
+
+  <!-- ============================================================ 1 -->
+  <section id="explode">
+    <h2>8 mm 안의 도시</h2>
+    <p>아래 모델은 최근 플래그십 스마트폰의 <span class="term">전형적인 배치</span>를 단순화해 만든 것입니다. 특정 제품을 그대로 옮긴 것은 아니지만, 부품의 크기와 위치, 쌓이는 순서는 실제 폰과 거의 같습니다. 슬라이더를 오른쪽으로 밀어 폰을 분해해 보세요. 부품을 클릭하면 이름과 역할, 대표 수치가 나타나고, 그 부품을 깊이 다루는 장으로 이동할 수 있습니다.</p>
+
+    <div class="sim" id="sim-explode">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>분해 뷰어 — 부품을 클릭해 보세요</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-explode">
+          <div class="part-card" id="card-explode" hidden></div>
+          <span class="hint">드래그: 회전 · 휠/핀치: 확대 · 클릭: 부품 정보</span>
+        </div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>분해 정도 <output id="ex-amt-out"></output></span><input type="range" id="ex-amt" min="0" max="100" value="55"></label>
+          <div class="ctrl"><span>시점</span><div class="seg" id="ex-view"><button data-value="iso" class="on">비스듬히</button><button data-value="front">앞</button><button data-value="back">뒤</button><button data-value="side">옆</button></div></div>
+          <label class="check"><input type="checkbox" id="ex-labels" checked> 부품 이름 표시</label>
+          <label class="check"><input type="checkbox" id="ex-xray"> 엑스레이(선택 부품만 불투명)</label>
+          <label class="check"><input type="checkbox" id="ex-rot"> 자동 회전</label>
+          <button class="btn" id="ex-reset">처음 상태로</button>
+        </div>
+      </div>
+      <div class="parts-panel"><h5>부품 목록 (앞 → 뒤)</h5><div class="chips" id="ex-chips"></div></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">부품 그룹</span><span class="v" id="ex-n">14</span></div>
+        <div class="stat"><span class="k">본체 크기</span><span class="v">71.5×147<small>mm</small></span></div>
+        <div class="stat"><span class="k">본체 두께</span><span class="v">8.0<small>mm</small></span></div>
+        <div class="stat"><span class="k">선택</span><span class="v" id="ex-sel" style="font-size:15px">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 분해 정도를 끝까지 올린 뒤 <b>옆</b> 시점으로 보면 화면 쪽(위)과 후면 쪽(아래)으로 나뉘는 '층'이 보입니다. 가운데의 프레임·미드플레이트가 모든 부품의 기준면입니다. 배터리를 클릭해 엑스레이를 켜 보면, 배터리가 폰 내부 면적의 절반 가까이를 차지한다는 것이 한눈에 보입니다.</div>
+    </div>
+
+    <p>분해해 보면 스마트폰은 크게 <b>세 층</b>입니다.</p>
+    <ol>
+      <li><b>화면 층</b> — 커버 글라스와 OLED 패널. 폰의 앞면 전체를 차지하고, 터치 센서도 여기에 들어 있습니다.</li>
+      <li><b>뼈대</b> — 측면 레일과 미드플레이트가 하나로 가공된 금속 프레임. 화면은 앞에, 나머지는 뒤에 붙습니다.</li>
+      <li><b>내장 층</b> — 메인보드(위쪽), 배터리(가운데), 하단 모듈(아래쪽)이 미드플레이트 뒤에 나란히 놓이고, 후면 글라스가 뚜껑을 덮습니다.</li>
+    </ol>
+    <p>이 배치는 지난 10여 년 동안 거의 모든 스마트폰이 수렴한 형태입니다. 화면이 앞면 전체를 차지하니 나머지 부품은 그 뒤에 <em>평면으로</em> 펼쳐 놓을 수밖에 없고, 가장 큰 부품인 배터리가 가운데를, 열이 나는 칩과 큰 카메라가 위쪽을, 사람 손이 닿지 않는 아래쪽에 포트와 스피커가 자리 잡습니다.</p>
+
+    <div class="callout tip"><strong>왜 메인보드는 항상 위쪽에 있을까?</strong>
+      <p>세로로 쥐었을 때 손바닥은 폰의 아래·가운데를 감쌉니다. 위쪽에 AP(열원)와 안테나를 두면 ① 손으로 전해지는 열이 줄고 ② 손에 가려 전파가 약해지는 일도 줄어듭니다. 카메라도 위쪽에 있어야 가로로 들었을 때 손가락에 덜 가립니다. 반대로 USB 포트와 스피커는 책상 위 거치나 충전 케이블을 생각하면 아래쪽이 자연스럽습니다.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 2 -->
+  <section id="tour">
+    <h2>분해 투어: 한 겹씩 벗겨 보기</h2>
+    <p>이제 화면 쪽부터 후면 쪽까지 차례로 내려가 봅시다. 스크롤하면 3D 모델이 따라 움직입니다. (모델은 언제든 직접 돌려 볼 수 있습니다.)</p>
+    <div class="scrolly" id="scrolly">
+      <div class="stage" id="v-tour"><span class="stage-hud" id="tour-hud">TOUR · 00</span></div>
+      <div class="beats" id="beats"></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 3 -->
+  <section id="assembly">
+    <h2>한 단계씩 조립하기</h2>
+    <p>공장의 조립 라인에서 폰은 보통 <b>화면 쪽에서 시작해 후면으로 닫히는</b> 순서로 만들어집니다. 프레임을 지그에 고정하고, 화면 모듈을 붙이고, 뒤집어서 보드·카메라·배터리를 넣은 뒤, 마지막으로 방수 접착제를 두르고 후면 글라스를 덮습니다. 각 단계 사이에는 커넥터 체결 확인, 전류 검사, 기능 시험이 끼어 있습니다.</p>
+
+    <div class="sim" id="sim-assembly">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>조립 시뮬레이터</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-assembly"><span class="hint">드래그해서 돌려 보세요</span></div>
+        <div class="sim-controls">
+          <div class="steps-bar" id="as-bar"></div>
+          <div class="step-text" id="as-text"></div>
+          <div class="play-row">
+            <button class="btn" id="as-prev" aria-label="이전 단계">◀ 이전</button>
+            <button class="btn primary" id="as-play">▶ 재생</button>
+            <button class="btn" id="as-next" aria-label="다음 단계">다음 ▶</button>
+          </div>
+          <label class="ctrl"><span>조립 진행 <output id="as-s-out"></output></span><input type="range" id="as-s" min="0" max="1400" value="0"></label>
+          <label class="check"><input type="checkbox" id="as-cam" checked> 카메라 자동 이동</label>
+          <label class="check"><input type="checkbox" id="as-ghost"> 다 조립된 모습을 반투명으로 겹쳐 보기</label>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: 슬라이더를 천천히 끌면 부품이 날아와 제자리에 앉습니다. <b>메인보드 3장</b>(상판·인터포저·하판)이 차례로 쌓이는 장면을 보세요. 실제로는 이 셋을 미리 한 덩어리로 만든 뒤 한 번에 넣습니다.</div>
+    </div>
+
+    <p>순서에는 이유가 있습니다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>규칙</th><th>왜</th><th>예</th></tr></thead>
+      <tbody>
+        <tr><td>비싼 부품은 늦게</td><td>앞 공정 불량으로 버려질 때의 손실을 줄인다</td><td>AP가 올라간 보드는 검사를 마친 뒤 투입</td></tr>
+        <tr><td>깨지기 쉬운 부품은 먼저 보호</td><td>화면은 가장 비싸고 약한 부품 중 하나 — 프레임에 붙여 단단히 지지</td><td>화면 모듈 → 프레임 접착 후 뒤집기</td></tr>
+        <tr><td>커넥터는 덮기 전에</td><td>보드 대 보드 커넥터는 위에서 눌러야 체결된다</td><td>배터리·카메라 FPC → 보드에 꽂고 브래킷으로 눌러 고정</td></tr>
+        <tr><td>밀봉은 맨 마지막</td><td>방수 접착은 한 번 닫으면 열기 어렵다 — 모든 기능 검사 후</td><td>후면 글라스 접착 → 가압·경화 → 방수 시험</td></tr>
+        <tr><td>수리를 고려한 고정</td><td>배터리는 언젠가 교체된다</td><td>당김 탭 접착제, 나사 고정 브래킷</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- ============================================================ 4 -->
+  <section id="thickness">
+    <h2>두께 예산: 0.1 mm를 다투는 싸움</h2>
+    <p>폰의 두께는 마케팅 숫자이자 공학적으로 가장 빡빡한 제약입니다. 8 mm 안에 화면, 뼈대, 배터리, 후면 유리가 <em>직렬로</em> 쌓이기 때문에, 한 층이 0.1 mm 두꺼워지면 다른 층이 그만큼 얇아져야 합니다. 대부분의 경우 그 희생자는 배터리입니다. 아래 단면 뷰에서 자르는 위치를 옮기며 층들을 확인해 보세요.</p>
+
+    <div class="sim" id="sim-section">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>단면 뷰 — 폰을 세로로 자르기</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v-section"><span class="hint">드래그해서 단면을 돌려 보세요</span></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>자르는 위치 x <output id="sec-x-out"></output></span><input type="range" id="sec-x" min="-34" max="34" value="-14" step="0.5"></label>
+          <div class="ctrl"><span>빠른 이동</span><div class="seg" id="sec-q"><button data-value="-14" class="on">AP·배터리</button><button data-value="12.6">메인 카메라</button><button data-value="0">중앙</button><button data-value="32.3">플렉스</button></div></div>
+          <label class="ctrl"><span>층 벌리기 <output id="sec-ex-out"></output></span><input type="range" id="sec-ex" min="0" max="100" value="0"></label>
+          <label class="check"><input type="checkbox" id="sec-flat"> 정면에서 단면 보기</label>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: <b>메인 카메라</b> 위치로 자르면 카메라 모듈이 본체 두께를 뚫고 뒤로 튀어나온 것이 보입니다. 카메라 범프는 디자인 선택이 아니라 광학의 결과입니다(<a href="camera.html">8장</a>).</div>
+    </div>
+
+    <p>단면에서 본 층을 숫자로 바꾸어 직접 두께 예산을 짜 봅시다. 목표 두께를 정하고 각 층을 조절하면, 남는 공간이 배터리로 들어가고 그만큼의 배터리 에너지가 계산됩니다.</p>
+
+    <div class="sim" id="sim-budget">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>두께 예산 계산기</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-budget"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>목표 본체 두께 <output id="bd-total-out"></output></span><input type="range" id="bd-total" min="6.5" max="10" step="0.05" value="8.0"></label>
+          <label class="ctrl"><span>커버 글라스 <output id="bd-cover-out"></output></span><input type="range" id="bd-cover" min="0.4" max="1.0" step="0.05" value="0.6"></label>
+          <label class="ctrl"><span>디스플레이 모듈 <output id="bd-disp-out"></output></span><input type="range" id="bd-disp" min="0.4" max="1.6" step="0.05" value="0.9"></label>
+          <label class="ctrl"><span>미드플레이트 <output id="bd-mid-out"></output></span><input type="range" id="bd-mid" min="0.3" max="1.0" step="0.05" value="0.55"></label>
+          <label class="ctrl"><span>스웰링·공차 여유 <output id="bd-gap-out"></output></span><input type="range" id="bd-gap" min="0.1" max="0.8" step="0.05" value="0.35"></label>
+          <label class="ctrl"><span>무선충전 코일+차폐 <output id="bd-coil-out"></output></span><input type="range" id="bd-coil" min="0" max="0.6" step="0.05" value="0.3"></label>
+          <label class="ctrl"><span>후면 글라스 <output id="bd-back-out"></output></span><input type="range" id="bd-back" min="0.4" max="1.0" step="0.05" value="0.6"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">배터리 두께</span><span class="v" id="bd-bat">—</span></div>
+        <div class="stat"><span class="k">배터리 에너지</span><span class="v" id="bd-wh">—</span></div>
+        <div class="stat"><span class="k">용량(3.87 V)</span><span class="v" id="bd-mah">—</span></div>
+        <div class="stat"><span class="k">카메라 범프</span><span class="v" id="bd-bump">—</span></div>
+      </div>
+      <div class="sim-note">가정: 배터리 면적 64.5 × 72 mm, 셀 체적 에너지 밀도 760 Wh/L, 파우치·탭이 두께에서 0.25 mm를 먹는다, 메인 카메라 모듈 높이 9.5 mm. 두께를 0.5 mm 줄이면 배터리가 몇 Wh 줄어드는지 확인해 보세요.</div>
+    </div>
+
+    <div class="formula">$$E_\text{bat} \approx \rho_E \cdot A_\text{bat} \cdot \big(t_\text{total} - \textstyle\sum t_\text{others} - t_\text{pouch}\big)$$
+      <div class="where">여기서 \(\rho_E\)는 체적 에너지 밀도(Wh/L), \(A_\text{bat}\)는 배터리 면적. 두께 1 mm는 이 폰에서 약 \(0.76 \times 64.5 \times 72 \times 10^{-3} \approx 3.5\) Wh, 즉 900 mAh에 해당합니다.</div>
+    </div>
+    <p>실제 설계에서는 층 사이에 <b>접착 테이프(0.05–0.1 mm)</b>, <b>폼 쿠션</b>, <b>방열 시트</b>가 끼고, 배터리는 수명 말기에 수 % 부풀기(스웰링) 때문에 위아래로 여유를 둡니다. 두께 예산표는 보통 0.01 mm 단위로 관리되며, 공차까지 더한 <em>최악의 경우</em>도 맞아야 합니다(<a href="mechanical.html">12장</a>).</p>
+  </section>
+
+  <!-- ============================================================ 5 -->
+  <section id="volume">
+    <h2>부피 예산: 누가 공간을 차지하나</h2>
+    <p>두께 다음은 부피입니다. 이 모델 폰의 외형 부피는 약 84 cm³인데, 그중 배터리가 가장 큰 몫을 가져가고 화면과 뼈대가 뒤를 잇습니다. 반대로 '두뇌'인 AP는 손톱만 한 크기로 1 % 남짓에 불과합니다. 아래 그래프에서 조각을 클릭하거나 위에 올려 보세요.</p>
+    <div class="sim" id="sim-volume">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>내부 부피 배분</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-volume"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>폰 유형</span><div class="seg" id="vol-kind"><button data-value="flag" class="on">플래그십</button><button data-value="camera">카메라 특화</button><button data-value="mid">보급형</button></div></div>
+          <div class="ctrl"><span>표시</span><div class="seg" id="vol-mode"><button data-value="donut" class="on">도넛</button><button data-value="tree">트리맵</button></div></div>
+          <div class="step-text" id="vol-info"><b>조각을 선택하세요</b>각 부품이 내부 부피의 몇 %를 차지하는지 보여 줍니다.</div>
+        </div>
+      </div>
+      <div class="sim-note">수치는 공개 분해 사진과 전형적 부품 치수로 추정한 교육용 근사치입니다. 카메라 특화 폰은 카메라 부피가 2배 가까이 커지는 대신 배터리와 보드가 줄어듭니다.</div>
+    </div>
+    <p>이 배분이 스마트폰 설계의 근본적인 긴장을 보여 줍니다. <b>사용 시간은 배터리 부피에 비례</b>하고, 배터리 부피는 <b>나머지 모든 부품이 쓰고 남은 공간</b>입니다. 그래서 보드를 샌드위치로 쌓고(<a href="board.html">4장</a>), 스피커 박스를 줄이고(<a href="audio.html">10장</a>), 배터리를 L자나 계단형으로 깎는 등(<a href="battery.html">5장</a>) 모든 팀이 '배터리에게 공간을 돌려주는' 일에 매달립니다.</p>
+  </section>
+
+  <!-- ============================================================ 6 -->
+  <section id="connect">
+    <h2>모든 것은 연결되어 있다</h2>
+    <p>물리적으로 흩어진 부품들은 FPC와 보드 배선으로 AP에 모입니다. 블록을 클릭하면 연결선과 인터페이스 이름, 대략적인 데이터 속도가 표시됩니다. <b>전력</b> 보기로 바꾸면 배터리에서 출발한 에너지가 어떤 경로로 각 부품에 도달하는지 보입니다.</p>
+    <div class="sim" id="sim-blocks">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>시스템 블록 다이어그램</h3>
+        <div class="seg" id="bd-layer"><button data-value="sig" class="on">신호</button><button data-value="pwr">전력</button><button data-value="all">모두</button></div></div>
+      <div class="sim-view" style="padding:10px"><svg class="bd" id="bd-svg" viewBox="0 0 860 520" role="img" aria-label="스마트폰 시스템 블록 다이어그램"></svg></div>
+      <div class="bd-info" id="bd-info"><b>블록을 클릭하세요.</b> AP(SoC)를 중심으로 메모리, 화면, 카메라, 무선, 전원이 어떻게 이어지는지 보여 줍니다.</div>
+    </div>
+    <p>데이터 속도를 보면 왜 특정 부품이 AP 바로 옆에 붙어 있어야 하는지 이해됩니다. LPDDR 메모리는 초당 수십 GB를 주고받기 때문에 AP 위에 직접 쌓고(PoP), 수 Gbps의 MIPI 신호를 나르는 카메라·디스플레이 커넥터도 보드 위쪽 가까이에 있습니다. 반면 수 kbps의 센서 신호(I²C/I³C)는 어디에 있든 상관없습니다.</p>
+  </section>
+
+  <!-- ============================================================ 7 -->
+  <section id="energy">
+    <h2>에너지는 어디로 가나</h2>
+    <p>배터리 15–19 Wh는 노트북(50–100 Wh)의 1/4도 안 됩니다. 이 적은 에너지를 하루 동안 쓰려면 평균 소비 전력이 1 W 안팎이어야 하고, 그래서 모든 부품이 '쓰지 않을 때는 거의 0'에 가깝게 꺼질 수 있도록 설계됩니다. 사용 시나리오를 바꾸며 전력이 어디서 새는지 보세요.</p>
+    <div class="sim" id="sim-energy">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>시나리오별 전력 분해와 사용 시간</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-energy"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>시나리오</span><select id="en-scn">
+            <option value="idle">대기 (화면 꺼짐)</option>
+            <option value="web" selected>웹 브라우징 (Wi-Fi)</option>
+            <option value="video">동영상 스트리밍</option>
+            <option value="nav">내비게이션 (GPS+LTE)</option>
+            <option value="camera">4K 동영상 촬영</option>
+            <option value="game">3D 게임</option>
+            <option value="5g">5G 대용량 다운로드</option>
+          </select></div>
+          <label class="ctrl"><span>화면 밝기 <output id="en-nit-out"></output></span><input type="range" id="en-nit" min="2" max="1000" value="200"></label>
+          <label class="ctrl"><span>배터리 에너지 <output id="en-wh-out"></output></span><input type="range" id="en-wh" min="10" max="25" step="0.5" value="18"></label>
+          <label class="check"><input type="checkbox" id="en-dark"> 다크 모드 (OLED 평균 밝기 ↓)</label>
+          <label class="check"><input type="checkbox" id="en-ltpo" checked> LTPO 가변 주사율</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">총 소비 전력</span><span class="v" id="en-p">—</span></div>
+        <div class="stat"><span class="k">예상 사용 시간</span><span class="v" id="en-h">—</span></div>
+        <div class="stat"><span class="k">가장 큰 소비처</span><span class="v" id="en-top" style="font-size:15px">—</span></div>
+      </div>
+      <div class="sim-note">교육용 근사 모델입니다. 실제 값은 칩, 망 상태, 앱에 따라 2배 이상 달라집니다. 대기 전력은 100 mW 안팎이라 막대가 거의 보이지 않습니다 — 그래서 이론상 대기만 하면 일주일을 갑니다. 실제로는 백그라운드 앱의 잦은 깨우기가 이것을 몇 배로 늘립니다.</div>
+    </div>
+    <p>두 가지를 기억해 둡시다. 첫째, 일상 사용에서는 <b>디스플레이</b>가 가장 큰 소비처인 경우가 많습니다(<a href="display.html">2장</a>). 둘째, 게임이나 촬영처럼 AP가 바쁜 순간에는 소비 전력이 5 W를 넘는데, 이 열을 손에 쥔 작은 판이 계속 버릴 수는 없습니다. 그래서 폰의 <em>지속</em> 성능은 칩이 아니라 <b>열</b>이 결정합니다(<a href="thermal.html">11장</a>).</p>
+  </section>
+
+  <!-- ============================================================ 8 -->
+  <section id="cost">
+    <h2>원가 예산: 무엇에 돈이 드나</h2>
+    <p>부품 원가(BOM, Bill of Materials)는 제품 가격과 사양을 정하는 또 하나의 예산입니다. 분해 분석 업체들의 공개 추정치를 보면 플래그십 폰의 BOM은 대략 400–600 달러이고, 그 안에서의 배분은 꽤 일정한 패턴을 보입니다.</p>
+    <div class="sim" id="sim-cost">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>BOM 배분 (대략적 범위)</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-cost"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>총 BOM <output id="ct-total-out"></output></span><input type="range" id="ct-total" min="150" max="700" step="10" value="480"></label>
+          <div class="ctrl"><span>정렬</span><div class="seg" id="ct-sort"><button data-value="share" class="on">비중순</button><button data-value="layer">폰 층 순서</button></div></div>
+          <div class="step-text" id="ct-info"><b>막대를 클릭하세요</b>각 범주에 무엇이 들어가는지 설명합니다.</div>
+        </div>
+      </div>
+      <div class="sim-note">비중은 여러 공개 추정치의 대략적 중간값을 단순화한 것입니다. 실제로는 제품과 시기에 따라 ±5%p 이상 달라집니다. BOM에는 조립·검사·소프트웨어·로열티·물류·마케팅 비용이 포함되지 않습니다.</div>
+    </div>
+    <p>화면, AP, 메모리, 카메라 — 이 네 가지가 원가의 절반 이상입니다. 흥미롭게도 사용 시간을 좌우하는 배터리는 원가 비중이 작습니다. 배터리를 키우는 데 드는 진짜 비용은 <em>돈</em>이 아니라 <em>부피와 무게</em>입니다.</p>
+  </section>
+
+  <!-- ============================================================ 9 -->
+  <section id="constraints">
+    <h2>설계에서 무엇이 중요한가: 서로 부딪치는 제약들</h2>
+    <p>스마트폰 설계가 어려운 이유는 개별 부품이 어려워서가 아니라 <b>모든 요구가 같은 부피와 같은 에너지를 두고 경쟁</b>하기 때문입니다. 아래 그래프는 주요 설계 목표와 그 사이의 충돌을 보여 줍니다. 노드를 클릭하면 어떤 목표와 부딪치는지, 그 문제를 어떻게 푸는지 설명합니다.</p>
+    <div class="sim" id="sim-net">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>설계 제약 네트워크</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-net"></canvas></div>
+        <div class="sim-controls">
+          <div class="step-text" id="net-info" style="min-height:12em"><b>노드를 클릭하세요</b>선은 '한쪽을 좋게 하면 다른 쪽이 나빠지는' 관계입니다. 선이 굵을수록 갈등이 큽니다.</div>
+        </div>
+      </div>
+      <div class="sim-note">노드를 드래그해 배치를 바꿀 수 있습니다.</div>
+    </div>
+
+    <h3>설계자가 매일 던지는 일곱 가지 질문</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>질문</th><th>핵심 지표</th><th>주로 다투는 상대</th><th>자세히</th></tr></thead>
+      <tbody>
+        <tr><td>하루를 버티나?</td><td>Wh, 평균 소비 전력(W)</td><td>두께·무게, 카메라 부피</td><td><a href="battery.html">5장</a>, <a href="power.html">6장</a></td></tr>
+        <tr><td>얼마나 오래 빠른가?</td><td>지속 전력(W), 표면 온도(°C)</td><td>두께, 금속/유리 면적, 배터리 온도</td><td><a href="soc.html">3장</a>, <a href="thermal.html">11장</a></td></tr>
+        <tr><td>어디서든 터지나?</td><td>안테나 효율(dB), SAR</td><td>금속 프레임, 화면 크기, 카메라·자석</td><td><a href="rf.html">7장</a></td></tr>
+        <tr><td>사진이 좋은가?</td><td>센서 크기, 광학 줌 배율</td><td>두께(범프), 무게 중심, 보드 면적</td><td><a href="camera.html">8장</a></td></tr>
+        <tr><td>화면이 좋은가?</td><td>휘도(nit), 주사율, 베젤</td><td>전력, 원가, 수명(번인)</td><td><a href="display.html">2장</a></td></tr>
+        <tr><td>떨어뜨려도, 물에 빠져도 괜찮나?</td><td>낙하 높이, IP 등급</td><td>두께·무게, 수리 용이성</td><td><a href="mechanical.html">12장</a></td></tr>
+        <tr><td>만들 수 있나, 팔 수 있나?</td><td>BOM, 수율, 인증</td><td>위의 모든 것</td><td><a href="design.html">13장</a></td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout"><strong>시스템 엔지니어링의 관점</strong>
+      <p>좋은 폰은 각 부품이 최고인 폰이 아니라 <b>제약이 균형 잡힌</b> 폰입니다. 가장 빠른 AP를 넣어도 열을 못 빼면 몇 분 뒤 중급 칩만큼 느려지고, 가장 큰 카메라 센서를 넣어도 범프 때문에 폰이 책상 위에서 흔들리고 배터리가 줄어듭니다. 이 책의 나머지 장은 부품을 하나씩 깊이 들여다보지만, 마지막 <a href="design.html">13장</a>에서는 다시 전체로 돌아와 직접 폰을 설계해 봅니다.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================ 10 -->
+  <section id="history">
+    <h2>내부는 어떻게 변해 왔나</h2>
+    <p>초기 스마트폰과 지금의 폰을 비교하면 어떤 제약이 이겼는지 보입니다. 배터리 에너지는 3배 이상 커졌고, 두께는 오히려 얇아졌으며, 카메라는 1개에서 3–4개로 늘었습니다. 이 모든 것은 보드가 작아지고(적층·고밀도화), 셀의 에너지 밀도가 오른 덕분입니다.</p>
+    <div class="sim" id="sim-history">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>스마트폰 하드웨어 추세 (대표적 플래그십 기준, 대략)</h3></div>
+      <div class="sim-view"><canvas id="cv-history"></canvas></div>
+      <div class="sim-controls">
+        <div class="ctrl"><span>지표</span><div class="tl-chips chips" id="hi-metric"></div></div>
+      </div>
+      <div class="sim-note">각 연도의 대표적인 플래그십 수치를 반올림한 개략값입니다. 제품마다 편차가 큽니다. 그래프 위에 마우스를 올리면 연도별 값이 표시됩니다.</div>
+    </div>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>스마트폰은 <b>화면 층 – 프레임(미드플레이트) – 내장 층</b>의 3층 구조다. 메인보드는 위, 배터리는 가운데, 포트·스피커는 아래에 놓인다.</li>
+      <li>조립은 프레임에 화면을 붙이고, 뒤에서 보드·카메라·배터리를 넣은 뒤 후면 글라스로 밀봉하는 순서다. 비싼 부품은 늦게, 밀봉은 맨 마지막.</li>
+      <li>두께는 직렬로 쌓이는 예산이다. 이 모델에서 두께 1 mm ≈ 배터리 3.5 Wh(≈ 900 mAh).</li>
+      <li>내부 부피의 약 1/3을 배터리가 차지하며, 배터리 부피는 '다른 부품이 쓰고 남은 공간'이다.</li>
+      <li>AP는 PoP 메모리와 초고속 인터페이스로 모든 부품과 연결된다. 데이터 속도가 높을수록 AP 가까이 있어야 한다.</li>
+      <li>평균 소비 전력 ~1 W가 하루 사용의 조건이며, 일상에서는 디스플레이가, 고부하에서는 AP·모뎀이 주 소비처다.</li>
+      <li>설계의 본질은 두께·배터리·열·안테나·카메라·내구성·원가 사이의 <b>균형</b>이다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>대부분의 스마트폰에서 메인보드와 카메라가 폰의 위쪽에 모여 있는 주된 이유가 아닌 것은?</p><div class="opts">
+        <button class="opt">손으로 쥐는 아래쪽을 피해 열이 손에 덜 전달되도록</button>
+        <button class="opt">손에 가려 안테나 성능이 떨어지는 것을 줄이려고</button>
+        <button class="opt" data-correct>위쪽이 중력 때문에 냉각이 잘 되어서</button>
+        <button class="opt">가로로 들었을 때 카메라가 손가락에 덜 가리도록</button>
+      </div><div class="quiz-exp">중력과 냉각은 무관합니다. 손의 위치(열·전파 차단), 카메라 가림이 주요 이유입니다.</div></div>
+
+      <div class="quiz-q"><p>조립 라인에서 후면 글라스 접착을 마지막에 하는 가장 큰 이유는?</p><div class="opts">
+        <button class="opt">후면 글라스가 가장 가벼워서</button>
+        <button class="opt" data-correct>방수 밀봉은 다시 열기 어려우므로 모든 기능 검사를 끝낸 뒤 닫아야 해서</button>
+        <button class="opt">무선 충전 코일이 글라스에 붙어 있어서</button>
+        <button class="opt">글라스가 열에 약해서</button>
+      </div><div class="quiz-exp">밀봉 후 불량이 발견되면 재작업 비용이 큽니다. 그래서 기능 검사를 모두 마친 뒤 마지막에 닫습니다.</div></div>
+
+      <div class="quiz-q"><p>배터리 면적이 64.5 × 72 mm, 체적 에너지 밀도가 760 Wh/L일 때, 폰 두께를 0.5 mm 줄이면 배터리 에너지는 대략 얼마나 줄어드나?</p><div class="opts">
+        <button class="opt">약 0.2 Wh</button>
+        <button class="opt" data-correct>약 1.8 Wh</button>
+        <button class="opt">약 5 Wh</button>
+        <button class="opt">약 18 Wh</button>
+      </div><div class="quiz-exp">64.5 × 72 × 0.5 mm³ = 2,322 mm³ = 2.32 cm³ → 0.00232 L × 760 Wh/L ≈ 1.76 Wh (≈ 450 mAh).</div></div>
+
+      <div class="quiz-q"><p>LPDDR 메모리를 AP 위에 직접 쌓는(PoP) 가장 큰 이유는?</p><div class="opts">
+        <button class="opt">메모리가 열을 식혀 주어서</button>
+        <button class="opt">메모리가 안테나 역할을 해서</button>
+        <button class="opt" data-correct>초당 수십 GB의 데이터를 짧은 배선으로 주고받아 속도·전력·면적을 모두 아끼려고</button>
+        <button class="opt">메모리를 교체하기 쉽게 하려고</button>
+      </div><div class="quiz-exp">배선이 짧을수록 신호 무결성이 좋아지고 I/O 전력이 줄며 보드 면적도 절약됩니다.</div></div>
+
+      <div class="quiz-q"><p>일반적인 웹 브라우징 사용에서 소비 전력이 가장 큰 경우가 많은 부품은?</p><div class="opts">
+        <button class="opt">진동 모터</button>
+        <button class="opt" data-correct>디스플레이</button>
+        <button class="opt">자이로 센서</button>
+        <button class="opt">무선 충전 코일</button>
+      </div><div class="quiz-exp">화면을 켜 두고 가벼운 작업을 할 때는 디스플레이가 가장 큰 소비처인 경우가 많습니다.</div></div>
+
+      <div class="quiz-q"><p>카메라 범프가 생기는 근본 원인은?</p><div class="opts">
+        <button class="opt">디자인 차별화를 위해</button>
+        <button class="opt">후면 글라스를 보호하려고</button>
+        <button class="opt" data-correct>큰 센서와 원하는 화각을 얻으려면 렌즈–센서 거리(광학 길이)가 본체 두께보다 길어야 해서</button>
+        <button class="opt">무선 충전 코일과 겹치지 않으려고</button>
+      </div><div class="quiz-exp">센서가 클수록 같은 화각에 더 긴 초점거리가 필요하고, 모듈 높이가 본체 두께를 넘어서 범프가 생깁니다.</div></div>
+
+      <div class="quiz-q"><p>BOM 원가에서 일반적으로 비중이 가장 작은 것은?</p><div class="opts">
+        <button class="opt">디스플레이</button>
+        <button class="opt">AP(SoC)</button>
+        <button class="opt">메모리·저장장치</button>
+        <button class="opt" data-correct>배터리</button>
+      </div><div class="quiz-exp">배터리는 원가 비중이 작습니다. 배터리를 키우는 진짜 비용은 부피와 무게입니다.</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const hex = (c) => "#" + c.toString(16).padStart(6, "0");
+  const NAMES_ORDER = ["cover", "display", "frontcam", "frame", "vc", "boardTop", "interposer", "boardBottom", "cameras", "battery", "bottom", "flex", "wireless", "backglass"];
+
+  /* =================================================================== 1. 분해 뷰어 */
+  (function () {
+    const el = $("v-explode");
+    const T = PB.three(el, { camera: [175, 135, 205], target: [0, -8, 0], fov: 34, minDistance: 60, maxDistance: 600 });
+    if (!T) return;
+    const P = PB.phone3d(T);
+    const card = $("card-explode");
+    let sel = null;
+    const VIEWS = {
+      iso: [[175, 135, 205], [0, -8, 0]],
+      front: [[0, 320, 40], [0, 0, 0]],
+      back: [[0, -330, 40], [0, -10, 0]],
+      side: [[330, 10, 0], [0, -10, 0]],
+    };
+    const amt = PB.range("ex-amt", (v) => v + " %", (v) => P.setExplode(v / 100));
+    P.setExplode(amt() / 100);
+    P.setLabels($("ex-labels").checked);
+    $("ex-labels").addEventListener("change", (e) => P.setLabels(e.target.checked));
+    $("ex-xray").addEventListener("change", (e) => P.setXray(e.target.checked));
+    $("ex-rot").addEventListener("change", (e) => { T.controls.autoRotate = e.target.checked; });
+    const view = PB.seg("ex-view", (v) => PB.flyTo(T, VIEWS[v][0], VIEWS[v][1], 1.1));
+    // 칩 목록
+    const chips = $("ex-chips");
+    chips.innerHTML = NAMES_ORDER.map((id) => { const p = P.byId[id]; return `<button data-id="${id}"><i style="background:${hex(p.color)}"></i>${p.name}</button>`; }).join("");
+    function select(id, fly) {
+      sel = id;
+      P.highlight(id);
+      [...chips.children].forEach((b) => b.classList.toggle("on", b.dataset.id === id));
+      if (!id) { card.hidden = true; PB.stat("ex-sel", "—"); return; }
+      const p = P.byId[id];
+      card.innerHTML = PB.partCardHTML(p, "");
+      card.hidden = false;
+      card.querySelector(".x").addEventListener("click", () => select(null));
+      PB.stat("ex-sel", p.name);
+      if (fly) {
+        const c = P.center(id);
+        const dir = T.camera.position.clone().sub(T.controls.target).normalize();
+        const dist = Math.max(120, Math.min(260, p.size.length() * 2.1));
+        const pos = c.clone().add(dir.multiplyScalar(dist));
+        PB.flyTo(T, pos.toArray(), c.toArray(), 0.9);
+      }
+    }
+    chips.addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; select(sel === b.dataset.id ? null : b.dataset.id, true); });
+    T.pick(() => P.parts.map((p) => p.group), (hit) => {
+      const p = hit && P.partAt(hit.object);
+      select(p ? (p.id === sel ? null : p.id) : null, false);
+    }, (hit) => { el.style.cursor = hit ? "pointer" : ""; });
+    $("ex-reset").addEventListener("click", () => {
+      select(null); amt.set(55); $("ex-xray").checked = false; P.setXray(false);
+      view.set("iso"); $("ex-rot").checked = false; T.controls.autoRotate = false;
+    });
+  })();
+
+  /* =================================================================== 2. 스크롤 투어 */
+  (function () {
+    const BEATS = [
+      { k: "START", t: "닫힌 폰", x: "앞에서 보면 유리 한 장, 옆에서 보면 금속 띠 하나. 이제 이 폰을 화면 쪽부터 한 겹씩 벗겨 봅시다.", ex: 0, hl: null, cam: [170, 150, 200], tg: [0, 0, 0] },
+      { k: "LAYER 1", t: "커버 글라스", x: "두께 0.5–0.7 mm의 화학 강화 유리. 표면 수십 µm가 압축 응력 상태라 작은 흠집이 균열로 자라지 못합니다. 손가락이 닿는 유일한 부품이기도 합니다.", ex: 0.5, hl: "cover", cam: [130, 200, 150], tg: [0, 25, 0] },
+      { k: "LAYER 2", t: "OLED 디스플레이", x: "스스로 빛나는 수백만 개의 서브픽셀과 이를 켜고 끄는 박막 트랜지스터, 터치 센서, 편광판이 1 mm 안팎에 들어 있습니다. 아래쪽의 주황색 연성 회로가 뒤로 접혀 보드와 연결됩니다.", ex: 0.5, hl: "display", cam: [150, 150, 120], tg: [0, 15, 10] },
+      { k: "LAYER 3", t: "전면 카메라와 센서", x: "화면의 작은 구멍(펀치홀) 바로 뒤에 셀피 카메라, 그 옆에 근접·조도 센서와 통화용 스피커가 있습니다. 통화 중 귀가 닿으면 근접 센서가 화면을 끕니다.", ex: 0.55, hl: "frontcam", cam: [60, 110, -150], tg: [0, 5, -60] },
+      { k: "SKELETON", t: "프레임과 미드플레이트", x: "측면 레일과 중간판을 금속 덩어리 하나에서 깎아 냅니다. 모든 부품의 기준면이자 접지면이며, 측면 레일의 검은 분할선은 금속을 여러 토막으로 나누어 각각을 안테나로 씁니다.", ex: 0.6, hl: "frame", cam: [190, 90, 140], tg: [0, 0, 0] },
+      { k: "HEAT", t: "베이퍼 챔버", x: "AP 위를 덮는 얇은 구리 판. 속의 물이 증발했다가 응축하며 열을 판 전체로 퍼뜨립니다. 열을 '없애는' 것이 아니라 넓게 펴서 화면과 프레임이 나눠 버리게 합니다.", ex: 0.75, hl: "vc", cam: [-120, 60, -170], tg: [-14, 0, -40] },
+      { k: "BRAIN", t: "메인보드 샌드위치", x: "두 장의 보드가 '인터포저'라는 액자를 사이에 두고 2층으로 쌓여 있습니다. 같은 부품을 절반 가까운 면적에 담아 그만큼 배터리를 키웁니다.", ex: 0.9, hl: ["boardTop", "interposer", "boardBottom"], cam: [-150, 40, -190], tg: [-10, -20, -40] },
+      { k: "BRAIN", t: "AP와 메모리", x: "하판 가운데의 정사각형이 AP(SoC), 그 위에 LPDDR 메모리가 겹쳐 있습니다(PoP). 손톱만 한 이 패키지가 CPU·GPU·NPU·ISP·모뎀을 담고 있습니다.", ex: 0.9, hl: "boardBottom", cam: [-70, 30, -110], tg: [-14, -30, -52], focus: "boardBottom" },
+      { k: "CAMERA", t: "후면 카메라", x: "메인·초광각·잠망경 망원. 망원은 프리즘으로 빛을 90° 꺾어 렌즈를 눕혀 놓았습니다. 그래도 메인 카메라는 본체 두께보다 높아서 범프가 생깁니다.", ex: 0.9, hl: "cameras", cam: [110, -110, -150], tg: [18, -30, -50] },
+      { k: "ENERGY", t: "배터리", x: "가장 큰 단일 부품. 15–19 Wh의 에너지를 담은 파우치 셀이 내부 면적의 절반 가까이를 차지합니다. 아래쪽 흰 띠는 수리할 때 배터리를 떼어 내는 당김 탭입니다.", ex: 0.85, hl: "battery", cam: [140, -120, 160], tg: [0, -25, 20] },
+      { k: "BOTTOM", t: "하단 모듈", x: "USB-C 포트, 스피커 박스, 진동 모터(LRA), 마이크. 배터리 옆을 지나는 메인 플렉스가 이 모든 신호를 위쪽 보드로 나릅니다.", ex: 0.85, hl: ["bottom", "flex"], cam: [120, -60, 200], tg: [5, -25, 50] },
+      { k: "BACK", t: "무선 충전과 후면 글라스", x: "코일과 정렬 자석, NFC 안테나가 후면 글라스 바로 안쪽에 있습니다. 자기장과 전파가 통과해야 하므로 뒷면은 금속이 아니라 유리입니다.", ex: 0.9, hl: ["wireless", "backglass"], cam: [100, -230, 130], tg: [0, -50, 0] },
+      { k: "DONE", t: "다시 하나로", x: "14개의 부품 그룹, 수천 개의 소자. 다음 절에서는 이 부품들을 공장의 순서대로 직접 조립해 봅니다.", ex: 0, hl: null, cam: [-170, 120, 200], tg: [0, 0, 0] },
+    ];
+    const beatsEl = $("beats");
+    beatsEl.innerHTML = BEATS.map((b, i) => `<div class="beat" data-i="${i}"><div><span class="k">${String(i).padStart(2, "0")} · ${b.k}</span><b class="t">${b.t}</b>${b.x}</div></div>`).join("");
+    const el = $("v-tour");
+    const T = PB.three(el, { camera: BEATS[0].cam, target: BEATS[0].tg, fov: 34, minDistance: 50, maxDistance: 600 });
+    if (!T) return;
+    T.controls.enableZoom = false; // 페이지 스크롤과 충돌 방지
+    const P = PB.phone3d(T);
+    let cur = 0, want = 0, idx = -1;
+    T.onFrame((dt) => {
+      if (Math.abs(want - cur) > 1e-4) { cur += (want - cur) * Math.min(1, dt * 3.2); P.setExplode(cur); }
+    });
+    function go(i) {
+      if (i === idx) return;
+      idx = i;
+      const b = BEATS[i];
+      want = b.ex;
+      P.highlight(b.hl);
+      $("tour-hud").textContent = "TOUR · " + String(i).padStart(2, "0") + " / " + String(BEATS.length - 1).padStart(2, "0");
+      let tg = b.tg;
+      if (b.focus) { // 목표 분해 상태에서 부품 중심을 계산
+        const keep = P.state.explode; P.setExplode(b.ex);
+        const c = P.byId[b.focus].apPos ? P.byId[b.focus].group.localToWorld(P.byId[b.focus].apPos.clone()) : P.center(b.focus);
+        P.setExplode(keep); tg = c.toArray();
+      }
+      PB.flyTo(T, b.cam, tg, 1.3);
+    }
+    go(0);
+    if (window.IntersectionObserver) {
+      const io = new IntersectionObserver((es) => {
+        es.forEach((e) => { if (e.isIntersecting) go(+e.target.dataset.i); });
+      }, { rootMargin: "-45% 0px -45% 0px" });
+      beatsEl.querySelectorAll(".beat").forEach((b) => io.observe(b));
+    }
+  })();
+
+  /* =================================================================== 3. 조립 시뮬레이터 */
+  (function () {
+    const el = $("v-assembly");
+    const T = PB.three(el, { camera: [200, 90, 190], target: [0, 0, 0], fov: 34, minDistance: 60, maxDistance: 600 });
+    if (!T) return;
+    const P = PB.phone3d(T, { spacing: 0 });
+    const N = P.order.length;
+    const bar = $("as-bar");
+    bar.innerHTML = P.order.map(() => "<span></span>").join("");
+    let s = 0, target = 0, playing = false, lastStep = -1;
+    // 완성품 고스트
+    const ghost = PB.phone3d(T, { spacing: 0 });
+    ghost.parts.forEach((p) => p.mats.forEach((m) => { m.userData.base.opacity = 0.08; m.userData.base.transparent = true; m.userData.base.depthWrite = false; }));
+    ghost.setXray(false); ghost.highlight(null);
+    ghost.group.visible = false;
+    const sOut = PB.range("as-s", (v) => (v / 100).toFixed(1) + " / " + N, (v) => { playing = false; setPlay(); target = v / 100; s = target; });
+    function setPlay() { $("as-play").textContent = playing ? "❚❚ 정지" : "▶ 재생"; }
+    function camFor(step) {
+      const id = P.order[Math.max(0, Math.min(N - 1, step))];
+      const lay = P.byId[id].layer;
+      return lay >= 5 ? [[190, 150, 180], [0, 5, 0]] : [[170, -150, 180], [0, -5, 0]];
+    }
+    function update() {
+      P.setAssembly(s);
+      const step = Math.min(N - 1, Math.max(0, Math.ceil(s) - 1));
+      [...bar.children].forEach((b, i) => b.classList.toggle("on", i < Math.round(s * 100) / 100 - 1e-6 || i <= step && s > 0.001));
+      const id = s <= 0.001 ? null : P.order[step];
+      if (step !== lastStep || !id) {
+        lastStep = id ? step : -1;
+        const t = id ? P.stepText[id] : ["준비", "▶ 재생 또는 '다음'을 눌러 조립을 시작하세요. 각 단계에서 부품이 날아와 제자리에 앉습니다."];
+        $("as-text").innerHTML = `<b>${id ? String(step + 1).padStart(2, "0") + ". " : ""}${t[0]}</b>${t[1]}`;
+        P.highlight(id);
+        if (id && $("as-cam").checked) { const c = camFor(step); PB.flyTo(T, c[0], c[1], 1.0); }
+      }
+      sOut.el.value = Math.round(s * 100);
+      sOut.el.style.setProperty("--fill", (s / N) * 100 + "%");
+      $("as-s-out").textContent = s.toFixed(1) + " / " + N;
+    }
+    T.onFrame((dt) => {
+      if (playing) { target = Math.min(N, target + dt * 0.55); if (target >= N) { playing = false; setPlay(); } }
+      if (Math.abs(target - s) > 1e-3) { s += Math.sign(target - s) * Math.min(Math.abs(target - s), dt * 1.6); update(); }
+    });
+    $("as-play").addEventListener("click", () => { if (s >= N - 1e-3) { s = target = 0; } playing = !playing; setPlay(); });
+    $("as-next").addEventListener("click", () => { playing = false; setPlay(); target = Math.min(N, Math.floor(target + 1e-3) + 1); });
+    $("as-prev").addEventListener("click", () => { playing = false; setPlay(); target = Math.max(0, Math.ceil(target - 1e-3) - 1); });
+    $("as-ghost").addEventListener("change", (e) => { ghost.group.visible = e.target.checked; ghost.updateLabels(); });
+    update();
+  })();
+
+  /* =================================================================== 4. 단면 뷰 */
+  (function () {
+    const el = $("v-section");
+    const T = PB.three(el, { camera: [150, 60, 140], target: [0, 0, -10], fov: 32, clipping: true, minDistance: 40, maxDistance: 500 });
+    if (!T) return;
+    const P = PB.phone3d(T, { spacing: 4 });
+    const xs = PB.range("sec-x", (v) => v.toFixed(1) + " mm", (v) => P.setClip(v));
+    P.setClip(xs());
+    const q = PB.seg("sec-q", (v) => xs.set(+v));
+    PB.range("sec-ex", (v) => v + " %", (v) => P.setExplode(v / 100));
+    // 단면 위치 표시용 얇은 평면
+    const THREE = T.THREE;
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(26, 165), new THREE.MeshBasicMaterial({ color: 0x2dd4bf, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false }));
+    plane.rotation.y = Math.PI / 2; plane.userData.noPick = true;
+    T.scene.add(plane);
+    T.onFrame(() => { plane.position.x = xs(); });
+    $("sec-flat").addEventListener("change", (e) => {
+      if (e.target.checked) PB.flyTo(T, [-230, 2, -10], [0, 2, -10], 1.0);
+      else PB.flyTo(T, [150, 60, 140], [0, 0, -10], 1.0);
+    });
+    P.setLabels(false);
+  })();
+
+  /* =================================================================== 5. 두께 예산 */
+  (function () {
+    const ids = ["total", "cover", "disp", "mid", "gap", "coil", "back"];
+    const get = {};
+    let cv = null;
+    ids.forEach((k) => (get[k] = PB.range("bd-" + k, (v) => v.toFixed(2) + " mm", () => cv.redraw())));
+    const AREA = 64.5 * 72, RHO = 760, POUCH = 0.25, CAM = 9.5;
+    cv = PB.canvas($("cv-budget"), draw, { aspect: 0.62, maxHeight: 420, minHeight: 300 });
+    function draw(ctx, w, h) {
+      const P = PB.palette();
+      const tot = get.total();
+      const layers = [
+        ["커버 글라스", get.cover(), "#7cc4f0"],
+        ["디스플레이", get.disp(), "#6c5ce7"],
+        ["미드플레이트", get.mid(), "#a7adb8"],
+        ["여유(스웰링·공차)", get.gap(), null],
+        ["배터리", 0, "#3fcf7f"],
+        ["무선충전", get.coil(), "#d9822b"],
+        ["후면 글라스", get.back(), "#3d4a5c"],
+      ];
+      const others = layers.reduce((a, l) => a + l[1], 0);
+      const bat = tot - others;
+      layers[4][1] = Math.max(0, bat);
+      const cell = Math.max(0, bat - POUCH);
+      const wh = (AREA * cell * 1e-6) * RHO; // mm³→L
+      const mah = (wh / 3.87) * 1000;
+      PB.stat("bd-bat", bat > 0 ? bat.toFixed(2) + "<small>mm</small>" : '<span style="color:var(--bad)">부족</span>');
+      PB.stat("bd-wh", wh.toFixed(1) + "<small>Wh</small>");
+      PB.stat("bd-mah", Math.round(mah).toLocaleString() + "<small>mAh</small>");
+      PB.stat("bd-bump", Math.max(0, CAM - tot + get.back() * 0.3).toFixed(1) + "<small>mm</small>");
+      // 그림: 왼쪽 세로 단면 막대(스케일), 오른쪽 범례
+      const scale = (h - 70) / 10.5; // 10.5 mm 가 캔버스 높이
+      const x0 = 70, bw = Math.min(260, w * 0.38);
+      const yBase = h - 34;
+      ctx.font = "12px " + PB.color("font");
+      // 눈금
+      ctx.strokeStyle = P.grid; ctx.fillStyle = P.dim; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      for (let mm = 0; mm <= 10; mm++) { const y = yBase - mm * scale; ctx.beginPath(); ctx.moveTo(x0 - 6, y); ctx.lineTo(x0 + bw + 10, y); ctx.stroke(); ctx.fillText(mm + " mm", x0 - 10, y); }
+      // 층 (아래=후면 → 위=화면)
+      let y = yBase;
+      const order = [6, 5, 4, 3, 2, 1, 0];
+      const rects = [];
+      order.forEach((i) => {
+        const [name, t, col] = layers[i];
+        const hh = t * scale;
+        y -= hh;
+        if (t <= 0) return;
+        if (col) { ctx.fillStyle = col; ctx.globalAlpha = 0.85; ctx.fillRect(x0, y, bw, hh); ctx.globalAlpha = 1; }
+        else { ctx.save(); ctx.fillStyle = P.surface; ctx.fillRect(x0, y, bw, hh); ctx.strokeStyle = P.faint; ctx.beginPath(); for (let k = -hh; k < bw; k += 7) { ctx.moveTo(x0 + k, y + hh); ctx.lineTo(x0 + k + hh, y); } ctx.save(); ctx.beginPath(); ctx.rect(x0, y, bw, hh); ctx.clip(); ctx.stroke(); ctx.restore(); ctx.restore(); }
+        ctx.strokeStyle = P.bg; ctx.lineWidth = 1; ctx.strokeRect(x0, y, bw, hh);
+        rects.push([name, t, col, y + hh / 2]);
+      });
+      if (bat < 0) {
+        ctx.fillStyle = PB.color("bad"); ctx.textAlign = "left";
+        ctx.fillText("다른 층의 합이 목표 두께를 넘었습니다!", x0, 22);
+      }
+      // 배터리 안에 Wh 글씨
+      const bi = rects.find((r) => r[0] === "배터리");
+      if (bi && bi[1] * scale > 18) { ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.font = "600 14px " + PB.color("font"); ctx.fillText(wh.toFixed(1) + " Wh", x0 + bw / 2, bi[3]); }
+      // 카메라 모듈(오른쪽)
+      const cx = x0 + bw + 30, cw = 34;
+      ctx.fillStyle = "#4f6bed"; ctx.globalAlpha = 0.8;
+      ctx.fillRect(cx, yBase - (CAM - 1.6) * scale - 0, cw, CAM * scale);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = PB.color("warn"); ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(x0, yBase - tot * scale); ctx.lineTo(cx + cw + 8, yBase - tot * scale); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = P.dim; ctx.textAlign = "center"; ctx.font = "11px " + PB.color("font");
+      ctx.fillText("메인 카메라", cx + cw / 2, yBase + 22);
+      ctx.fillStyle = PB.color("warn"); ctx.textAlign = "left";
+      // 범례(오른쪽)
+      const lx = cx + cw + 22;
+      if (lx < w - 120) {
+        ctx.font = "12.5px " + PB.color("font"); ctx.textBaseline = "middle";
+        const ys = rects.map((r) => r[3]).sort((a, b) => a - b);
+        const n = rects.length; const top = 24, step = Math.min(30, (h - 70) / Math.max(1, n));
+        rects.slice().reverse().forEach((r, k) => {
+          const ly = top + k * step + 8;
+          ctx.fillStyle = r[2] || P.faint; ctx.fillRect(lx, ly - 6, 12, 12);
+          ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.fillText(r[0], lx + 18, ly);
+          ctx.fillStyle = P.dim; ctx.fillText(r[1].toFixed(2) + " mm", lx + 18 + Math.min(130, w - lx - 80), ly);
+        });
+        ctx.fillStyle = PB.color("warn"); ctx.fillText("— 본체 두께 " + tot.toFixed(2) + " mm", lx, top + n * step + 20);
+      }
+    }
+  })();
+
+  /* =================================================================== 6. 부피 배분 */
+  (function () {
+    const DATA = {
+      flag: [["배터리", 30, "#3fcf7f", "battery"], ["디스플레이·커버 글라스", 19, "#6c5ce7", "display"], ["프레임·미드플레이트", 13, "#a7adb8", "mechanical"], ["메인보드 스택", 10, "#2f8f5b", "board"], ["후면 글라스", 7, "#3d4a5c", "mechanical"], ["카메라 모듈", 7, "#4f6bed", "camera"], ["스피커·햅틱·USB", 5, "#8e6bd8", "audio"], ["무선충전·NFC", 2, "#d9822b", "power"], ["열 확산(VC·그래파이트)", 1.5, "#d08a52", "thermal"], ["AP 패키지", 0.5, "#22252b", "soc"], ["공기 간극·접착·공차", 5, null, "mechanical"]],
+      camera: [["배터리", 26, "#3fcf7f", "battery"], ["디스플레이·커버 글라스", 18, "#6c5ce7", "display"], ["프레임·미드플레이트", 13, "#a7adb8", "mechanical"], ["메인보드 스택", 9, "#2f8f5b", "board"], ["후면 글라스", 6.5, "#3d4a5c", "mechanical"], ["카메라 모듈", 13, "#4f6bed", "camera"], ["스피커·햅틱·USB", 4.5, "#8e6bd8", "audio"], ["무선충전·NFC", 2, "#d9822b", "power"], ["열 확산(VC·그래파이트)", 1.5, "#d08a52", "thermal"], ["AP 패키지", 0.5, "#22252b", "soc"], ["공기 간극·접착·공차", 6, null, "mechanical"]],
+      mid: [["배터리", 33, "#3fcf7f", "battery"], ["디스플레이·커버 글라스", 18, "#6c5ce7", "display"], ["프레임·미드플레이트", 12, "#a7adb8", "mechanical"], ["메인보드 스택", 12, "#2f8f5b", "board"], ["후면 커버(플라스틱)", 7, "#3d4a5c", "mechanical"], ["카메라 모듈", 4, "#4f6bed", "camera"], ["스피커·햅틱·USB", 5, "#8e6bd8", "audio"], ["무선충전·NFC", 0.5, "#d9822b", "power"], ["열 확산(그래파이트)", 1, "#d08a52", "thermal"], ["AP 패키지", 0.5, "#22252b", "soc"], ["공기 간극·접착·공차", 7, null, "mechanical"]],
+    };
+    const DESC = {
+      "배터리": "가장 큰 단일 부품. 사용 시간은 거의 이 부피에 비례합니다.",
+      "디스플레이·커버 글라스": "앞면 전체를 덮는 얇고 넓은 층. 두께는 1.5 mm 남짓이지만 면적이 커서 부피가 큽니다.",
+      "프레임·미드플레이트": "뼈대. 얇게 하면 휘고, 두껍게 하면 무겁습니다.",
+      "메인보드 스택": "샌드위치 2장 + 인터포저 + 차폐 캔. 면적을 줄이면 배터리가 커집니다.",
+      "후면 글라스": "전파와 자기장이 통과하는 뚜껑.",
+      "후면 커버(플라스틱)": "보급형은 유리 대신 플라스틱으로 원가와 무게를 줄이기도 합니다.",
+      "카메라 모듈": "센서가 클수록 모듈이 커지고 높아집니다(범프).",
+      "스피커·햅틱·USB": "소리는 공기 부피가 있어야 나옵니다. 스피커 박스는 늘 배터리와 다툽니다.",
+      "무선충전·NFC": "얇은 코일과 페라이트, 정렬 자석.",
+      "열 확산(VC·그래파이트)": "부피는 작지만 지속 성능을 좌우합니다.",
+      "열 확산(그래파이트)": "보급형은 베이퍼 챔버 대신 그래파이트 시트만 쓰기도 합니다.",
+      "AP 패키지": "폰의 두뇌는 부피로 치면 1 %도 되지 않습니다.",
+      "공기 간극·접착·공차": "부품 사이의 틈, 테이프, 쿠션. 0이 될 수 없는 '세금'.",
+    };
+    let kind = "flag", mode = "donut", hover = -1, sel = -1, regions = [];
+    const cv = PB.canvas($("cv-volume"), draw, { aspect: 0.66, maxHeight: 440, minHeight: 300 });
+    PB.seg("vol-kind", (v) => { kind = v; cv.redraw(); info(); });
+    PB.seg("vol-mode", (v) => { mode = v; cv.redraw(); });
+    function draw(ctx, w, h) {
+      const P = PB.palette();
+      const d = DATA[kind];
+      const tot = d.reduce((a, x) => a + x[1], 0);
+      regions = [];
+      ctx.font = "12px " + PB.color("font");
+      if (mode === "donut") {
+        const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 18, r = R * 0.56;
+        let a = -Math.PI / 2;
+        d.forEach((x, i) => {
+          const da = (x[1] / tot) * Math.PI * 2;
+          const pop = i === hover || i === sel ? 8 : 0;
+          const mid = a + da / 2;
+          ctx.save(); ctx.translate(Math.cos(mid) * pop, Math.sin(mid) * pop);
+          ctx.beginPath(); ctx.arc(cx, cy, R, a, a + da); ctx.arc(cx, cy, r, a + da, a, true); ctx.closePath();
+          ctx.fillStyle = x[2] || P.surface; ctx.globalAlpha = sel >= 0 && sel !== i ? 0.4 : 0.92; ctx.fill(); ctx.globalAlpha = 1;
+          if (!x[2]) { ctx.strokeStyle = P.faint; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]); }
+          ctx.strokeStyle = P.bg; ctx.lineWidth = 2; ctx.stroke();
+          if (x[1] >= 4) { ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = "600 12px " + PB.color("font"); const rr = (R + r) / 2; ctx.fillText(x[1] + "%", cx + Math.cos(mid) * rr, cy + Math.sin(mid) * rr); }
+          ctx.restore();
+          regions.push({ i, type: "arc", a0: a, a1: a + da, cx, cy, R, r });
+          a += da;
+        });
+        const show = d[sel >= 0 ? sel : hover >= 0 ? hover : 0];
+        ctx.fillStyle = P.text; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.font = "700 " + Math.round(r * 0.36) + "px " + PB.color("font"); ctx.fillText(show[1] + "%", cx, cy - 8);
+        ctx.font = "12px " + PB.color("font"); ctx.fillStyle = P.dim; ctx.fillText(show[0], cx, cy + r * 0.3);
+      } else {
+        // 단순 스쿼리파이드 트리맵(행 단위)
+        const items = d.map((x, i) => ({ x, i, v: x[1] })).sort((p, q) => q.v - p.v);
+        let rect = { x: 8, y: 8, w: w - 16, h: h - 16 };
+        const area = rect.w * rect.h;
+        items.forEach((it) => (it.a = (it.v / tot) * area));
+        function worst(row, side) { const s = row.reduce((a, b) => a + b.a, 0); let mx = 0; row.forEach((r) => { const q = Math.max((side * side * r.a) / (s * s), (s * s) / (side * side * r.a)); mx = Math.max(mx, q); }); return mx; }
+        let rest = items.slice();
+        while (rest.length) {
+          const side = Math.min(rect.w, rect.h);
+          let row = [rest[0]]; let k = 1;
+          while (k < rest.length && worst(row.concat(rest[k]), side) <= worst(row, side)) { row.push(rest[k]); k++; }
+          rest = rest.slice(k);
+          const s = row.reduce((a, b) => a + b.a, 0);
+          if (rect.w >= rect.h) { const cw = s / rect.h; let yy = rect.y; row.forEach((r) => { const hh = r.a / cw; r.r = [rect.x, yy, cw, hh]; yy += hh; }); rect = { x: rect.x + cw, y: rect.y, w: rect.w - cw, h: rect.h }; }
+          else { const ch = s / rect.w; let xx = rect.x; row.forEach((r) => { const ww = r.a / ch; r.r = [xx, rect.y, ww, ch]; xx += ww; }); rect = { x: rect.x, y: rect.y + ch, w: rect.w, h: rect.h - ch }; }
+        }
+        items.forEach((it) => {
+          const [x, y, ww, hh] = it.r;
+          ctx.fillStyle = it.x[2] || P.surface; ctx.globalAlpha = sel >= 0 && sel !== it.i ? 0.4 : it.i === hover ? 1 : 0.88;
+          ctx.fillRect(x + 1.5, y + 1.5, ww - 3, hh - 3); ctx.globalAlpha = 1;
+          if (!it.x[2]) { ctx.strokeStyle = P.faint; ctx.setLineDash([3, 3]); ctx.strokeRect(x + 1.5, y + 1.5, ww - 3, hh - 3); ctx.setLineDash([]); }
+          if (ww > 54 && hh > 30) {
+            ctx.fillStyle = it.x[2] ? "#fff" : P.text; ctx.textAlign = "left"; ctx.textBaseline = "top";
+            ctx.font = "600 12.5px " + PB.color("font"); ctx.fillText(it.x[1] + "%", x + 8, y + 7);
+            ctx.font = "11.5px " + PB.color("font");
+            let label = it.x[0]; while (ctx.measureText(label).width > ww - 14 && label.length > 2) label = label.slice(0, -2) + "…";
+            if (hh > 46) ctx.fillText(label, x + 8, y + 24);
+          }
+          regions.push({ i: it.i, type: "rect", r: it.r });
+        });
+      }
+    }
+    function hit(mx, my) {
+      for (const g of regions) {
+        if (g.type === "rect") { const [x, y, w, h] = g.r; if (mx >= x && mx <= x + w && my >= y && my <= y + h) return g.i; }
+        else { const dx = mx - g.cx, dy = my - g.cy, rr = Math.hypot(dx, dy); if (rr < g.r || rr > g.R + 8) continue; let a = Math.atan2(dy, dx); if (a < -Math.PI / 2) a += Math.PI * 2; if (a >= g.a0 && a < g.a1) return g.i; }
+      }
+      return -1;
+    }
+    const c = $("cv-volume");
+    const pos = (e) => { const r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    c.addEventListener("pointermove", (e) => { const i = hit(...pos(e)); if (i !== hover) { hover = i; c.style.cursor = i >= 0 ? "pointer" : ""; cv.redraw(); if (sel < 0) info(i); } });
+    c.addEventListener("pointerleave", () => { hover = -1; cv.redraw(); if (sel < 0) info(); });
+    c.addEventListener("click", (e) => { const i = hit(...pos(e)); sel = sel === i ? -1 : i; cv.redraw(); info(sel); });
+    function info(i) {
+      const d = DATA[kind];
+      if (i == null || i < 0) { $("vol-info").innerHTML = "<b>조각을 선택하세요</b>각 부품이 내부 부피의 몇 %를 차지하는지 보여 줍니다. 외형 84 cm³ 기준."; return; }
+      const x = d[i]; const ch = PB.CHAPTERS.find((c) => c.slug === x[3]);
+      $("vol-info").innerHTML = `<b>${x[0]} — ${x[1]}% (≈ ${(84 * x[1] / 100).toFixed(1)} cm³)</b>${DESC[x[0]] || ""}${ch ? ` <a href="${ch.slug}.html">${ch.num}장 →</a>` : ""}`;
+    }
+  })();
+
+  /* =================================================================== 7. 블록 다이어그램 */
+  (function () {
+    const svg = $("bd-svg");
+    const B = {
+      ap: [330, 200, 200, 110, "AP (SoC)", "CPU·GPU·NPU·ISP·모뎀", "soc"],
+      dram: [355, 40, 150, 56, "LPDDR5X", "PoP 메모리", "board"],
+      ufs: [600, 40, 130, 56, "UFS 4.x", "저장장치", "board"],
+      disp: [40, 40, 150, 56, "디스플레이", "OLED + DDIC", "display"],
+      touch: [40, 120, 150, 50, "터치 IC", "정전용량", "display"],
+      cam: [40, 200, 150, 56, "카메라 ×4", "이미지 센서", "camera"],
+      sens: [40, 290, 150, 56, "센서", "IMU·근접·지문", "sensors"],
+      audio: [40, 380, 150, 56, "오디오", "코덱·앰프·스피커·마이크", "audio"],
+      rf: [660, 160, 160, 56, "RF 프론트엔드", "트랜시버·PA·필터", "rf"],
+      ant: [660, 250, 160, 50, "안테나 ×6–10", "프레임·FPC", "rf"],
+      wifi: [660, 330, 160, 50, "Wi-Fi·BT·UWB", "연결 칩", "rf"],
+      pmic: [330, 400, 200, 56, "PMIC", "수십 개 전원 레일", "power"],
+      chg: [600, 430, 130, 56, "충전 IC", "경로 관리", "power"],
+      bat: [600, 340, 0, 0, "", "", ""],
+      battery: [770, 430, 80, 56, "배터리", "3.87 V", "battery"],
+      usb: [600, 470 + 0, 0, 0, "", "", ""],
+      usbc: [230, 470 - 10, 80, 50, "USB-C", "PD 충전", "power"],
+      coil: [770, 500 - 10, 80, 0, "", "", ""],
+    };
+    // 표시할 블록만
+    const SHOW = ["ap", "dram", "ufs", "disp", "touch", "cam", "sens", "audio", "rf", "ant", "wifi", "pmic", "chg", "battery", "usbc"];
+    const L = [
+      // [from, to, kind, bus, rate, desc]
+      ["ap", "dram", "sig", "LPDDR5X", "~60–80 GB/s", "AP와 메모리 사이는 폰에서 가장 빠른 길입니다. 그래서 메모리는 AP 위에 직접 쌓습니다(PoP)."],
+      ["ap", "ufs", "sig", "UFS (M-PHY)", "~4 GB/s", "앱과 사진이 저장되는 플래시. 순차 읽기 수 GB/s."],
+      ["ap", "disp", "sig", "MIPI DSI", "~10–20 Gbps", "화면 데이터. 1440p·120 Hz면 초당 수십억 비트가 흐릅니다. 화면 FPC는 패널 아래에서 접혀 보드로 옵니다."],
+      ["ap", "touch", "sig", "SPI / I²C", "~수 Mbps", "터치 좌표. 데이터는 적지만 지연(ms)이 중요합니다."],
+      ["ap", "cam", "sig", "MIPI CSI-2", "~수 Gbps ×4", "센서가 보내는 RAW 영상. 50 MP·30 fps면 카메라 하나에 수 Gbps."],
+      ["ap", "sens", "sig", "I³C / I²C", "~kbps–Mbps", "가속도·자이로 등 저속 센서. 센서 허브가 AP를 깨우지 않고 처리하기도 합니다."],
+      ["ap", "audio", "sig", "SoundWire / I²S", "~Mbps", "디지털 오디오. 스마트 앰프가 스피커 진동판을 보호하며 구동합니다."],
+      ["ap", "rf", "sig", "디지털 IQ", "~Gbps", "모뎀(AP 내장 또는 별도 칩)과 RF 트랜시버 사이의 기저대역 신호."],
+      ["rf", "ant", "sig", "동축·FPC 급전", "RF 0.6–40 GHz", "트랜시버 → PA → 필터 → 스위치 → 튜너 → 안테나. 수십 개의 대역이 몇 개의 안테나를 나눠 씁니다."],
+      ["ap", "wifi", "sig", "PCIe", "~수 Gbps", "Wi-Fi·블루투스·UWB 연결 칩. 자체 안테나를 공유합니다."],
+      ["wifi", "ant", "sig", "RF", "2.4–7 GHz", "Wi-Fi 6E/7 대역."],
+      ["usbc", "ap", "sig", "USB 2.0/3.x", "0.48–10 Gbps", "데이터 전송·디스플레이 출력."],
+      ["battery", "chg", "pwr", "배터리 버스", "3.0–4.5 V", "배터리 전력은 충전 IC(경로 관리)를 거쳐 시스템으로 갑니다."],
+      ["chg", "pmic", "pwr", "VSYS", "~3.4–4.4 V, 최대 수 A", "시스템 전원. PMIC가 이것을 수십 개 레일로 나눕니다."],
+      ["usbc", "chg", "pwr", "VBUS (USB PD)", "5–20 V", "충전기와 전압·전류를 협상(PD/PPS)해 받습니다."],
+      ["pmic", "ap", "pwr", "코어 레일", "0.5–1.1 V, 최대 ~10 A", "CPU·GPU 코어 전원. 부하에 따라 전압이 실시간으로 바뀝니다(DVFS)."],
+      ["pmic", "dram", "pwr", "메모리 레일", "0.5–1.05 V", "LPDDR5X는 여러 개의 저전압 레일을 씁니다."],
+      ["pmic", "disp", "pwr", "ELVDD/ELVSS", "~+4.6 / −3 V", "OLED는 양·음 두 전원으로 발광 전류를 흘립니다."],
+      ["pmic", "cam", "pwr", "AVDD/DVDD", "2.8 / 1.1 V", "센서 아날로그·디지털 전원과 AF/OIS 구동."],
+      ["chg", "rf", "pwr", "PA 전원 (ET)", "0.5–5 V", "파워앰프는 엔벨로프 추적(ET)으로 신호 크기에 맞춰 전압을 바꿔 효율을 높입니다."],
+    ];
+    const ns = "http://www.w3.org/2000/svg";
+    const mk = (t, a, p) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; };
+    const ctr = (k) => { const b = B[k]; return [b[0] + b[2] / 2, b[1] + b[3] / 2]; };
+    const edge = (k, toward) => { // 블록 테두리 위의 점
+      const b = B[k]; const [cx, cy] = ctr(k); const [tx, ty] = toward;
+      const dx = tx - cx, dy = ty - cy; const sx = (b[2] / 2) / Math.abs(dx || 1e-6), sy = (b[3] / 2) / Math.abs(dy || 1e-6); const s = Math.min(sx, sy);
+      return [cx + dx * s, cy + dy * s];
+    };
+    const gl = mk("g", {}), gb = mk("g", {});
+    const lines = L.map((l, i) => {
+      const a = edge(l[0], ctr(l[1])), b = edge(l[1], ctr(l[0]));
+      const p = mk("path", { d: `M${a[0]},${a[1]} L${b[0]},${b[1]}`, class: "ln" + (l[2] === "pwr" ? " pwr" : "") }, gl);
+      const tx = mk("text", { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 - 5, "text-anchor": "middle", class: "bus" }, gl);
+      tx.textContent = l[3];
+      return { l, p, tx };
+    });
+    const blocks = {};
+    SHOW.forEach((k) => {
+      const b = B[k];
+      const g = mk("g", { class: "blk", "data-k": k, tabindex: 0, role: "button" }, gb);
+      mk("rect", { x: b[0], y: b[1], width: b[2], height: b[3], rx: 10 }, g);
+      const t1 = mk("text", { x: b[0] + b[2] / 2, y: b[1] + b[3] / 2 - (b[3] > 52 ? 4 : 2), "text-anchor": "middle", class: "t", "font-weight": "700" }, g); t1.textContent = b[4];
+      const t2 = mk("text", { x: b[0] + b[2] / 2, y: b[1] + b[3] / 2 + 14, "text-anchor": "middle", class: "t-dim" }, g); t2.textContent = b[5];
+      blocks[k] = g;
+    });
+    let layer = "sig", sel = null;
+    function render() {
+      lines.forEach(({ l, p, tx }) => {
+        const vis = layer === "all" || l[2] === layer;
+        p.style.display = tx.style.display = vis ? "" : "none";
+        const on = sel && (l[0] === sel || l[1] === sel);
+        p.classList.toggle("on", !!on); tx.classList.toggle("on", !!on);
+        p.classList.toggle("dim", !!sel && !on); tx.style.opacity = sel && !on ? 0.2 : "";
+      });
+      const nb = new Set(sel ? [sel] : []);
+      if (sel) lines.forEach(({ l }) => { if ((layer === "all" || l[2] === layer) && (l[0] === sel || l[1] === sel)) { nb.add(l[0]); nb.add(l[1]); } });
+      SHOW.forEach((k) => { blocks[k].classList.toggle("on", k === sel); blocks[k].classList.toggle("dim", !!sel && !nb.has(k)); });
+      if (!sel) { $("bd-info").innerHTML = "<b>블록을 클릭하세요.</b> AP(SoC)를 중심으로 메모리, 화면, 카메라, 무선, 전원이 어떻게 이어지는지 보여 줍니다."; return; }
+      const rel = lines.filter(({ l }) => (layer === "all" || l[2] === layer) && (l[0] === sel || l[1] === sel));
+      const ch = PB.CHAPTERS.find((c) => c.slug === B[sel][6]);
+      $("bd-info").innerHTML = `<b>${B[sel][4]}</b> — ${rel.length ? rel.map(({ l }) => `<b>${l[3]}</b> (${l[4]}): ${l[5]}`).join("<br>") : "이 보기에서는 연결이 없습니다."}${ch ? `<br><a href="${ch.slug}.html">${ch.num}장 · ${ch.title} →</a>` : ""}`;
+    }
+    gb.addEventListener("click", (e) => { const g = e.target.closest(".blk"); if (!g) return; sel = sel === g.dataset.k ? null : g.dataset.k; render(); });
+    gb.addEventListener("keydown", (e) => { if (e.key === "Enter") { const g = e.target.closest(".blk"); if (g) { sel = g.dataset.k; render(); } } });
+    svg.addEventListener("click", (e) => { if (!e.target.closest(".blk")) { sel = null; render(); } });
+    PB.seg("bd-layer", (v) => { layer = v; render(); });
+    render();
+  })();
+
+  /* =================================================================== 8. 전력 시나리오 */
+  (function () {
+    // [디스플레이 기준(밝기에 따라 계산), AP CPU, GPU, 모뎀·RF, Wi-Fi/BT, 카메라·ISP, 메모리·저장, 기타]
+    const CATS = [["디스플레이", "#6c5ce7"], ["CPU", "#2dd4bf"], ["GPU", "#0b8a7c"], ["셀룰러 모뎀·RF", "#e2630f"], ["Wi-Fi·BT·GNSS", "#f5b93a"], ["카메라·ISP·코덱", "#4f6bed"], ["메모리·저장", "#8e6bd8"], ["기타(오디오·센서·누설)", "#8a93a8"]];
+    const S = {
+      idle: { screen: false, apl: 0, w: [0, 0.025, 0, 0.035, 0.012, 0, 0.008, 0.02] },
+      web: { screen: true, apl: 0.75, w: [0, 0.35, 0.08, 0.02, 0.15, 0, 0.12, 0.12] },
+      video: { screen: true, apl: 0.35, w: [0, 0.12, 0.05, 0.02, 0.18, 0.12, 0.08, 0.15] },
+      nav: { screen: true, apl: 0.6, w: [0, 0.35, 0.15, 0.45, 0.12, 0, 0.1, 0.15] },
+      camera: { screen: true, apl: 0.5, w: [0, 0.6, 0.3, 0.02, 0.05, 1.6, 0.45, 0.25] },
+      game: { screen: true, apl: 0.55, w: [0, 1.4, 2.2, 0.15, 0.15, 0, 0.45, 0.25] },
+      "5g": { screen: true, apl: 0.7, w: [0, 0.5, 0.05, 2.2, 0.05, 0, 0.3, 0.15] },
+    };
+    let cv = null;
+    const scn = $("en-scn");
+    scn.addEventListener("change", () => cv.redraw());
+    const nit = PB.range("en-nit", (v) => v + " nit", () => cv.redraw());
+    const wh = PB.range("en-wh", (v) => v.toFixed(1) + " Wh", () => cv.redraw());
+    cv = PB.canvas($("cv-energy"), draw, { aspect: 0.62, maxHeight: 420, minHeight: 300 });
+    $("en-dark").addEventListener("change", () => cv.redraw());
+    $("en-ltpo").addEventListener("change", () => cv.redraw());
+    function dispPower(s) {
+      if (!s.screen) return 0;
+      let apl = s.apl * ($("en-dark").checked ? 0.35 : 1);
+      // 패널 기본(구동 IC·TFT·스캔) + 발광(밝기×APL에 비례)
+      const base = $("en-ltpo").checked ? 0.12 : 0.28;
+      const emit = 1.15 * (nit() / 500) * apl;
+      return base + emit;
+    }
+    function draw(ctx, w, h) {
+      const P = PB.palette();
+      const s = S[scn.value];
+      const vals = s.w.slice(); vals[0] = dispPower(s);
+      const tot = vals.reduce((a, b) => a + b, 0);
+      const hours = wh() / tot;
+      PB.stat("en-p", (tot < 0.1 ? (tot * 1000).toFixed(0) + "<small>mW</small>" : tot.toFixed(2) + "<small>W</small>"));
+      PB.stat("en-h", hours > 72 ? (hours / 24).toFixed(1) + "<small>일</small>" : hours.toFixed(1) + "<small>시간</small>");
+      let mi = 0; vals.forEach((v, i) => { if (v > vals[mi]) mi = i; });
+      PB.stat("en-top", CATS[mi][0] + ` <small>${Math.round((vals[mi] / tot) * 100)}%</small>`);
+      // 가로 막대(항목별) + 누적 막대
+      const pad = 16, lw = Math.min(150, w * 0.32), bx = pad + lw, bw = w - bx - pad - 56;
+      const maxV = Math.max(2.5, Math.max(...vals) * 1.1);
+      const rowH = Math.min(30, (h - 90) / CATS.length);
+      ctx.font = "12.5px " + PB.color("font"); ctx.textBaseline = "middle";
+      CATS.forEach(([name, col], i) => {
+        const y = 16 + i * rowH + rowH / 2;
+        ctx.fillStyle = P.text; ctx.textAlign = "right"; ctx.fillText(name, bx - 10, y);
+        ctx.fillStyle = P.surface; ctx.fillRect(bx, y - rowH * 0.32, bw, rowH * 0.64);
+        ctx.fillStyle = col; ctx.fillRect(bx, y - rowH * 0.32, Math.max(1, (vals[i] / maxV) * bw), rowH * 0.64);
+        ctx.fillStyle = P.dim; ctx.textAlign = "left";
+        ctx.fillText(vals[i] < 0.1 ? (vals[i] * 1000).toFixed(0) + " mW" : vals[i].toFixed(2) + " W", bx + (vals[i] / maxV) * bw + 6, y);
+      });
+      // 누적 막대
+      const y0 = 16 + CATS.length * rowH + 22;
+      ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.fillText("구성비", pad, y0 + 10);
+      let x = bx;
+      vals.forEach((v, i) => { const ww = (v / tot) * (bw + 50); ctx.fillStyle = CATS[i][1]; ctx.fillRect(x, y0, ww, 20); x += ww; });
+      ctx.strokeStyle = P.border; ctx.strokeRect(bx, y0, bw + 50, 20);
+      // 배터리 게이지
+      const gy = y0 + 40;
+      if (gy + 20 < h) {
+        ctx.fillStyle = P.dim; ctx.fillText(`${wh().toFixed(1)} Wh ÷ ${tot.toFixed(2)} W`, pad, gy + 10);
+        const frac = Math.min(1, hours / 24);
+        ctx.fillStyle = P.surface; ctx.fillRect(bx, gy, bw + 50, 20);
+        ctx.fillStyle = hours < 4 ? PB.color("bad") : hours < 10 ? PB.color("warn") : PB.color("ok");
+        ctx.fillRect(bx, gy, (bw + 50) * frac, 20);
+        ctx.fillStyle = P.text; ctx.textAlign = "center"; ctx.fillText(hours > 24 ? "24시간 이상" : hours.toFixed(1) + " h / 24 h", bx + (bw + 50) / 2, gy + 10);
+      }
+    }
+  })();
+
+  /* =================================================================== 9. BOM */
+  (function () {
+    const D = [
+      ["디스플레이", 0.17, "#6c5ce7", 1, "OLED 패널·커버 글라스·터치. 크기·휘도·LTPO 여부로 크게 달라집니다.", "display"],
+      ["AP (SoC)", 0.18, "#22252b", 6, "최신 공정의 대형 다이. 모뎀이 별도 칩이면 그만큼 추가됩니다.", "soc"],
+      ["메모리·저장장치", 0.13, "#8e6bd8", 6, "LPDDR DRAM과 UFS 플래시. 시장 가격 변동이 큽니다.", "board"],
+      ["카메라", 0.12, "#4f6bed", 8, "센서 + 렌즈 + 액추에이터 모듈 3–4개. 잠망경 망원이 비쌉니다.", "camera"],
+      ["RF·연결 칩", 0.09, "#e2630f", 5, "트랜시버, PA·필터 모듈, Wi-Fi/BT, (외장 모뎀).", "rf"],
+      ["기구(프레임·유리)", 0.10, "#a7adb8", 3, "CNC 프레임, 강화 유리 앞·뒤, 버튼, 표면 처리.", "mechanical"],
+      ["전원·충전·배터리", 0.05, "#3fcf7f", 9, "PMIC, 충전 IC, 배터리 셀·보호회로, 무선 충전 코일.", "battery"],
+      ["보드·커넥터·FPC", 0.06, "#2f8f5b", 5, "HDI PCB, 인터포저, 보드 대 보드 커넥터, 연성 회로.", "board"],
+      ["센서·오디오·햅틱", 0.05, "#f5b93a", 10, "IMU, 지문, 스피커, 마이크, LRA 모터.", "sensors"],
+      ["기타(포장·액세서리 등)", 0.05, "#8a93a8", 11, "포장재, 케이블, 소형 부품, 열 확산재.", "design"],
+    ];
+    let sort = "share", sel = -1, bars = [];
+    let cv = null;
+    const total = PB.range("ct-total", (v) => "$" + v, () => { cv.redraw(); info(); });
+    cv = PB.canvas($("cv-cost"), draw, { aspect: 0.62, maxHeight: 420, minHeight: 300 });
+    PB.seg("ct-sort", (v) => { sort = v; cv.redraw(); });
+    function draw(ctx, w, h) {
+      const P = PB.palette();
+      const items = D.map((d, i) => ({ d, i })).sort((a, b) => (sort === "share" ? b.d[1] - a.d[1] : a.d[3] - b.d[3]));
+      const pad = 14, lw = Math.min(150, w * 0.34), bx = pad + lw, bw = w - bx - 80;
+      const rowH = (h - 24) / items.length;
+      bars = [];
+      ctx.font = "12.5px " + PB.color("font"); ctx.textBaseline = "middle";
+      items.forEach((it, k) => {
+        const y = 12 + k * rowH + rowH / 2;
+        const v = it.d[1];
+        ctx.fillStyle = sel === it.i ? PB.color("accent") : P.text; ctx.textAlign = "right"; ctx.fillText(it.d[0], bx - 10, y);
+        ctx.fillStyle = it.d[2]; ctx.globalAlpha = sel >= 0 && sel !== it.i ? 0.35 : 0.9;
+        const ww = (v / 0.2) * bw;
+        ctx.fillRect(bx, y - rowH * 0.32, ww, rowH * 0.64); ctx.globalAlpha = 1;
+        ctx.fillStyle = P.dim; ctx.textAlign = "left";
+        ctx.fillText(`${Math.round(v * 100)}%  $${Math.round(v * total())}`, bx + ww + 6, y);
+        bars.push({ i: it.i, y0: y - rowH / 2, y1: y + rowH / 2 });
+      });
+    }
+    const c = $("cv-cost");
+    c.addEventListener("click", (e) => { const r = c.getBoundingClientRect(); const y = e.clientY - r.top; const b = bars.find((b) => y >= b.y0 && y < b.y1); sel = b ? (sel === b.i ? -1 : b.i) : -1; cv.redraw(); info(); });
+    c.style.cursor = "pointer";
+    function info() {
+      if (sel < 0) { $("ct-info").innerHTML = "<b>막대를 클릭하세요</b>각 범주에 무엇이 들어가는지 설명합니다."; return; }
+      const d = D[sel]; const ch = PB.CHAPTERS.find((c) => c.slug === d[5]);
+      $("ct-info").innerHTML = `<b>${d[0]} · 약 $${Math.round(d[1] * total())}</b>${d[4]}${ch ? ` <a href="${ch.slug}.html">${ch.num}장 →</a>` : ""}`;
+    }
+  })();
+
+  /* =================================================================== 10. 제약 네트워크 */
+  (function () {
+    const N = [
+      { id: "thin", t: "얇고 가볍게", ch: "mechanical" },
+      { id: "bat", t: "배터리 시간", ch: "battery" },
+      { id: "perf", t: "지속 성능", ch: "soc" },
+      { id: "heat", t: "발열·피부 온도", ch: "thermal" },
+      { id: "ant", t: "통신 품질", ch: "rf" },
+      { id: "cam", t: "카메라", ch: "camera" },
+      { id: "disp", t: "화면 크기·밝기", ch: "display" },
+      { id: "dur", t: "내구성·방수", ch: "mechanical" },
+      { id: "metal", t: "금속 외관", ch: "mechanical" },
+      { id: "cost", t: "원가", ch: "design" },
+      { id: "fix", t: "수리 용이성", ch: "mechanical" },
+      { id: "sound", t: "스피커 음질", ch: "audio" },
+    ];
+    const E = [
+      ["thin", "bat", 3, "두께 1 mm ≈ 배터리 3–4 Wh. 가장 직접적인 충돌입니다."],
+      ["thin", "cam", 3, "모듈 높이는 줄일 수 없어 범프가 커집니다."],
+      ["thin", "heat", 2, "얇으면 열을 퍼뜨릴 금속·VC 단면이 줄고, 열원이 피부에 가까워집니다."],
+      ["thin", "dur", 2, "굽힘 강성은 두께의 세제곱에 비례 — 얇으면 쉽게 휩니다."],
+      ["thin", "sound", 1, "스피커 박스 부피가 줄면 저음이 약해집니다."],
+      ["perf", "heat", 3, "전력 = 열. 피부 온도 한계가 지속 전력(~3–5 W)을 정합니다."],
+      ["perf", "bat", 2, "높은 클럭은 전압을 올려야 해서 에너지 효율이 나빠집니다."],
+      ["metal", "ant", 3, "금속은 전파를 막습니다. 그래서 프레임을 분할해 안테나로 씁니다."],
+      ["ant", "disp", 2, "화면이 커지고 베젤이 줄면 안테나가 숨을 공간이 줄어듭니다."],
+      ["ant", "cam", 1, "큰 카메라 모듈의 금속 캔이 상단 안테나 근처를 차지합니다."],
+      ["cam", "bat", 2, "카메라 부피가 커지면 배터리·보드 공간이 줄어듭니다."],
+      ["disp", "bat", 2, "밝고 큰 화면은 가장 큰 전력 소비처입니다."],
+      ["dur", "fix", 2, "강한 접착 방수는 분해를 어렵게 합니다."],
+      ["dur", "thin", 1, "가스켓·접착 폭이 공간을 먹습니다."],
+      ["cost", "cam", 2, "잠망경 망원과 대형 센서는 비쌉니다."],
+      ["cost", "perf", 2, "최신 공정 AP는 다이 면적당 원가가 높습니다."],
+      ["cost", "disp", 2, "LTPO·고휘도 패널은 원가가 높습니다."],
+      ["heat", "bat", 1, "배터리는 고온에서 빨리 열화됩니다. 충전 중 발열은 충전 속도를 낮춥니다."],
+      ["fix", "thin", 1, "나사·브래킷 고정은 접착보다 공간을 더 씁니다."],
+    ];
+    const tips = {
+      thin: "해법: 샌드위치 보드, 얇은 커버 글라스, 계단형 배터리, 잠망경 카메라.",
+      bat: "해법: 실리콘-탄소 음극으로 밀도↑, 보드 면적↓, 저전력 LTPO 화면.",
+      perf: "해법: 성능/W가 좋은 공정·설계, 효율 코어 활용, 열 설계와 함께 튜닝.",
+      heat: "해법: 베이퍼 챔버·그래파이트로 열을 넓게, 열원 분산 배치.",
+      ant: "해법: 프레임 분할선, 안테나 튜너, 다중 안테나 전환.",
+      cam: "해법: 잠망경 광학, 센서 크기와 범프의 타협, 소프트웨어(멀티프레임).",
+      disp: "해법: LTPO 가변 주사율, 고효율 발광 재료, 패널 벤딩으로 베젤↓.",
+      dur: "해법: 유리 강화 공정, 모서리 완충 구조, 가스켓·접착 설계.",
+      metal: "해법: 분할선 위치 최적화, 유리·세라믹 후면.",
+      cost: "해법: 플랫폼 공용화, 부품 2원화, 등급별 사양 분리.",
+      fix: "해법: 당김 탭 접착, 모듈화 커넥터, 나사 고정 배터리 커버.",
+      sound: "해법: 스피커 박스를 프레임 공간과 공유, 스마트 앰프로 진동판 한계까지 구동.",
+    };
+    let sel = null, drag = null;
+    const byId = (id) => N.find((n) => n.id === id);
+    let cv = null;
+    function layout(w, h) {
+      if (N[0].x != null && N._w === w) return;
+      N._w = w;
+      const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 46;
+      N.forEach((n, i) => { const a = (i / N.length) * Math.PI * 2 - Math.PI / 2; n.x = cx + Math.cos(a) * R * (w > h ? 1.15 : 1); n.y = cy + Math.sin(a) * R; });
+    }
+    function draw(ctx, w, h) {
+      layout(w, h);
+      const P = PB.palette();
+      E.forEach(([a, b, k]) => {
+        const A = byId(a), Bn = byId(b);
+        const on = sel && (a === sel || b === sel);
+        ctx.strokeStyle = on ? PB.color("accent-2") : P.faint;
+        ctx.globalAlpha = sel && !on ? 0.15 : on ? 1 : 0.55;
+        ctx.lineWidth = k * (on ? 1.6 : 1);
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(Bn.x, Bn.y); ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+      ctx.font = "600 12.5px " + PB.color("font"); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      N.forEach((n) => {
+        const on = n.id === sel;
+        const nb = sel && E.some(([a, b]) => (a === sel && b === n.id) || (b === sel && a === n.id));
+        const tw = ctx.measureText(n.t).width + 20;
+        ctx.fillStyle = on ? PB.color("accent") : P.bg;
+        ctx.strokeStyle = on ? PB.color("accent") : nb ? PB.color("accent-2") : P.border;
+        ctx.lineWidth = on || nb ? 2 : 1.2;
+        ctx.globalAlpha = sel && !on && !nb ? 0.45 : 1;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(n.x - tw / 2, n.y - 15, tw, 30, 15) : ctx.rect(n.x - tw / 2, n.y - 15, tw, 30); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = on ? "#fff" : P.text; ctx.fillText(n.t, n.x, n.y + 0.5);
+        ctx.globalAlpha = 1;
+        n.w = tw;
+      });
+    }
+    cv = PB.canvas($("cv-net"), draw, { aspect: 0.75, maxHeight: 480, minHeight: 340 });
+    const c = $("cv-net");
+    const pos = (e) => { const r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    const hit = (x, y) => N.find((n) => Math.abs(x - n.x) < (n.w || 80) / 2 && Math.abs(y - n.y) < 16);
+    let moved = false;
+    c.style.touchAction = "none";
+    c.addEventListener("pointerdown", (e) => { const n = hit(...pos(e)); if (n) { drag = n; moved = false; c.setPointerCapture(e.pointerId); } });
+    c.addEventListener("pointermove", (e) => {
+      const [x, y] = pos(e);
+      if (drag) { moved = true; drag.x = PB.clamp(x, 40, cv.w - 40); drag.y = PB.clamp(y, 18, cv.h - 18); cv.redraw(); }
+      else c.style.cursor = hit(x, y) ? "pointer" : "";
+    });
+    c.addEventListener("pointerup", (e) => {
+      const n = hit(...pos(e));
+      if (!moved) { sel = n ? (sel === n.id ? null : n.id) : null; cv.redraw(); info(); }
+      drag = null;
+    });
+    function info() {
+      if (!sel) { $("net-info").innerHTML = "<b>노드를 클릭하세요</b>선은 '한쪽을 좋게 하면 다른 쪽이 나빠지는' 관계입니다. 선이 굵을수록 갈등이 큽니다."; return; }
+      const n = byId(sel);
+      const rel = E.filter(([a, b]) => a === sel || b === sel).sort((p, q) => q[2] - p[2]);
+      const ch = PB.CHAPTERS.find((c) => c.slug === n.ch);
+      $("net-info").innerHTML = `<b>${n.t}</b>` + rel.map(([a, b, k, t]) => `· <b style="display:inline;font-size:14px">${byId(a === sel ? b : a).t}</b> ${"●".repeat(k)}<br><span>${t}</span>`).join("<br>") + `<br><br><span style="color:var(--ok)">${tips[sel]}</span>` + (ch ? `<br><a href="${ch.slug}.html">${ch.num}장 · ${ch.title} →</a>` : "");
+    }
+  })();
+
+  /* =================================================================== 11. 추세 */
+  (function () {
+    const YEARS = [2007, 2010, 2013, 2016, 2019, 2022, 2025];
+    const M = {
+      wh: { t: "배터리 에너지 (Wh)", d: [5.2, 5.3, 8.5, 11.5, 15.5, 17.5, 19], fmt: (v) => v.toFixed(1) + " Wh", y: [0, 22] },
+      thick: { t: "본체 두께 (mm)", d: [11.6, 9.3, 7.8, 7.9, 8.0, 7.9, 8.0], fmt: (v) => v.toFixed(1) + " mm", y: [0, 13] },
+      screen: { t: "화면 대각 (인치)", d: [3.5, 3.8, 4.8, 5.3, 6.3, 6.7, 6.8], fmt: (v) => v.toFixed(1) + "″", y: [0, 7.5] },
+      cams: { t: "후면 카메라 수", d: [1, 1, 1, 2, 3, 3, 4], fmt: (v) => v + "개", y: [0, 5] },
+      ram: { t: "RAM (GB)", d: [0.128, 0.512, 2, 4, 8, 12, 12], fmt: (v) => (v < 1 ? v * 1024 + " MB" : v + " GB"), y: [0.1, 32], log: true },
+      hz: { t: "최대 주사율 (Hz)", d: [60, 60, 60, 60, 90, 120, 120], fmt: (v) => v + " Hz", y: [0, 150] },
+      wired: { t: "최대 유선 충전 (W)", d: [5, 5, 10, 15, 25, 45, 65], fmt: (v) => v + " W", y: [0, 80] },
+    };
+    let on = ["wh", "thick"], hoverX = -1;
+    const chips = $("hi-metric");
+    const cols = { wh: "#3fcf7f", thick: "#e2630f", screen: "#6c5ce7", cams: "#4f6bed", ram: "#8e6bd8", hz: "#2dd4bf", wired: "#f5b93a" };
+    chips.innerHTML = Object.entries(M).map(([k, m]) => `<button data-k="${k}" class="${on.includes(k) ? "on" : ""}"><i style="background:${cols[k]}"></i>${m.t}</button>`).join("");
+    chips.addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; const k = b.dataset.k; on = on.includes(k) ? on.filter((x) => x !== k) : on.concat(k); if (!on.length) on = [k]; b.classList.toggle("on", on.includes(k)); [...chips.children].forEach((c) => c.classList.toggle("on", on.includes(c.dataset.k))); cv.redraw(); });
+    const cv = PB.canvas($("cv-history"), draw, { aspect: 0.42, maxHeight: 380, minHeight: 260 });
+    function draw(ctx, w, h) {
+      const P = PB.palette();
+      // 각 지표를 자기 범위에서 0~1로 정규화해 겹쳐 그린다
+      const box = { x: 50, y: 20, w: w - 70, h: h - 60 };
+      const ch = PB.chart(ctx, box, { x: [2006, 2026], y: [0, 1], xTicks: YEARS, yTicks: [0, 0.25, 0.5, 0.75, 1], yFmt: (v) => Math.round(v * 100) + "%", xFmt: (v) => String(v), series: [] });
+      ctx.save();
+      ctx.font = "11.5px " + PB.color("font");
+      on.forEach((k) => {
+        const m = M[k];
+        const norm = (v) => (m.log ? (Math.log10(v) - Math.log10(m.y[0])) / (Math.log10(m.y[1]) - Math.log10(m.y[0])) : (v - m.y[0]) / (m.y[1] - m.y[0]));
+        ctx.strokeStyle = cols[k]; ctx.lineWidth = 2.5; ctx.beginPath();
+        YEARS.forEach((yr, i) => { const x = ch.X(yr), y = ch.Y(norm(m.d[i])); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        ctx.stroke();
+        YEARS.forEach((yr, i) => { ctx.fillStyle = cols[k]; ctx.beginPath(); ctx.arc(ch.X(yr), ch.Y(norm(m.d[i])), 3.5, 0, Math.PI * 2); ctx.fill(); });
+        const last = YEARS.length - 1;
+        ctx.fillStyle = cols[k]; ctx.textAlign = "right"; ctx.textBaseline = "bottom";
+        ctx.fillText(m.fmt(m.d[last]), ch.X(YEARS[last]) - 4, ch.Y(norm(m.d[last])) - 5);
+      });
+      if (hoverX >= 0) {
+        let bi = 0; YEARS.forEach((yr, i) => { if (Math.abs(ch.X(yr) - hoverX) < Math.abs(ch.X(YEARS[bi]) - hoverX)) bi = i; });
+        const x = ch.X(YEARS[bi]);
+        ctx.strokeStyle = P.axis; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(x, box.y); ctx.lineTo(x, box.y + box.h); ctx.stroke(); ctx.setLineDash([]);
+        const lines = [String(YEARS[bi])].concat(on.map((k) => M[k].t.replace(/ \(.*\)/, "") + ": " + M[k].fmt(M[k].d[bi])));
+        ctx.font = "12px " + PB.color("font");
+        const tw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 18, th = lines.length * 17 + 10;
+        let tx = x + 10; if (tx + tw > w - 6) tx = x - 10 - tw;
+        ctx.fillStyle = P.bg; ctx.strokeStyle = P.border; ctx.fillRect(tx, box.y + 4, tw, th); ctx.strokeRect(tx, box.y + 4, tw, th);
+        ctx.textAlign = "left"; ctx.textBaseline = "top";
+        lines.forEach((l, i) => { ctx.fillStyle = i ? (cols[on[i - 1]]) : P.text; ctx.fillText(l, tx + 9, box.y + 10 + i * 17); });
+      }
+      ctx.restore();
+    }
+    const c = $("cv-history");
+    c.addEventListener("pointermove", (e) => { const r = c.getBoundingClientRect(); hoverX = e.clientX - r.left; cv.redraw(); });
+    c.addEventListener("pointerleave", () => { hoverX = -1; cv.redraw(); });
+  })();
+})();
+</script>
+</body>
+</html>

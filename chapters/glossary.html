@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>용어집 &amp; 종합 퀴즈 · PhoneBook</title>
+<meta name="description" content="스마트폰 하드웨어 핵심 용어 200여 개를 한국어·영어·약어로 검색하고, 13개 장을 아우르는 종합 퀴즈로 실력을 점검한다.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<style>
+  [hidden] { display: none !important; }
+  .gl-tools { display: grid; gap: 10px; margin-bottom: 18px; }
+  .gl-tools .row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .gl-tools .lbl { font-size: 13px; color: var(--text-dim); flex: none; }
+  .gl-tools .seg button { font-size: 12.5px; padding: 4px 9px; }
+  .gl-search { margin-bottom: 0 !important; }
+  .gl-count { font-size: 13px; color: var(--text-faint); margin-left: auto; font-family: var(--mono); }
+  #gl-list { max-height: min(78vh, 980px); overflow-y: auto; overscroll-behavior: contain; padding: 2px 6px 2px 2px; border-radius: 12px; }
+  .gl-group { position: sticky; top: 0; z-index: 1; background: var(--bg); font-family: var(--mono); font-weight: 700; font-size: 13px; color: var(--accent); letter-spacing: .06em; margin: 14px 0 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .gl-group:first-child { margin-top: 0; }
+  .gl-item h4 { overflow-wrap: anywhere; }
+  .gl-item h4 .abbr { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent-2); background: var(--accent-2-soft); border-radius: 5px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+  .gl-item .ch i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+  .gl-item mark { background: color-mix(in srgb, var(--warn) 35%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+  .gl-empty { padding: 24px; text-align: center; color: var(--text-dim); border: 1px dashed var(--border); border-radius: 12px; }
+  .chips button .c { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .chips button.on .c { color: inherit; }
+
+  #cv-map { cursor: pointer; }
+  .map-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--text-dim); padding: 0 18px 10px; }
+  .map-legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; background: var(--accent); }
+  .map-legend span.q::before { border-radius: 50%; background: var(--text); }
+
+  .fq-panel { position: sticky; top: 64px; z-index: 3; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 16px; margin: 0 0 16px; display: grid; gap: 8px; }
+  .fq-panel .top { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-family: var(--mono); font-size: 13px; color: var(--text-dim); }
+  .fq-panel .top b { color: var(--text); }
+  .fq-panel .top .btn { margin-left: auto; font-size: 13px; padding: 5px 12px; }
+  .fq-bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; display: flex; }
+  .fq-bar i { display: block; height: 100%; width: 0; transition: width .3s ease; }
+  .fq-bar i.okb { background: var(--ok); } .fq-bar i.badb { background: var(--bad); }
+  .quiz-q .qch { display: block; font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: .04em; margin-bottom: 4px; }
+  .quiz-q .qno { font-family: var(--mono); color: var(--text-faint); margin-right: 6px; }
+  .fq-result { text-align: center; background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-top: 18px; }
+  .fq-rank { font-size: 13px; letter-spacing: .12em; color: var(--text-faint); font-weight: 700; }
+  .fq-title { font-size: clamp(24px, 5vw, 32px); font-weight: 800; letter-spacing: -0.02em; margin: 4px 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .fq-big { font-family: var(--mono); font-size: 40px; font-weight: 700; }
+  .fq-big small { font-size: 18px; color: var(--text-dim); }
+  .fq-review { text-align: left; font-size: 14px; color: var(--text-dim); margin: 12px 0 16px; }
+  .fq-review a { font-weight: 600; }
+</style>
+</head>
+<body data-chapter="glossary">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 14</div>
+    <h1>용어집 &amp; 종합 퀴즈</h1>
+    <p class="lead">스마트폰 하드웨어는 약어의 숲이다. LTPO, DVFS, PoP, UFS, CC-CV, PPS, FEM, SAR, OIS, PDAF, TIM, IP68, DVT… 이 장은 책 전체에 흩어진 핵심 용어를 한곳에 모은 사전이자, 1장부터 13장까지를 한 번에 점검하는 마무리 시험이다.</p>
+    <ul class="objectives">
+      <li>한국어·영어·약어 어느 쪽으로든 용어를 찾아 정의를 읽고, 해당 장으로 바로 이동할 수 있다.</li>
+      <li>용어 지도로 각 장이 다루는 개념의 양을 한눈에 보고, 장별로 좁혀 복습한다.</li>
+      <li>종합 퀴즈로 디스플레이에서 설계까지 전 범위를 점검하고, 틀린 장을 골라 다시 공부한다.</li>
+    </ul>
+    <p style="margin-top:16px"><a href="#map">→ 용어 지도</a> · <a href="#glossary">→ 용어집</a> · <a href="#final-quiz">→ 종합 퀴즈</a></p>
+  </header>
+
+  <section id="map">
+    <h2>용어 지도</h2>
+    <p>막대 하나가 한 장이다. 막대 높이는 그 장에 속한 용어 수, 점은 종합 퀴즈의 문항 수다. 막대를 누르면 아래 용어집이 그 장으로 걸러지고, 같은 막대를 다시 누르면 전체로 돌아간다. 용어 수가 많은 장이 꼭 어려운 장은 아니지만, <b>약어가 많은 장(RF, 디스플레이, 배터리)</b>은 처음 읽을 때 이 사전을 옆에 띄워 두면 편하다.</p>
+    <div class="sim" id="sim-map">
+      <div class="sim-head"><span class="sim-tag">INTERACTIVE</span><h3>장별 용어 분포</h3></div>
+      <div class="sim-view"><canvas id="cv-map" role="img" aria-label="장별 용어 수 막대 그래프. 막대를 누르면 해당 장의 용어만 보인다."></canvas></div>
+      <div class="map-legend"><span>용어 수(막대, 클릭하면 필터)</span><span class="q">퀴즈 문항 수(점)</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">전체 용어</span><span class="v" id="o-total">—</span></div>
+        <div class="stat"><span class="k">선택한 장</span><span class="v" id="o-sel">전체</span></div>
+        <div class="stat"><span class="k">약어가 있는 용어</span><span class="v" id="o-abbr">—</span></div>
+        <div class="stat"><span class="k">퀴즈 문항</span><span class="v" id="o-quiz">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: 7장 RF 막대를 눌러 FEM·LNA·PA가 신호 경로의 어디에 있는지 정의를 이어 읽어 보자. 그다음 검색창에 <code>dB</code>를 넣어 여러 장에 걸친 데시벨 용어를 비교해 보자.</div>
+    </div>
+  </section>
+
+  <section id="glossary">
+    <h2>용어집</h2>
+    <p>검색창에 한국어(예: <code>편광</code>), 영어(예: <code>throttl</code>), 약어(예: <code>PPS</code>) 중 아무것이나 입력하면 바로 걸러진다. 정의 본문도 검색 대상이며, 이름이 일치한 용어가 본문만 일치한 용어보다 먼저 나온다. 장 칩으로 범위를 좁히고, 가나다순·ABC순·장순으로 정렬을 바꿀 수 있다.</p>
+    <div class="gl-tools">
+      <input type="search" class="gl-search" id="gl-q" placeholder="용어 검색: 예) 스로틀링, buck, SAR" autocomplete="off" aria-label="용어 검색">
+      <div class="chips" id="gl-ch" role="group" aria-label="장 필터"></div>
+      <div class="row">
+        <span class="lbl">정렬</span>
+        <div class="seg" id="gl-sort"><button data-value="ko" class="on">가나다순</button><button data-value="en">ABC순</button><button data-value="ch">장순</button></div>
+        <span class="gl-count" id="gl-count"></span>
+      </div>
+    </div>
+    <div class="gl-list" id="gl-list" aria-live="polite"></div>
+  </section>
+
+  <section class="quiz-sec" id="final-quiz">
+    <h2>종합 퀴즈</h2>
+    <p>13개 장에서 고른 문항이다. 보기를 누르면 바로 채점되고 해설과 복습할 장의 링크가 나온다. 아래 칩으로 특정 장의 문항만 골라 풀 수도 있다(점수는 보이는 문항만 집계). 다 풀면 등급과 다시 볼 장을 알려 준다. <b>다시 풀기</b>는 문항과 보기 순서를 섞는다.</p>
+    <div class="chips" id="fq-ch" role="group" aria-label="퀴즈 장 필터" style="margin-bottom:12px"></div>
+    <div class="fq-panel" id="fq-panel">
+      <div class="top"><span>정답 <b id="fq-ok">0</b></span><span>오답 <b id="fq-bad">0</b></span><span>남음 <b id="fq-left">0</b></span><span id="fq-pct">—</span><button class="btn" id="fq-retry2" type="button">다시 풀기</button></div>
+      <div class="fq-bar"><i class="okb" id="fq-fill-ok"></i><i class="badb" id="fq-fill-bad"></i></div>
+    </div>
+    <div class="quiz" id="fq-list">
+
+      <div class="quiz-q" data-ch="anatomy"><p>두께 약 8 mm인 전형적 플래그십의 Z-스택(두께 예산)에서 가장 큰 몫을 차지하는 단일 부품은?</p><div class="opts">
+        <button class="opt">커버 글라스</button><button class="opt" data-correct>배터리 셀</button><button class="opt">OLED 패널</button><button class="opt">메인보드 PCB</button>
+      </div><div class="quiz-exp">배터리 셀은 보통 4~5 mm 안팎으로 전체 두께의 절반 이상을 쓴다. 커버 글라스(약 0.5~0.7 mm), 패널(수백 µm), 보드(0.6~1 mm)는 각각 1 mm 안팎이다.</div></div>
+
+      <div class="quiz-q" data-ch="anatomy"><p>메인보드를 인터포저로 두 장 겹친 '샌드위치' 구조를 쓰는 가장 큰 이유는?</p><div class="opts">
+        <button class="opt" data-correct>같은 평면 면적에서 부품 실장 면적을 늘려 배터리에 더 넓은 자리를 내주기 위해</button><button class="opt">보드의 열저항을 낮추기 위해</button><button class="opt">안테나 이득을 높이기 위해</button><button class="opt">PCB 원가를 줄이기 위해</button>
+      </div><div class="quiz-exp">보드를 위아래로 쌓으면 평면 면적(footprint)은 줄고 실장 면적은 거의 두 배가 된다. 그만큼 배터리가 넓어진다. 대가로 인터포저·추가 공정 원가와 층간 발열 문제가 생긴다.</div></div>
+
+      <div class="quiz-q" data-ch="display"><p>LTPO 백플레인이 1 Hz 같은 아주 낮은 주사율을 가능하게 하는 핵심 이유는?</p><div class="opts">
+        <button class="opt">LTPS TFT의 이동도가 더 높아져서</button><button class="opt">편광판을 제거해서</button><button class="opt" data-correct>산화물(IGZO) TFT의 누설 전류가 매우 작아 화소 전압을 오래 유지하므로</button><button class="opt">OLED 재료의 수명이 길어져서</button>
+      </div><div class="quiz-exp">주사율을 낮추면 한 프레임 동안 화소 커패시터의 전압을 붙잡고 있어야 한다. 누설이 큰 LTPS만으로는 깜빡임이 생기므로, 스위칭 TFT 일부를 누설이 극히 작은 산화물 TFT로 바꾼다.</div></div>
+
+      <div class="quiz-q" data-ch="display"><p>OLED 위의 원편광판(선편광판 + λ/4 위상차판)이 하는 일과 그 대가로 옳은 것은?</p><div class="opts">
+        <button class="opt">색역을 넓히지만 시야각이 좁아진다</button><button class="opt" data-correct>외부광이 금속 전극에 반사되어 나오는 것을 막아 명암비를 지키지만, 자체 발광도 절반 이상 흡수한다</button><button class="opt">터치 감도를 높이지만 두께가 늘어난다</button><button class="opt">번인을 막지만 응답 속도가 느려진다</button>
+      </div><div class="quiz-exp">들어온 빛은 원편광이 되어 반사 후 회전 방향이 바뀌어 돌아오므로 편광판을 통과하지 못한다. 하지만 OLED 빛도 편광판을 지나며 절반 이상 손실된다. 편광판 대신 컬러 필터를 쓰는 COE 구조가 나온 이유다.</div></div>
+
+      <div class="quiz-q" data-ch="display"><p>OLED 화면의 소비 전력이 크게 달라지는 요인으로 가장 직접적인 것은?</p><div class="opts">
+        <button class="opt">해상도(PPI)만</button><button class="opt">터치 샘플링 레이트</button><button class="opt">화면 크기와 무관하다</button><button class="opt" data-correct>평균 화면 밝기 비율(APL)과 휘도</button>
+      </div><div class="quiz-exp">OLED는 화소마다 스스로 빛을 내므로 전력은 켜진 화소의 밝기 합, 즉 APL × 휘도에 거의 비례한다. 다크 모드가 OLED에서 전력을 아끼는 이유다.</div></div>
+
+      <div class="quiz-q" data-ch="soc"><p>동적 전력 P ≈ αCV²f에서, 주파수와 전압을 함께 20 % 낮추면 동적 전력은 대략 몇 배가 되나?</p><div class="opts">
+        <button class="opt">0.8배</button><button class="opt">0.64배</button><button class="opt" data-correct>약 0.51배</button><button class="opt">약 0.33배</button>
+      </div><div class="quiz-exp">0.8² × 0.8 = 0.512. 성능(주파수)은 20 % 줄지만 전력은 절반이 된다. DVFS가 강력한 이유이며, 같은 일을 할 때 에너지(전력 × 시간)는 V²에 비례해 약 0.64배가 된다.</div></div>
+
+      <div class="quiz-q" data-ch="soc"><p>GAA(Gate-All-Around) 트랜지스터가 FinFET보다 나은 점은?</p><div class="opts">
+        <button class="opt" data-correct>게이트가 채널을 사방에서 감싸 채널 제어가 좋아지고 누설이 줄어든다</button><button class="opt">금속 배선 저항이 0이 된다</button><button class="opt">웨이퍼 크기를 키울 수 있다</button><button class="opt">EUV 노광이 필요 없어진다</button>
+      </div><div class="quiz-exp">FinFET은 게이트가 핀의 3면을 감싸지만, GAA는 수평 나노시트의 4면을 모두 감싼다. 짧은 채널에서도 꺼짐 상태 누설을 억제하고 시트 폭으로 구동 전류를 조절할 수 있다.</div></div>
+
+      <div class="quiz-q" data-ch="soc"><p>NPU 성능 "40 TOPS"에 대한 해석으로 가장 적절한 것은?</p><div class="opts">
+        <button class="opt">어떤 모델이든 초당 40조 번의 추론을 한다</button><button class="opt">FP32 연산 기준 최고 성능이다</button><button class="opt" data-correct>보통 INT8 기준의 이론 최대 연산률(곱셈-누산 1회 = 2연산)이며, 실제 성능은 메모리 대역폭과 활용률에 좌우된다</button><button class="opt">CPU와 GPU의 성능을 합한 값이다</button>
+      </div><div class="quiz-exp">TOPS는 정밀도·희소성 가정에 따라 크게 달라지는 피크 수치다. 대형 모델 추론은 가중치를 DRAM에서 읽어 오는 속도에 막히는 경우가 많다.</div></div>
+
+      <div class="quiz-q" data-ch="board"><p>애니레이어(any-layer) HDI 기판의 특징으로 옳은 것은?</p><div class="opts">
+        <button class="opt">기계 드릴로 관통 홀만 쓴다</button><button class="opt" data-correct>모든 층 사이를 레이저 마이크로비아로 쌓아 어느 층끼리도 연결할 수 있다</button><button class="opt">한 면에만 부품을 실장한다</button><button class="opt">유연 회로와 같은 폴리이미드를 쓴다</button>
+      </div><div class="quiz-exp">마이크로비아를 층마다 쌓아(stacked via) 배선 자유도를 극대화한다. 0.35~0.4 mm 피치 BGA를 팬아웃하려면 거의 필수다.</div></div>
+
+      <div class="quiz-q" data-ch="board"><p>BGA 패키지 아래에 언더필을 채우는 주된 목적은?</p><div class="opts">
+        <button class="opt">신호 임피던스를 맞추기 위해</button><button class="opt">EMI를 차단하기 위해</button><button class="opt">패키지를 쉽게 떼어 내기 위해</button><button class="opt" data-correct>낙하 충격과 열팽창 차이로 솔더 볼에 몰리는 응력을 분산해 접합 균열을 막기 위해</button>
+      </div><div class="quiz-exp">에폭시가 패키지와 기판을 한 덩어리로 묶어 솔더 접합에 걸리는 전단 변형을 줄인다. 대신 재작업(rework)이 어려워진다.</div></div>
+
+      <div class="quiz-q" data-ch="board"><p>AP 위에 DRAM을 바로 쌓는 PoP(Package on Package)의 장점과 단점 조합으로 맞는 것은?</p><div class="opts">
+        <button class="opt" data-correct>배선이 짧고 면적이 절약되지만, DRAM이 AP 열을 그대로 받는다</button><button class="opt">열이 잘 빠지지만 면적이 커진다</button><button class="opt">메모리 용량 제한이 없지만 속도가 느리다</button><button class="opt">조립이 쉽지만 신호 경로가 길어진다</button>
+      </div><div class="quiz-exp">PoP는 평면 면적과 신호 길이 면에서 유리하지만, AP 열이 DRAM을 지나야 하고 DRAM 자체도 열원이라 방열 경로가 나빠진다.</div></div>
+
+      <div class="quiz-q" data-ch="battery"><p>공칭 3.87 V, 5,000 mAh 셀의 에너지는 대략?</p><div class="opts">
+        <button class="opt">5 Wh</button><button class="opt">12.9 Wh</button><button class="opt" data-correct>19.4 Wh</button><button class="opt">38.7 Wh</button>
+      </div><div class="quiz-exp">E = 5 Ah × 3.87 V ≈ 19.4 Wh. mAh는 전하량이라 전압이 다른 셀끼리는 Wh로 비교해야 한다.</div></div>
+
+      <div class="quiz-q" data-ch="battery"><p>CC-CV 충전의 CV 구간에서 일어나는 일은?</p><div class="opts">
+        <button class="opt">전류를 일정하게 유지하며 전압이 오른다</button><button class="opt" data-correct>상한 전압을 유지하는 동안 전류가 점점 줄고, 차단 전류에 이르면 충전을 끝낸다</button><button class="opt">셀을 잠시 방전해 균형을 맞춘다</button><button class="opt">온도가 내려갈 때까지 충전을 멈춘다</button>
+      </div><div class="quiz-exp">CC로 상한 전압(예: 4.45 V급)에 도달한 뒤에는 그 전압을 지키며 남은 용량을 채운다. 고속 충전이 '50 %까지 빠르고 끝이 느린' 이유다.</div></div>
+
+      <div class="quiz-q" data-ch="battery"><p>저온에서 고속 충전할 때 특히 위험한 열화 메커니즘은?</p><div class="opts">
+        <button class="opt">SEI 피막이 사라짐</button><button class="opt">양극의 코발트 증발</button><button class="opt">분리막의 수축</button><button class="opt" data-correct>음극 표면의 리튬 석출(lithium plating)</button>
+      </div><div class="quiz-exp">저온에서는 흑연으로의 삽입 반응과 확산이 느려 리튬이 금속으로 표면에 쌓인다. 가역 용량이 줄고, 덴드라이트가 자라면 내부 단락 위험이 있다. 그래서 BMS는 저온에서 충전 전류를 낮춘다.</div></div>
+
+      <div class="quiz-q" data-ch="power"><p>입력 4.0 V에서 0.8 V 레일을 LDO로 만들면 이상적인 효율은 최대 얼마인가?</p><div class="opts">
+        <button class="opt" data-correct>약 20 %</button><button class="opt">약 50 %</button><button class="opt">약 80 %</button><button class="opt">약 95 %</button>
+      </div><div class="quiz-exp">LDO는 입력 전류 ≈ 출력 전류라 효율 ≈ Vout/Vin = 0.8/4.0 = 20 %. 큰 강압은 벅으로 하고 LDO는 작은 차이의 저잡음 레일에 쓴다.</div></div>
+
+      <div class="quiz-q" data-ch="power"><p>고속 충전에서 USB PD PPS와 2:1 차지 펌프를 함께 쓰는 이유는?</p><div class="opts">
+        <button class="opt">케이블 전류를 두 배로 늘리기 위해</button><button class="opt">무선 충전과 호환하기 위해</button><button class="opt" data-correct>충전기가 높은 전압·낮은 전류로 보내 케이블 손실을 줄이고, 폰 안에서는 인덕터 없는 고효율 변환으로 발열을 줄이기 위해</button><button class="opt">배터리 전압을 높이기 위해</button>
+      </div><div class="quiz-exp">PPS는 20 mV 단위로 전압을 조절해 충전기가 사실상 CC 전원 역할을 하게 해 준다. 차지 펌프는 전압을 반으로, 전류를 두 배로 바꾸며 97 % 안팎의 효율을 낸다.</div></div>
+
+      <div class="quiz-q" data-ch="power"><p>무선 충전에서 코일 정렬이 어긋나면 효율이 떨어지는 직접적 이유는?</p><div class="opts">
+        <button class="opt">주파수가 바뀌어서</button><button class="opt" data-correct>결합 계수 k가 작아져 누설 자속이 늘고, 같은 전력을 보내려면 코일 전류가 커져 손실이 커지므로</button><button class="opt">코일의 직류 저항이 0이 되어서</button><button class="opt">배터리 전압이 올라가서</button>
+      </div><div class="quiz-exp">링크 효율의 상한은 k²Q₁Q₂로 정해진다. Qi2가 자석으로 위치를 고정하는 이유가 여기 있다.</div></div>
+
+      <div class="quiz-q" data-ch="rf"><p>안테나 포트의 S11이 −10 dB라는 것은?</p><div class="opts">
+        <button class="opt">방사 효율이 10 %라는 뜻</button><button class="opt">출력이 10 dBm이라는 뜻</button><button class="opt">10 %의 전력이 방사된다는 뜻</button><button class="opt" data-correct>입사 전력의 10 %가 반사되어 돌아오고 90 %가 안테나로 들어간다는 뜻</button>
+      </div><div class="quiz-exp">|Γ|² = 10^(−10/10) = 0.1. 들어간 90 %가 모두 방사되는 것은 아니며, 방사 효율은 손실(손, 금속, 유전체)에 따라 따로 정해진다.</div></div>
+
+      <div class="quiz-q" data-ch="rf"><p>폰 RF 프런트엔드에서 LNA를 안테나·필터 바로 뒤, 신호 경로의 가장 앞에 두는 이유는?</p><div class="opts">
+        <button class="opt" data-correct>캐스케이드 잡음 지수는 첫 단의 잡음과 이득이 지배하므로, 앞에서 낮은 잡음으로 증폭해야 수신 감도가 좋아진다</button><button class="opt">송신 전력을 높이기 위해</button><button class="opt">필터를 생략하기 위해</button><button class="opt">모뎀 전력을 줄이기 위해</button>
+      </div><div class="quiz-exp">프리스 공식에 따라 뒤 단의 잡음은 앞 단 이득으로 나눠져 작아진다. 그래서 첫 증폭기의 NF가 시스템 NF를 거의 결정한다.</div></div>
+
+      <div class="quiz-q" data-ch="rf"><p>mmWave(FR2)에서 폰이 여러 개의 안테나 모듈과 위상 배열 빔포밍을 쓰는 이유는?</p><div class="opts">
+        <button class="opt">주파수가 낮아 안테나가 커서</button><button class="opt">SAR 규제가 없어서</button><button class="opt" data-correct>파장이 짧아 같은 개구에서 경로 손실이 크고 손·몸에 쉽게 가려지므로, 배열 이득과 모듈 전환으로 보상해야 해서</button><button class="opt">LTE와 호환하기 위해</button>
+      </div><div class="quiz-exp">등방 안테나 기준 자유 공간 손실은 주파수 제곱에 비례해 커진다. 작은 소자를 배열해 빔을 만들면 이득을 되찾지만 방향성이 생겨, 손에 가리지 않은 모듈로 전환해야 한다.</div></div>
+
+      <div class="quiz-q" data-ch="rf"><p>SAR(전자파 흡수율) 규제에 걸리지 않도록 폰이 흔히 쓰는 방법은?</p><div class="opts">
+        <button class="opt">수신 감도를 낮춘다</button><button class="opt" data-correct>근접(그립) 센서로 몸에 가까운 상황을 감지해 송신 전력을 줄이거나 다른 안테나로 전환한다</button><button class="opt">안테나 대역폭을 넓힌다</button><button class="opt">모뎀 클럭을 낮춘다</button>
+      </div><div class="quiz-exp">SAR은 몸에 흡수되는 RF 전력(W/kg)이라 송신 전력과 거리에 좌우된다. 대신 업링크 성능이 줄어드는 트레이드오프가 있다.</div></div>
+
+      <div class="quiz-q" data-ch="camera"><p>센서 크기를 키우면 카메라 범프가 높아지는 근본 이유는?</p><div class="opts">
+        <button class="opt">픽셀 수가 늘어 회로가 커져서</button><button class="opt">OIS 코일이 커져서</button><button class="opt">IR 필터가 두꺼워져서</button><button class="opt" data-correct>같은 화각을 유지하려면 초점거리가 센서 대각선에 비례해 늘고, 그에 따라 렌즈 전장(TTL)도 길어지므로</button>
+      </div><div class="quiz-exp">화각이 같으면 f ∝ 센서 대각선이고 TTL은 대략 f에 비례한다. 1인치형 센서는 1/2인치형보다 TTL이 거의 두 배 필요하다.</div></div>
+
+      <div class="quiz-q" data-ch="camera"><p>실제 초점거리 6.9 mm, 센서 대각선 약 12.3 mm인 메인 카메라의 35 mm 환산 등가 초점거리는?</p><div class="opts">
+        <button class="opt">약 14 mm</button><button class="opt" data-correct>약 24 mm</button><button class="opt">약 35 mm</button><button class="opt">약 69 mm</button>
+      </div><div class="quiz-exp">f_eq = f × 43.3/대각선 = 6.9 × 43.3/12.3 ≈ 24 mm. 크롭 팩터는 약 3.5다.</div></div>
+
+      <div class="quiz-q" data-ch="camera"><p>PDAF(위상차 AF)가 콘트라스트 AF보다 빠른 이유는?</p><div class="opts">
+        <button class="opt" data-correct>렌즈 좌우 동공을 통과한 두 상의 어긋남으로 초점의 방향과 양을 한 번에 알 수 있어서</button><button class="opt">렌즈를 더 빠르게 움직여서</button><button class="opt">레이저로 거리를 재서</button><button class="opt">노출 시간이 짧아서</button>
+      </div><div class="quiz-exp">콘트라스트 AF는 렌즈를 움직여 가며 최대 선명도를 찾는 '언덕 오르기'라 왕복이 필요하다. PDAF는 위상차에서 목표 위치를 계산해 바로 이동한다.</div></div>
+
+      <div class="quiz-q" data-ch="sensors"><p>MEMS 자이로스코프가 각속도를 감지하는 물리 원리는?</p><div class="opts">
+        <button class="opt">홀 효과</button><button class="opt">압전 효과로 생긴 전압</button><button class="opt" data-correct>진동하는 질량에 회전 시 작용하는 코리올리 힘이 만드는 직교 방향 변위</button><button class="opt">빛의 간섭(사냑 효과)</button>
+      </div><div class="quiz-exp">구동 방향으로 진동하는 질량이 회전하면 F = −2m Ω × v가 감지 방향으로 작용한다. 그 미세 변위를 콤 전극의 정전용량 변화로 읽는다.</div></div>
+
+      <div class="quiz-q" data-ch="sensors"><p>지자기 센서를 8자 모양으로 돌려 보정할 때, 측정점이 원점에서 벗어난 구 위에 놓이는 원인은?</p><div class="opts">
+        <button class="opt">소프트 아이언 왜곡</button><button class="opt" data-correct>하드 아이언 오프셋(폰 안의 자석·전류가 만드는 고정 자기장)</button><button class="opt">센서 노이즈</button><button class="opt">지구 자기장의 복각</button>
+      </div><div class="quiz-exp">하드 아이언은 폰과 함께 회전하는 고정 자기장이라 측정 구 전체를 평행 이동시킨다. 소프트 아이언은 구를 타원체로 찌그러뜨린다.</div></div>
+
+      <div class="quiz-q" data-ch="sensors"><p>생체 인증의 판정 임계값을 엄격하게 바꾸면 일반적으로?</p><div class="opts">
+        <button class="opt">FAR과 FRR이 모두 내려간다</button><button class="opt">FAR과 FRR이 모두 올라간다</button><button class="opt" data-correct>FAR(타인 수락)은 내려가고 FRR(본인 거부)은 올라간다</button><button class="opt">FAR은 올라가고 FRR은 내려간다</button>
+      </div><div class="quiz-exp">같은 센서·알고리즘에서는 두 오류율이 시소 관계다. 둘을 함께 낮추려면 센서 품질과 특징 추출 자체를 개선해야 한다.</div></div>
+
+      <div class="quiz-q" data-ch="audio"><p>스마트폰 햅틱에 ERM 대신 LRA를 쓰는 주된 이유는?</p><div class="opts">
+        <button class="opt">더 싸서</button><button class="opt">공진 주파수가 없어 모든 주파수로 진동해서</button><button class="opt">소리가 커서</button><button class="opt" data-correct>공진을 이용해 시동·정지가 빨라(수~수십 ms) 또렷한 '틱' 같은 짧은 효과를 낼 수 있어서</button>
+      </div><div class="quiz-exp">ERM은 편심 질량이 회전 속도에 이를 때까지 시간이 걸린다. LRA는 공진 주파수 근처에서 구동하고, 드라이버의 오버드라이브와 역위상 브레이킹으로 잔진동을 빠르게 끊는다.</div></div>
+
+      <div class="quiz-q" data-ch="audio"><p>스마트 앰프가 일반 앰프보다 마이크로 스피커에서 더 큰 음압을 안전하게 낼 수 있는 이유는?</p><div class="opts">
+        <button class="opt" data-correct>스피커 전압·전류를 실시간으로 감지해 진동판 변위와 코일 온도를 추정하고, 한계 직전까지만 구동하므로</button><button class="opt">출력 임피던스가 0이라서</button><button class="opt">디지털 입력을 받아서</button><button class="opt">저음을 모두 제거해서</button>
+      </div><div class="quiz-exp">고정 마진 대신 실제 상태를 보고 보호하므로, 같은 스피커에서 수 dB 더 큰 소리와 더 풍부한 저음을 낼 수 있다.</div></div>
+
+      <div class="quiz-q" data-ch="thermal"><p>스마트폰의 지속 성능(sustained performance)을 결정하는 가장 근본적인 한계는?</p><div class="opts">
+        <button class="opt">AP의 최고 클럭</button><button class="opt">배터리 용량</button><button class="opt" data-correct>표면(피부) 온도 한계에서 외부로 내보낼 수 있는 열량, 대략 3~5 W 수준</button><button class="opt">DRAM 용량</button>
+      </div><div class="quiz-exp">팬이 없는 폰은 자연 대류와 복사로만 열을 버린다. 표면 온도를 약 40 °C대 초중반으로 지키면 내보낼 수 있는 열은 몇 W에 그치고, 그 이상은 스로틀링으로 맞춘다.</div></div>
+
+      <div class="quiz-q" data-ch="thermal"><p>그래파이트 시트를 두께가 아니라 '면 방향 열 확산'에 쓰는 이유는?</p><div class="opts">
+        <button class="opt">전기 절연체라서</button><button class="opt" data-correct>면내 열전도도는 수백~천수백 W/m·K로 매우 높지만 두께 방향은 수~수십 W/m·K로 낮은 이방성 재료이기 때문</button><button class="opt">비열이 매우 커서</button><button class="opt">자기장을 차단해서</button>
+      </div><div class="quiz-exp">그래파이트의 탄소 층은 층 안에서는 열이 잘 흐르지만 층 사이로는 잘 흐르지 못한다. 그래서 핫스팟 열을 넓게 펼치는 데 쓴다.</div></div>
+
+      <div class="quiz-q" data-ch="thermal"><p>칩 접합부에서 외기까지 열저항 합이 12 K/W이고 외기가 25 °C일 때, 접합 온도를 85 °C 이하로 지키려면 칩이 낼 수 있는 최대 전력은?</p><div class="opts">
+        <button class="opt">약 2 W</button><button class="opt" data-correct>5 W</button><button class="opt">약 7 W</button><button class="opt">12 W</button>
+      </div><div class="quiz-exp">P = ΔT/R = (85 − 25)/12 = 5 W. 실제로는 표면 온도 한계가 먼저 걸리는 경우가 많다.</div></div>
+
+      <div class="quiz-q" data-ch="mechanical"><p>화학 강화(이온 교환) 유리가 깨지기 어려운 원리는?</p><div class="opts">
+        <button class="opt">유리 내부에 금속 섬유가 들어 있어서</button><button class="opt">표면을 매우 단단한 코팅으로 덮어서</button><button class="opt">유리를 아주 두껍게 만들어서</button><button class="opt" data-correct>표면의 작은 Na⁺를 큰 K⁺로 바꿔 표면에 압축 응력층을 만들어, 균열이 열리려면 그 압축을 먼저 이겨야 하므로</button>
+      </div><div class="quiz-exp">유리는 표면 결함에서 인장으로 깨진다. 압축 응력(CS, 수백 MPa 이상)과 깊이(DOL)가 클수록 낙하 시 날카로운 접촉에도 균열이 자라기 어렵다.</div></div>
+
+      <div class="quiz-q" data-ch="mechanical"><p>IP68 등급에서 숫자 '6'과 '8'의 의미는?</p><div class="opts">
+        <button class="opt" data-correct>6: 먼지 완전 차단, 8: 제조사가 정한 조건(1 m 초과)에서 연속 침수 보호</button><button class="opt">6: 6 m 방수, 8: 8시간 방수</button><button class="opt">6: 낙하 6회, 8: 침수 8회</button><button class="opt">6: 방진 60 %, 8: 방수 80 %</button>
+      </div><div class="quiz-exp">IEC 60529의 첫 자리는 고체(먼지), 둘째 자리는 액체 보호 등급이다. IPX8의 수심·시간은 제조사가 명시하며, 스마트폰은 흔히 1.5~6 m, 30분 수준이다.</div></div>
+
+      <div class="quiz-q" data-ch="mechanical"><p>공차 스택업에서 RSS(제곱합 제곱근) 방식이 최악값(worst-case) 합보다 작은 누적 공차를 주는 이유는?</p><div class="opts">
+        <button class="opt">측정 오차를 빼서</button><button class="opt">공차 중 가장 큰 것만 더해서</button><button class="opt" data-correct>독립적인 편차들이 모두 동시에 한계쪽으로 몰릴 확률은 매우 낮다는 통계적 가정을 쓰기 때문</button><button class="opt">온도 팽창을 무시해서</button>
+      </div><div class="quiz-exp">n개의 같은 공차 t를 더하면 최악값은 n·t, RSS는 √n·t다. 대신 공정이 중심에 있고 서로 독립이라는 가정이 깨지면 불량이 생긴다.</div></div>
+
+      <div class="quiz-q" data-ch="design"><p>EVT → DVT → PVT 순서에서 DVT 단계의 핵심 목표는?</p><div class="opts">
+        <button class="opt">처음으로 회로가 동작하는지 확인</button><button class="opt" data-correct>최종에 가까운 설계로 신뢰성·인증·환경 시험을 통과해 설계를 확정</button><button class="opt">양산 라인의 수율과 택트 타임 확인</button><button class="opt">시장 조사</button>
+      </div><div class="quiz-exp">EVT는 기능·성능 검증, DVT는 설계 검증(낙하·방수·인증 등)으로 금형과 설계를 굳히는 단계, PVT는 실제 양산 공정과 수율을 검증하는 단계다.</div></div>
+
+      <div class="quiz-q" data-ch="design"><p>배터리 용량·두께·무게·원가 같은 목표를 동시에 볼 때 '파레토 전선(Pareto front)'에 있는 설계란?</p><div class="opts">
+        <button class="opt">원가가 가장 싼 설계</button><button class="opt">모든 지표가 최고인 설계</button><button class="opt">무작위로 고른 설계</button><button class="opt" data-correct>다른 지표를 나쁘게 하지 않고는 어떤 지표도 더 좋게 할 수 없는 설계들</button>
+      </div><div class="quiz-exp">파레토 전선 위의 점들은 서로 우열을 가릴 수 없는 '좋은 타협안'이다. 그중 어느 것을 고를지는 제품 전략(가중치)이 정한다.</div></div>
+
+      <div class="quiz-q" data-ch="design"><p>부피 예산에서 1 mm 더 얇게 만드는 결정이 가장 직접적으로 깎아 먹는 것은?</p><div class="opts">
+        <button class="opt" data-correct>배터리 두께, 곧 용량(사용 시간)과 열을 버틸 질량·면적의 여유</button><button class="opt">화면 해상도</button><button class="opt">모뎀 대역</button><button class="opt">저장 용량</button>
+      </div><div class="quiz-exp">두께 방향에서 줄일 여지가 가장 큰 부품이 배터리라, 1 mm는 흔히 용량 10~20 % 수준의 손실로 이어진다. 카메라 범프와 열 여유도 함께 빠듯해진다.</div></div>
+
+    </div>
+    <div class="fq-result" id="fq-result" hidden>
+      <div class="fq-rank">YOUR RANK</div>
+      <div class="fq-title" id="fq-title"></div>
+      <div class="fq-big" id="fq-big"></div>
+      <p id="fq-msg" style="color:var(--text-dim)"></p>
+      <p class="fq-review" id="fq-review"></p>
+      <button class="btn primary" id="fq-retry" type="button">다시 풀기 (문항·보기 섞기)</button>
+    </div>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>마치며</h2>
+    <ol>
+      <li>스마트폰은 <b>약 8 mm 두께, 200 g 안팎의 무게, 몇 W의 방열</b>이라는 세 가지 천장 아래에서 화면·칩·배터리·카메라·안테나가 자리와 열과 전력을 나눠 갖는 시스템이다.</li>
+      <li>거의 모든 용어는 트레이드오프의 한쪽을 가리킨다. LTPO는 전력과 원가, OIS는 화질과 두께, mmWave는 속도와 커버리지, 고속 충전은 시간과 수명의 거래다.</li>
+      <li>틀린 문항이 있던 장으로 돌아가 시뮬레이터를 다시 만져 보고, 마지막으로 <a href="design.html">13장 설계 플레이그라운드</a>에서 자신만의 폰을 설계해 보자. 카메라 센서 자체가 궁금하면 자매편 <a href="https://sensorbook.euiyun.com/chapters/glossary.html">SensorBook 용어집</a>으로.</li>
+    </ol>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  /* =============================================================== 용어 데이터 */
+  var TERMS = [
+    // 01 해부
+    { ko: "폼 팩터", en: "Form factor", abbr: "", def: "기기의 외형과 구조 형식. 바(bar)형, 폴더블(인폴딩·플립), 슬라이드 등이 있으며, 내부 부품 배치와 두께·무게 예산의 출발점이 된다.", ch: "anatomy" },
+    { ko: "적층 순서", en: "Stack-up", abbr: "", def: "앞 유리에서 뒷 유리까지 부품이 쌓이는 순서와 층 구성. 커버 글라스–디스플레이–미드플레이트–보드·배터리–무선 충전 코일–후면 유리가 전형적이다.", ch: "anatomy" },
+    { ko: "두께 예산", en: "Z-stack thickness budget", abbr: "", def: "전체 두께(대개 7~9 mm)를 부품별로 나눈 표. 배터리가 4~5 mm로 가장 크고, 각 층 사이 접착·공기 간극과 팽창 여유까지 포함해 관리한다.", ch: "anatomy" },
+    { ko: "티어다운", en: "Teardown", abbr: "", def: "제품을 분해해 부품, 구조, 공급사, 원가를 분석하는 일. 경쟁사 설계 벤치마킹과 수리 용이성 평가에 쓰인다.", ch: "anatomy" },
+    { ko: "서브 보드", en: "Sub-board (daughter board)", abbr: "", def: "USB-C 커넥터, 하단 마이크, 스피커 접점, 하단 안테나 급전부 등을 올린 작은 보조 PCB. 메인보드와 FPC로 연결되며 커넥터가 망가지면 이것만 교체할 수 있다.", ch: "anatomy" },
+    { ko: "수리 용이성", en: "Repairability", abbr: "", def: "배터리·화면·포트 같은 소모성 부품을 얼마나 쉽게 교체할 수 있는가. 접착제 대신 나사·풀탭을 쓰고, 부품 접근 순서를 짧게 설계하면 좋아진다.", ch: "anatomy" },
+    { ko: "풀탭 접착제", en: "Stretch-release adhesive", abbr: "", def: "길게 당기면 늘어나며 접착력이 사라지는 테이프. 배터리를 열이나 용제 없이 떼어 낼 수 있게 해 준다.", ch: "anatomy" },
+    { ko: "eSIM", en: "Embedded SIM (eUICC)", abbr: "eSIM", def: "보드에 납땜된 eUICC 칩에 통신사 프로파일을 원격으로 내려받는 SIM. 트레이와 소켓을 없애 부피와 방수 경로를 줄인다.", ch: "anatomy" },
+    { ko: "USB-C 리셉터클", en: "USB Type-C receptacle", abbr: "", def: "24핀 위아래 대칭 커넥터. CC 핀으로 꽂힌 방향과 전원 역할을 판별하고 USB PD 통신을 한다. 방수를 위해 몸체를 실링하거나 접착 가스켓으로 막는다.", ch: "anatomy" },
+
+    // 02 디스플레이
+    { ko: "유기 발광 다이오드", en: "Organic light-emitting diode", abbr: "OLED", def: "유기 발광층에 전류를 흘려 서브픽셀이 스스로 빛을 내는 디스플레이. 백라이트가 없어 얇고, 꺼진 화소는 완전한 검정이 된다.", ch: "display" },
+    { ko: "능동 구동 OLED", en: "Active-matrix OLED", abbr: "AMOLED", def: "화소마다 TFT와 저장 커패시터를 두어 프레임 내내 전류를 유지하는 OLED 구동 방식. 스마트폰 OLED는 모두 이 방식이다.", ch: "display" },
+    { ko: "저온 다결정 실리콘", en: "Low-temperature polycrystalline silicon", abbr: "LTPS", def: "비정질 실리콘을 레이저로 결정화한 TFT 반도체. 이동도가 약 100 cm²/V·s 수준으로 높아 OLED 전류 구동에 적합하지만 누설 전류가 비교적 크다.", ch: "display" },
+    { ko: "저온 다결정 산화물", en: "Low-temperature polycrystalline oxide", abbr: "LTPO", def: "LTPS TFT와 산화물(IGZO) TFT를 한 화소 회로에 섞은 백플레인. 산화물 TFT의 극히 낮은 누설로 1~10 Hz 저주사율에서도 화소 전압을 유지해 전력을 줄인다.", ch: "display" },
+    { ko: "가변 주사율", en: "Variable refresh rate", abbr: "VRR", def: "콘텐츠에 맞춰 화면 갱신 빈도를 바꾸는 기능(예: 스크롤 120 Hz, 정지 화면 1~10 Hz). 갱신마다 드는 구동 전력을 아낀다.", ch: "display" },
+    { ko: "PWM 디밍", en: "Pulse-width modulation dimming", abbr: "PWM", def: "발광 시간 비율(듀티)로 밝기를 조절하는 방식. 저휘도에서 화면이 수백 Hz~수 kHz로 깜빡이며, 민감한 사람에게 눈 피로를 줄 수 있어 고주파 PWM이 쓰인다.", ch: "display" },
+    { ko: "DC 디밍", en: "DC dimming", abbr: "", def: "구동 전류의 크기로 밝기를 조절하는 방식. 깜빡임은 적지만 아주 낮은 전류에서 화소 간 편차와 색 틀어짐이 커지기 쉽다.", ch: "display" },
+    { ko: "원편광판", en: "Circular polarizer", abbr: "", def: "선편광판과 λ/4 위상차판을 겹친 필름. 외부광이 금속 전극에 반사되어 나오는 것을 막아 명암비를 지키지만, OLED 자체 발광도 절반 이상 흡수한다.", ch: "display" },
+    { ko: "편광판 없는 OLED", en: "Color filter on encapsulation", abbr: "COE", def: "편광판 대신 봉지층 위에 컬러 필터와 블랙 매트릭스를 형성해 외광 반사를 줄이는 구조. 광 효율이 높아져 같은 휘도에서 전력이 준다.", ch: "display" },
+    { ko: "박막 봉지", en: "Thin-film encapsulation", abbr: "TFE", def: "무기막(SiNx 등)과 유기막을 번갈아 쌓아 OLED를 수분·산소로부터 차단하는 수 µm 두께의 봉지층. 유리 봉지를 대체해 얇고 휘는 패널을 가능하게 했다.", ch: "display" },
+    { ko: "펜타일", en: "PenTile (RG-BG) layout", abbr: "", def: "녹색 서브픽셀은 화소마다 두고 적·청 서브픽셀은 이웃 화소와 번갈아 쓰는 배열. 같은 해상도에서 서브픽셀 수가 RGB 스트라이프의 2/3이며 렌더링으로 선명도를 보완한다.", ch: "display" },
+    { ko: "평균 화면 밝기 비율", en: "Average picture level", abbr: "APL", def: "화면 전체가 최대 밝기 대비 평균 몇 %로 켜져 있는가. OLED 전력은 APL에 거의 비례하므로 APL이 낮을 때 더 높은 피크 휘도를 허용한다.", ch: "display" },
+    { ko: "니트", en: "Nit (cd/m²)", abbr: "nit", def: "휘도 단위 cd/m². 최근 플래그십은 수동 최대 수백~1,000 nit, 고휘도 모드 1,500~2,000 nit 이상, 작은 영역 피크 수천 nit 수준이다.", ch: "display" },
+    { ko: "고휘도 모드", en: "High brightness mode", abbr: "HBM", def: "강한 햇빛을 감지하면 수동 상한을 넘어 휘도를 올리는 모드. 전력·발열·OLED 수명 부담이 커서 시간·온도에 따라 제한된다.", ch: "display" },
+    { ko: "번인", en: "Burn-in", abbr: "", def: "서브픽셀이 사용 시간과 휘도에 따라 불균일하게 열화되어 고정 이미지 자국이 남는 현상. 청색 재료 수명이 가장 짧아 서브픽셀 면적을 달리해 보상한다.", ch: "display" },
+    { ko: "보상 회로", en: "Pixel compensation circuit", abbr: "", def: "화소 회로 내부(예: 7T1C) 또는 외부 센싱으로 구동 TFT의 문턱 전압·이동도 편차와 OLED 열화를 보정해 휘도 균일도를 지키는 회로.", ch: "display" },
+    { ko: "디스플레이 구동 IC", en: "Display driver IC", abbr: "DDIC", def: "AP가 MIPI DSI로 보낸 영상을 받아 각 열의 데이터 전압과 주사 타이밍을 만드는 칩. 프레임 메모리를 두어 정지 화면 때 AP를 쉬게 하기도 한다.", ch: "display" },
+    { ko: "칩 온 플라스틱", en: "Chip on plastic", abbr: "COP", def: "유연 기판의 아래 끝을 패널 뒤로 접고 그 위에 DDIC를 실장하는 구조. 하단 베젤을 거의 위아래 대칭 수준으로 줄인다.", ch: "display" },
+    { ko: "온셀 터치", en: "On-cell touch", abbr: "", def: "터치 전극을 봉지층 위에 직접 형성해 별도 터치 필름을 없앤 구조. 두께·원가가 줄고 광 투과가 좋아진다.", ch: "display" },
+    { ko: "상호 정전용량 방식", en: "Mutual-capacitance sensing", abbr: "", def: "송신(Tx)·수신(Rx) 전극 교차점의 정전용량이 손가락이 가까이 오면 줄어드는 것을 감지하는 터치 방식. 교차점마다 독립적으로 재므로 멀티터치가 된다.", ch: "display" },
+    { ko: "터치 샘플링 레이트", en: "Touch sampling rate", abbr: "", def: "터치 패널을 초당 몇 번 스캔하는가(Hz). 보통 120~240 Hz, 게임 모드에서 더 높게 올려 입력 지연을 줄이지만 전력이 는다.", ch: "display" },
+    { ko: "화면 아래 카메라", en: "Under-display camera", abbr: "UDC", def: "디스플레이 화소 아래에 전면 카메라를 둔 구조. 투과율을 위해 그 영역의 화소 밀도나 배선을 줄이므로 화질과 화면 균일도에 손해가 있다.", ch: "display" },
+
+    // 03 SoC
+    { ko: "시스템 온 칩", en: "System on chip", abbr: "SoC", def: "CPU, GPU, NPU, ISP, 메모리 컨트롤러, 멀티미디어 코덱, 흔히 모뎀까지 한 다이에 넣은 칩. 스마트폰에서는 AP(Application Processor)라고도 부른다.", ch: "soc" },
+    { ko: "이종 멀티코어", en: "big.LITTLE (heterogeneous multi-core)", abbr: "", def: "고성능 코어와 고효율 코어를 한 칩에 섞어, 가벼운 작업은 작은 코어, 무거운 작업은 큰 코어가 맡게 하는 구조. 요즘은 프라임·성능·효율 3단 구성이 흔하다.", ch: "soc" },
+    { ko: "동적 전압·주파수 조절", en: "Dynamic voltage and frequency scaling", abbr: "DVFS", def: "부하에 따라 클럭과 공급 전압을 함께 바꾸는 기법. 동적 전력이 V²f에 비례하므로 전압을 낮추는 것이 효과가 크다.", ch: "soc" },
+    { ko: "동적 전력", en: "Dynamic (switching) power", abbr: "", def: "트랜지스터가 스위칭하며 부하 용량을 충·방전하는 데 드는 전력, P ≈ αCV²f(α: 활동률). 클럭이 돌 때만 소모된다.", ch: "soc" },
+    { ko: "누설 전력", en: "Leakage (static) power", abbr: "", def: "트랜지스터가 꺼져 있어도 흐르는 서브문턱·게이트 누설 전류에 의한 전력. 온도와 전압에 대해 지수적으로 늘어 뜨거운 칩일수록 더 커진다.", ch: "soc" },
+    { ko: "파워 게이팅", en: "Power gating", abbr: "", def: "쓰지 않는 블록의 전원을 헤더/풋터 스위치로 끊어 누설 전력까지 없애는 기법. 다시 켤 때 지연과 상태 복원 비용이 있다.", ch: "soc" },
+    { ko: "클럭 게이팅", en: "Clock gating", abbr: "", def: "일하지 않는 회로의 클럭 공급을 끊어 동적 전력을 없애는 기법. 전원은 유지하므로 누설은 남지만 즉시 재개된다.", ch: "soc" },
+    { ko: "신경망 처리 장치", en: "Neural processing unit", abbr: "NPU", def: "행렬 곱·합성곱 같은 신경망 연산을 INT8/INT4 등 저정밀로 대량 병렬 처리하는 가속기. 같은 추론을 CPU·GPU보다 훨씬 적은 에너지로 수행한다.", ch: "soc" },
+    { ko: "TOPS", en: "Tera operations per second", abbr: "TOPS", def: "초당 조(10¹²) 번의 연산. 보통 INT8 기준 피크 값이며 곱셈-누산 한 번을 2연산으로 센다. 실제 성능은 메모리 대역폭과 활용률에 크게 좌우된다.", ch: "soc" },
+    { ko: "그래픽 처리 장치", en: "Graphics processing unit", abbr: "GPU", def: "많은 셰이더 코어로 그래픽과 병렬 연산을 처리하는 블록. 게임에서 전력과 발열의 주 원인이며 지속 성능이 열 설계에 크게 좌우된다.", ch: "soc" },
+    { ko: "이미지 신호 처리기", en: "Image signal processor", abbr: "ISP", def: "센서의 RAW 데이터를 디모자이크, 노이즈 제거, 화이트 밸런스, 톤 매핑 등을 거쳐 영상으로 만드는 SoC 내부의 전용 하드웨어 파이프라인.", ch: "soc" },
+    { ko: "시스템 레벨 캐시", en: "System level cache", abbr: "SLC", def: "CPU·GPU·NPU 등 여러 블록이 공유하는 마지막 단계 캐시(수 MB~수십 MB 수준). DRAM 접근을 줄여 지연과 전력을 함께 아낀다.", ch: "soc" },
+    { ko: "메모리 대역폭", en: "Memory bandwidth", abbr: "", def: "SoC와 DRAM 사이에 초당 오갈 수 있는 데이터 양. 64비트 LPDDR5X-8533이면 약 68 GB/s다. 대형 AI 모델 추론의 속도를 흔히 이 값이 결정한다.", ch: "soc" },
+    { ko: "공정 노드", en: "Process node", abbr: "", def: "\"4 nm\", \"3 nm\"처럼 반도체 공정 세대를 부르는 이름. 실제 게이트 길이나 배선 피치와 직접 일치하지 않는 상업적 명칭으로, 회사 간 숫자 비교는 주의해야 한다.", ch: "soc" },
+    { ko: "핀펫", en: "FinFET", abbr: "", def: "채널을 지느러미(fin) 모양으로 세워 게이트가 3면을 감싸는 트랜지스터. 평면 트랜지스터의 단채널 누설 문제를 풀어 10여 년간 주력이었다.", ch: "soc" },
+    { ko: "게이트 올 어라운드", en: "Gate-all-around transistor", abbr: "GAA", def: "수평으로 쌓은 나노시트 채널의 4면을 게이트가 모두 감싸는 트랜지스터. FinFET보다 채널 제어가 좋아 누설이 줄고, 3~2 nm급 세대부터 도입되었다.", ch: "soc" },
+    { ko: "클럭당 명령 수", en: "Instructions per clock", abbr: "IPC", def: "한 클럭 주기에 평균 몇 개의 명령을 처리하는가. 같은 클럭에서 성능을 높이는 마이크로아키텍처 지표로, 높은 IPC는 낮은 클럭·전압으로 같은 성능을 내게 해 준다.", ch: "soc" },
+    { ko: "에너지 인지 스케줄링", en: "Energy-aware scheduling", abbr: "EAS", def: "각 코어의 에너지 모델을 바탕으로 작업을 가장 적은 에너지로 끝낼 코어와 주파수에 배치하는 커널 스케줄러 기능.", ch: "soc" },
+
+    // 04 보드
+    { ko: "고밀도 상호연결 기판", en: "High-density interconnect PCB", abbr: "HDI", def: "레이저 마이크로비아와 얇은 빌드업 층으로 미세 배선을 구현한 PCB. 0.4 mm 이하 피치 BGA를 팬아웃하기 위해 스마트폰 보드는 모두 HDI다.", ch: "board" },
+    { ko: "애니레이어", en: "Any-layer HDI", abbr: "", def: "모든 층 사이를 레이저 마이크로비아로 쌓아 어느 층끼리도 직접 연결할 수 있는 HDI. 배선 자유도가 가장 높아 플래그십 메인보드에 쓰인다.", ch: "board" },
+    { ko: "마이크로비아", en: "Microvia", abbr: "", def: "레이저로 뚫은 지름 약 50~100 µm 수준의 층간 연결 구멍. 구리로 채워 위로 쌓는(stacked) 구조가 흔하다.", ch: "board" },
+    { ko: "기판형 PCB", en: "Substrate-like PCB", abbr: "SLP", def: "mSAP 공정으로 선폭·간격을 30 µm 안팎까지 줄여 패키지 기판에 가까운 밀도를 낸 메인보드. 같은 회로를 더 작은 면적에 넣는다.", ch: "board" },
+    { ko: "모디파이드 세미 애디티브 공정", en: "Modified semi-additive process", abbr: "mSAP", def: "아주 얇은 동박 위에 패턴 도금으로 배선을 키워 올리고 바탕 동박을 식각하는 공정. 기존 서브트랙티브보다 미세하고 단면이 곧은 배선을 만든다.", ch: "board" },
+    { ko: "인터포저", en: "Interposer", abbr: "", def: "두 장의 PCB 사이에 놓여 높이를 띄우고 수백 개 신호를 수직으로 연결하는 링 모양 보드. 샌드위치 메인보드를 만드는 핵심 부품이다.", ch: "board" },
+    { ko: "패키지 온 패키지", en: "Package on package", abbr: "PoP", def: "AP 패키지 위에 DRAM 패키지를 쌓아 납땜하는 실장 방식. 배선이 짧고 면적이 절약되지만 DRAM이 AP의 열을 그대로 받는다.", ch: "board" },
+    { ko: "LPDDR", en: "Low-power double data rate DRAM", abbr: "LPDDR", def: "모바일용 저전력 DRAM 규격. LPDDR5X는 핀당 약 8.5~10.7 Gbps 수준이며, 낮은 I/O 전압과 딥 슬립 모드로 대기 전력을 줄인다.", ch: "board" },
+    { ko: "UFS", en: "Universal Flash Storage", abbr: "UFS", def: "MIPI M-PHY 직렬 링크와 명령 큐를 쓰는 모바일 플래시 저장장치 규격. UFS 4.x는 순차 읽기 약 4 GB/s 수준이다.", ch: "board" },
+    { ko: "볼 그리드 어레이", en: "Ball grid array", abbr: "BGA", def: "패키지 바닥에 솔더 볼을 격자로 배열한 실장 방식. 폰에서는 0.35~0.4 mm 피치가 흔하며 리플로우로 한꺼번에 납땜한다.", ch: "board" },
+    { ko: "언더필", en: "Underfill", abbr: "", def: "BGA·플립칩 아래 틈에 모세관 현상으로 채워 굳히는 에폭시. 낙하 충격과 열팽창 차이로 솔더 접합에 몰리는 응력을 분산하지만 재작업을 어렵게 한다.", ch: "board" },
+    { ko: "차폐 캔", en: "Shield can", abbr: "", def: "RF·고속 디지털 회로를 덮는 얇은 금속 덮개. 회로 사이와 안테나로의 전자기 간섭(EMI)을 막고, 열을 퍼뜨리는 통로가 되기도 한다.", ch: "board" },
+    { ko: "컨포멀 차폐", en: "Conformal shielding", abbr: "", def: "패키지나 모듈 표면에 금속 박막을 스퍼터링해 덮는 차폐. 캔보다 얇고 공간을 덜 차지해 SiP·RF 모듈에 많이 쓴다.", ch: "board" },
+    { ko: "BtoB 커넥터", en: "Board-to-board connector", abbr: "BtoB", def: "보드와 FPC를 눌러 끼우는 소형 커넥터. 피치 0.35~0.4 mm, 결합 높이 1 mm 안팎이며 디스플레이·배터리·카메라 연결에 쓴다. 낙하 시 빠지지 않게 브래킷으로 누른다.", ch: "board" },
+    { ko: "연성 회로 기판", en: "Flexible printed circuit", abbr: "FPC", def: "폴리이미드 필름 위에 구리 배선을 만든 휘는 회로. 접히는 경로로 부품을 연결하며, 반복 굽힘 수명과 최소 굽힘 반경이 설계 변수다.", ch: "board" },
+    { ko: "경연성 기판", en: "Rigid-flex PCB", abbr: "", def: "단단한 PCB 구간과 FPC 구간을 한 기판으로 만든 것. 커넥터를 줄여 신뢰성과 두께를 개선하지만 비싸다. 카메라 모듈에 흔하다.", ch: "board" },
+    { ko: "01005 부품", en: "01005 passive component", abbr: "", def: "0.4 × 0.2 mm 크기의 칩 저항·커패시터(인치 표기). 폰 보드에 수백~천여 개가 쓰이며, 더 작은 008004(0.25 × 0.125 mm)도 쓰인다.", ch: "board" },
+    { ko: "디커플링 커패시터", en: "Decoupling capacitor", abbr: "", def: "칩 전원 핀 가까이 두어 순간 전류를 공급하고 전원 잡음을 접지로 흘리는 커패시터. 배치 거리와 비아 인덕턴스가 효과를 좌우한다.", ch: "board" },
+    { ko: "임피던스 제어", en: "Controlled impedance", abbr: "", def: "선폭·유전체 두께·기준면을 맞춰 배선의 특성 임피던스를 목표값(단선 50 Ω, 차동 90~100 Ω 등)으로 관리하는 것. 고속 신호의 반사를 줄인다.", ch: "board" },
+    { ko: "신호 무결성", en: "Signal integrity", abbr: "SI", def: "고속 신호가 반사·손실·크로스토크·지터를 겪고도 수신단에서 올바르게 판별될 수 있는가. 아이 다이어그램과 S-파라미터로 평가한다.", ch: "board" },
+
+    // 05 배터리
+    { ko: "밀리암페어시", en: "Milliampere-hour", abbr: "mAh", def: "전하량 단위(1 mAh = 3.6 C). 셀 용량 표기에 쓰지만 에너지는 전압을 곱해야 하므로, 전압이 다른 셀끼리는 Wh로 비교해야 한다.", ch: "battery" },
+    { ko: "와트시", en: "Watt-hour", abbr: "Wh", def: "에너지 단위. Wh ≈ Ah × 공칭 전압이며 5,000 mAh·3.87 V 셀은 약 19.4 Wh다. 항공 운송 규정도 Wh로 정한다.", ch: "battery" },
+    { ko: "C-레이트", en: "C-rate", abbr: "C", def: "용량 대비 전류의 배수. 1C는 정격 용량을 1시간에 충·방전하는 전류로, 5,000 mAh 셀의 2C는 10 A다.", ch: "battery" },
+    { ko: "정전류-정전압 충전", en: "Constant current–constant voltage charging", abbr: "CC-CV", def: "정전류로 상한 전압까지 충전한 뒤, 그 전압을 유지하며 전류가 차단값(예: 0.02~0.05C)까지 줄면 끝내는 리튬이온 표준 충전법.", ch: "battery" },
+    { ko: "충전 상태", en: "State of charge", abbr: "SOC", def: "현재 남은 용량을 만충 용량 대비 %로 나타낸 값. 직접 잴 수 없어 전류 적산과 전압 모델로 추정한다.", ch: "battery" },
+    { ko: "건강 상태", en: "State of health", abbr: "SOH", def: "현재 최대 용량(또는 내부 저항)을 새 셀 대비 비율로 나타낸 열화 지표. 보통 80 %를 수명 기준으로 쓴다.", ch: "battery" },
+    { ko: "개방 회로 전압", en: "Open-circuit voltage", abbr: "OCV", def: "부하 없이 충분히 쉰 셀의 단자 전압. SOC와 단조 관계라 SOC 추정의 기준점이 되며, 흑연 음극은 중간 구간이 평탄해 오차가 커지기 쉽다.", ch: "battery" },
+    { ko: "공칭 전압", en: "Nominal voltage", abbr: "", def: "방전 곡선 전체의 대표 전압. LCO/흑연 폰 셀은 3.85~3.9 V 안팎이며, 만충 전압은 4.4~4.5 V급이다.", ch: "battery" },
+    { ko: "에너지 밀도", en: "Energy density", abbr: "Wh/L, Wh/kg", def: "부피당(Wh/L) 또는 무게당(Wh/kg) 에너지. 공간이 귀한 폰에서는 체적 에너지 밀도가 더 중요하며, 최신 셀은 700~800 Wh/L 이상 수준이다.", ch: "battery" },
+    { ko: "리튬 코발트 산화물 양극", en: "Lithium cobalt oxide cathode", abbr: "LCO", def: "높은 체적 에너지 밀도 덕분에 스마트폰 셀의 표준 양극재. 도핑과 코팅으로 상한 전압을 4.45 V급 이상으로 높여 용량을 늘린다.", ch: "battery" },
+    { ko: "실리콘-탄소 음극", en: "Silicon–carbon anode", abbr: "Si-C", def: "흑연(이론 372 mAh/g)에 실리콘(약 3,600 mAh/g)을 섞은 음극. 용량은 크게 늘지만 실리콘이 충전 시 수백 % 부피 팽창하므로 탄소 복합화로 이를 완화한다.", ch: "battery" },
+    { ko: "SEI 피막", en: "Solid electrolyte interphase", abbr: "SEI", def: "초기 충전 때 전해질이 분해되어 음극 표면에 생기는 고체 피막. 리튬 이온은 통과시키고 전자는 막아 안정화하지만, 계속 자라며 리튬을 소모해 용량을 줄인다.", ch: "battery" },
+    { ko: "리튬 석출", en: "Lithium plating", abbr: "", def: "저온·고속 충전·고SOC에서 리튬이 흑연에 삽입되지 못하고 표면에 금속으로 쌓이는 현상. 용량 손실과 덴드라이트에 의한 단락 위험을 부른다.", ch: "battery" },
+    { ko: "스웰링", en: "Swelling", abbr: "", def: "전해질 분해로 생긴 가스와 전극 팽창으로 파우치 셀이 부푸는 현상. 고온·고SOC 보관이 가속하며, 설계 시 셀 주변에 팽창 여유를 둔다.", ch: "battery" },
+    { ko: "열폭주", en: "Thermal runaway", abbr: "", def: "셀 내부 발열 반응(SEI 분해, 분리막 붕괴로 인한 단락, 양극 분해와 산소 방출)이 서로를 가속해 온도가 급격히 치솟는 현상. 화재·폭발로 이어질 수 있다.", ch: "battery" },
+    { ko: "분리막", en: "Separator", abbr: "", def: "양극과 음극 사이의 다공성 PE/PP 막. 이온은 통과시키고 전자는 막으며, 세라믹 코팅으로 고온 수축을 줄인다. 너무 뜨거워지면 구멍이 닫히는 셧다운 기능이 있다.", ch: "battery" },
+    { ko: "파우치 셀", en: "Pouch cell", abbr: "", def: "알루미늄 라미네이트 필름으로 전극 적층체를 감싼 셀. 가볍고 모양이 자유로워 폰에 쓰이지만, 캔형보다 팽창과 찔림에 약하다.", ch: "battery" },
+    { ko: "내부 저항", en: "Internal resistance (DCIR)", abbr: "DCIR", def: "전류에 비례하는 전압 강하를 만드는 셀의 등가 저항(수십 mΩ 수준). 저온과 열화로 커지며, 순간 고부하에서 전압이 차단 전압 아래로 내려가 꺼지는 원인이 된다.", ch: "battery" },
+    { ko: "배터리 관리 시스템", en: "Battery management system", abbr: "BMS", def: "셀 전압·전류·온도를 감시해 과충전·과방전·과전류·과열을 막고, SOC·SOH를 추정하며 충전 전류를 정하는 하드웨어·펌웨어 전체.", ch: "battery" },
+    { ko: "보호 회로 모듈", en: "Protection circuit module", abbr: "PCM", def: "셀 팩에 붙은 보호 IC와 직렬 MOSFET 한 쌍. 과충전·과방전·단락을 감지하면 전류를 끊는 마지막 하드웨어 방어선이다.", ch: "battery" },
+    { ko: "퓨얼 게이지", en: "Fuel gauge IC", abbr: "", def: "전류 적산(쿨롱 카운팅)과 OCV·셀 모델을 결합해 SOC와 남은 시간을 추정하는 IC. 온도와 노화를 반영해 % 표시의 정확도를 좌우한다.", ch: "battery" },
+    { ko: "2셀 직렬 충전", en: "Dual-cell (2S) configuration", abbr: "2S", def: "셀 두 개를 직렬로 연결해 충전 전압을 두 배로 올리는 구성. 같은 전력에서 전류가 절반이라 발열이 줄어 초고속 충전에 쓰이며, 시스템 공급은 강압이 필요하다.", ch: "battery" },
+
+    // 06 전력
+    { ko: "전력 관리 IC", en: "Power management IC", abbr: "PMIC", def: "여러 벅 컨버터·LDO·시퀀서·ADC 등을 한 칩에 모아 SoC와 주변 장치에 수십 개의 전원 레일을 공급하고 전원 순서를 관리하는 칩.", ch: "power" },
+    { ko: "전원 레일", en: "Power rail", abbr: "", def: "특정 전압으로 공급되는 하나의 전원선. CPU 코어(0.5~1.1 V 가변), 메모리, I/O(1.8 V) 등 블록마다 따로 두어 DVFS와 전원 차단을 독립적으로 한다.", ch: "power" },
+    { ko: "벅 컨버터", en: "Buck converter", abbr: "", def: "스위치와 인덕터로 전압을 낮추는 스위칭 레귤레이터. 이상적으로 Vout = D·Vin이며 효율은 85~95 % 수준이다.", ch: "power" },
+    { ko: "부스트 컨버터", en: "Boost converter", abbr: "", def: "인덕터에 에너지를 저장했다 내보내 전압을 높이는 스위칭 레귤레이터. OLED 구동 전압, 카메라 플래시, 오디오 앰프 전원 등에 쓴다.", ch: "power" },
+    { ko: "저드롭아웃 레귤레이터", en: "Low-dropout regulator", abbr: "LDO", def: "직렬 트랜지스터로 전압을 낮추는 선형 레귤레이터. 효율은 약 Vout/Vin으로 낮지만 잡음이 적고 PSRR이 높아 RF·아날로그·센서 레일에 쓴다.", ch: "power" },
+    { ko: "드롭아웃 전압", en: "Dropout voltage", abbr: "", def: "LDO가 정상 조정을 유지하기 위해 필요한 최소 입출력 전압 차. 수십~수백 mV 수준이다.", ch: "power" },
+    { ko: "전원 잡음 제거비", en: "Power supply rejection ratio", abbr: "PSRR", def: "입력 전원의 잡음이 출력에 얼마나 덜 나타나는가(dB). 벅 출력 리플을 LDO로 걸러 깨끗한 레일을 만드는 이유다.", ch: "power" },
+    { ko: "차지 펌프", en: "Charge pump (switched-capacitor converter)", abbr: "", def: "커패시터의 직·병렬 연결을 스위칭해 2:1 같은 정수비로 전압을 바꾸는 변환기. 인덕터가 없고 효율이 97 % 안팎으로 높아 고속 충전에 쓰인다.", ch: "power" },
+    { ko: "USB 파워 딜리버리", en: "USB Power Delivery", abbr: "USB PD", def: "USB-C의 CC 선으로 충전기와 기기가 전압·전류를 협상하는 규격. 고정 5/9/15/20 V(최대 100 W)와 확장 범위 28~48 V(최대 240 W)가 있다.", ch: "power" },
+    { ko: "프로그래머블 전원 공급", en: "Programmable power supply", abbr: "PPS", def: "USB PD 3.0의 기능으로, 약 3.3~21 V 범위에서 20 mV 단위 전압과 50 mA 단위 전류 한도를 실시간 요청한다. 차지 펌프 직접 충전의 기반이다.", ch: "power" },
+    { ko: "충전 IC", en: "Charger IC", abbr: "", def: "어댑터 입력을 받아 CC-CV 충전을 제어하고, 시스템 전원 경로(NVDC)를 관리하며, 입력 전류 제한과 온도 기반 감속을 수행하는 칩.", ch: "power" },
+    { ko: "전원 경로 관리", en: "Power path management (NVDC)", abbr: "NVDC", def: "어댑터 전력을 시스템과 배터리에 나눠 주는 구조. 배터리가 완전 방전 상태여도 시스템 전압을 최소값 이상으로 유지해 즉시 부팅할 수 있게 한다.", ch: "power" },
+    { ko: "부하 과도 응답", en: "Load transient response", abbr: "", def: "부하 전류가 급변할 때 레귤레이터 출력이 떨어졌다 회복하는 특성. CPU가 순간 수 A를 끌어갈 때의 전압 강하(droop)가 동작 마진을 갉아먹는다.", ch: "power" },
+    { ko: "PFM 모드", en: "Pulse-frequency modulation mode", abbr: "PFM", def: "경부하에서 스위칭 횟수를 줄여 스위칭 손실을 아끼는 벅 동작 모드. 대기 전류가 작은 폰에서 경부하 효율을 지켜 준다. 대신 리플이 커진다.", ch: "power" },
+    { ko: "Qi", en: "Qi wireless charging standard", abbr: "Qi", def: "WPC가 정한 자기 유도 방식 무선 충전 규격. 약 100~200 kHz 대역에서 송신 코일과 수신 코일을 결합해 전력을 보낸다.", ch: "power" },
+    { ko: "Qi2", en: "Qi2 (Magnetic Power Profile)", abbr: "Qi2", def: "자석 링으로 코일 위치를 고정하는 MPP를 도입한 Qi 차세대 규격. 정렬이 보장되어 15 W(이후 25 W로 확장)를 안정적으로 전달한다.", ch: "power" },
+    { ko: "결합 계수", en: "Coupling coefficient", abbr: "k", def: "두 코일이 자속을 얼마나 공유하는가, k = M/√(L₁L₂). 거리가 멀거나 정렬이 어긋나면 작아지며, 무선 충전 효율의 상한은 k²Q₁Q₂로 정해진다.", ch: "power" },
+    { ko: "역방향 무선 충전", en: "Reverse wireless charging", abbr: "", def: "폰의 수신 코일을 송신 코일로 써서 이어폰·워치 등을 충전하는 기능. 효율이 낮아 주로 비상용이다.", ch: "power" },
+
+    // 07 RF
+    { ko: "모뎀", en: "Modem (baseband processor)", abbr: "", def: "디지털 변·복조, 채널 부호화, 프로토콜 스택을 처리하는 블록. SoC에 통합되거나 별도 칩으로 쓰이며 RF 트랜시버와 함께 셀룰러 통신을 담당한다.", ch: "rf" },
+    { ko: "RF 트랜시버", en: "RF transceiver", abbr: "", def: "기저대역 신호를 RF로 올리고(상향 변환) 수신 RF를 내리는(하향 변환) 칩. 믹서, 국부 발진기(PLL), 데이터 변환기를 포함한다.", ch: "rf" },
+    { ko: "RF 프런트엔드", en: "RF front-end", abbr: "RFFE", def: "트랜시버와 안테나 사이의 PA, LNA, 스위치, 필터, 듀플렉서, 튜너를 통틀은 부분. 대역 수가 많아 보드에서 상당한 면적을 차지한다.", ch: "rf" },
+    { ko: "전력 증폭기", en: "Power amplifier", abbr: "PA", def: "송신 신호를 안테나 구동 수준으로 키우는 증폭기. 셀룰러 단말 최대 출력은 대개 23 dBm(약 200 mW) 수준이며 송신 중 가장 큰 전력 소비원이다.", ch: "rf" },
+    { ko: "저잡음 증폭기", en: "Low-noise amplifier", abbr: "LNA", def: "안테나에서 받은 미약한 신호를 잡음을 최소로 더하며 증폭하는 첫 단 증폭기. 시스템 잡음 지수를 거의 결정한다.", ch: "rf" },
+    { ko: "프런트엔드 모듈", en: "Front-end module", abbr: "FEM", def: "PA·LNA·스위치·필터·듀플렉서를 한 패키지에 넣은 모듈(PAMiD 등). 면적과 정합 설계 부담을 줄인다.", ch: "rf" },
+    { ko: "듀플렉서", en: "Duplexer", abbr: "", def: "FDD 통신에서 송신과 수신 대역을 같은 안테나로 동시에 쓰도록 분리하는 필터 쌍. 강한 송신 신호가 수신기로 새지 않게 막는다.", ch: "rf" },
+    { ko: "표면 탄성파 필터", en: "Surface acoustic wave filter", abbr: "SAW", def: "압전 기판 표면을 따라 진행하는 탄성파로 주파수를 거르는 필터. 작고 싸며 대략 2.5 GHz 이하 대역에 많이 쓴다.", ch: "rf" },
+    { ko: "체적 탄성파 필터", en: "Bulk acoustic wave filter", abbr: "BAW", def: "압전 박막의 두께 방향 공진(FBAR, SMR)을 이용하는 필터. 고주파(수 GHz)에서 손실이 적고 대역 경계가 가팔라 붐비는 대역에 쓴다.", ch: "rf" },
+    { ko: "반사 계수", en: "Reflection coefficient (S11)", abbr: "S11", def: "포트로 들어간 신호 중 반사되어 돌아오는 비율을 dB로 나타낸 값. −10 dB는 전력의 10 % 반사를 뜻하며, 폰 안테나는 −6 dB 안팎을 기준으로 삼기도 한다.", ch: "rf" },
+    { ko: "정재파비", en: "Voltage standing wave ratio", abbr: "VSWR", def: "반사로 생기는 정재파의 최대/최소 전압비, (1+|Γ|)/(1−|Γ|). VSWR 2는 S11 약 −9.5 dB에 해당한다.", ch: "rf" },
+    { ko: "임피던스 정합", en: "Impedance matching", abbr: "", def: "안테나 임피던스를 50 Ω 시스템에 맞추는 L·C 회로 설계. 정합이 어긋나면 반사가 늘고 PA 효율과 선형성이 나빠진다.", ch: "rf" },
+    { ko: "안테나 튜너", en: "Antenna tuner", abbr: "", def: "스위치·가변 커패시터로 안테나 공진 주파수(개구 튜닝)나 정합(임피던스 튜닝)을 대역과 손 위치에 따라 바꿔 주는 회로. 작은 안테나로 넓은 대역을 덮게 한다.", ch: "rf" },
+    { ko: "안테나 효율", en: "Antenna total efficiency", abbr: "", def: "급전 전력 중 실제로 방사되는 비율(정합 손실 포함). 폰에서는 −3~−8 dB 수준이 흔하며 저대역일수록 나쁘다.", ch: "rf" },
+    { ko: "손 효과", en: "Hand effect", abbr: "", def: "손·머리가 안테나 근처에서 공진을 이탈시키고 RF를 흡수해 효율이 수 dB 이상 떨어지는 현상. 안테나 스위칭과 튜너로 보완한다.", ch: "rf" },
+    { ko: "금속 프레임 안테나", en: "Metal-frame antenna", abbr: "", def: "금속 측면 프레임을 절연 슬릿으로 나눠 그 구간을 방사체로 쓰는 구조. 슬릿은 수지로 메워 강성과 방수를 유지한다.", ch: "rf" },
+    { ko: "그라운드 클리어런스", en: "Ground clearance (keep-out)", abbr: "", def: "안테나 방사체 주변에 금속·그라운드가 없도록 비워 두는 공간. 저대역일수록 많이 필요해 보드와 배터리 배치와 경쟁한다.", ch: "rf" },
+    { ko: "다중 입출력", en: "Multiple-input multiple-output", abbr: "MIMO", def: "여러 안테나로 서로 다른 데이터 스트림을 같은 주파수에서 동시에 보내는 기술. 4×4 MIMO는 이론상 처리량을 4배 높이지만 안테나 간 상관도가 낮아야 한다.", ch: "rf" },
+    { ko: "빔포밍", en: "Beamforming", abbr: "", def: "배열 안테나 각 소자의 위상(과 진폭)을 조절해 원하는 방향으로 에너지를 모으는 기술. mmWave 모듈과 Wi-Fi, 마이크 배열에서도 같은 원리를 쓴다.", ch: "rf" },
+    { ko: "밀리미터파", en: "Millimeter wave", abbr: "mmWave", def: "5G FR2(24.25 GHz 이상) 대역. 넓은 대역폭으로 매우 빠르지만 경로 손실과 가림에 약해 폰에 위상 배열 모듈 여러 개를 둔다.", ch: "rf" },
+    { ko: "Sub-6 GHz", en: "Sub-6 GHz (FR1)", abbr: "FR1", def: "6 GHz 이하(최대 7.125 GHz)의 5G 대역. 커버리지와 건물 투과가 좋아 5G의 주력이며, 3.5 GHz 대역(n77/n78)이 대표적이다.", ch: "rf" },
+    { ko: "반송파 집성", en: "Carrier aggregation", abbr: "CA", def: "여러 대역의 반송파를 묶어 한 단말에 동시에 할당해 대역폭과 속도를 늘리는 기술. 동시에 켜지는 경로가 늘어 RF 설계가 복잡해진다.", ch: "rf" },
+    { ko: "엔벌로프 트래킹", en: "Envelope tracking", abbr: "ET", def: "PA의 공급 전압을 신호 포락선에 맞춰 실시간으로 바꿔, 평균 출력이 낮을 때 낭비되는 전력을 줄이는 기법.", ch: "rf" },
+    { ko: "전자파 흡수율", en: "Specific absorption rate", abbr: "SAR", def: "인체 조직이 흡수하는 RF 전력(W/kg). 미국은 1 g 평균 1.6 W/kg, 유럽은 10 g 평균 2.0 W/kg가 머리 기준 한도이며, 6 GHz 이상은 전력 밀도로 규제한다.", ch: "rf" },
+    { ko: "총 방사 전력", en: "Total radiated power", abbr: "TRP", def: "모든 방향으로 방사된 송신 전력의 합. 수신 측 대응 지표는 총 등방 감도(TIS)이며, 둘 다 손 모형을 포함한 실측으로 통신사 인증에 쓰인다.", ch: "rf" },
+    { ko: "링크 버짓", en: "Link budget", abbr: "", def: "송신 전력 + 안테나 이득 − 경로 손실 − 기타 손실이 수신 감도 + 여유보다 큰지 따지는 dB 덧셈 계산. 안테나 1 dB 손실은 커버리지 반경을 눈에 띄게 줄인다.", ch: "rf" },
+    { ko: "자유 공간 경로 손실", en: "Free-space path loss", abbr: "FSPL", def: "등방 안테나 사이의 손실 20·log₁₀(4πd/λ) dB. 거리가 2배면 6 dB, 주파수가 2배여도 6 dB 늘어난다.", ch: "rf" },
+    { ko: "dBm", en: "Decibel-milliwatt", abbr: "dBm", def: "1 mW를 기준으로 한 전력의 dB 표현. 0 dBm = 1 mW, 23 dBm ≈ 200 mW, −100 dBm = 0.1 pW다.", ch: "rf" },
+    { ko: "초광대역", en: "Ultra-wideband", abbr: "UWB", def: "약 6.5·8 GHz 대역에서 500 MHz 이상 대역폭의 짧은 펄스를 쓰는 무선 기술. 비행 시간으로 수~수십 cm 정밀도의 거리를, 안테나 배열로 방향(AoA)을 잰다.", ch: "rf" },
+    { ko: "근거리 무선 통신", en: "Near-field communication", abbr: "NFC", def: "13.56 MHz 자기장 결합으로 수 cm 이내에서 통신하는 기술. 결제·교통카드·태그에 쓰이며, 코일 위치는 금속·배터리와의 간섭을 고려해 정한다.", ch: "rf" },
+    { ko: "위성 항법", en: "Global navigation satellite system", abbr: "GNSS", def: "GPS·Galileo·BeiDou·GLONASS 등 위성 신호로 위치를 구하는 시스템. L1(1575 MHz)과 L5(1176 MHz) 이중 주파수로 도심 다중 경로 오차를 줄인다.", ch: "rf" },
+
+    // 08 카메라
+    { ko: "렌즈 전장", en: "Total track length", abbr: "TTL", def: "렌즈 첫 면에서 센서 면까지의 길이. 같은 화각이면 센서 대각선에 거의 비례해 길어지므로 큰 센서가 카메라 범프를 만든다.", ch: "camera" },
+    { ko: "초점 거리", en: "Focal length", abbr: "f", def: "무한원 물체가 결상되는 렌즈 주점에서 상까지의 거리. 센서 크기와 함께 화각을 정한다.", ch: "camera" },
+    { ko: "35 mm 환산 초점 거리", en: "35 mm equivalent focal length", abbr: "", def: "같은 화각을 35 mm 필름(대각선 43.3 mm)에서 내는 초점 거리, f × 43.3/센서 대각선. 폰 메인 카메라는 대개 23~26 mm 환산이다.", ch: "camera" },
+    { ko: "F-넘버", en: "F-number", abbr: "N", def: "초점 거리를 입사 동공 지름으로 나눈 값(N = f/D). 상면 조도는 1/N²에 비례하고, 작을수록 밝지만 피사계 심도가 얕아지고 수차 보정이 어렵다.", ch: "camera" },
+    { ko: "화각", en: "Field of view", abbr: "FoV", def: "카메라가 담는 장면의 각도. 대각 화각 = 2·atan(대각선/2f)이며, 환산 24 mm는 약 84°다.", ch: "camera" },
+    { ko: "광학 포맷", en: "Optical format (sensor type)", abbr: "", def: "\"1/1.3인치\"처럼 센서 크기를 부르는 관습 명칭. 촬상관 시대 표기라 실제 대각선은 명칭의 약 2/3이다(1인치형 ≈ 16 mm).", ch: "camera" },
+    { ko: "광학식 손떨림 보정", en: "Optical image stabilization", abbr: "OIS", def: "자이로로 흔들림 각속도를 재고 렌즈나 센서를 반대로 움직여 노출 중 상이 움직이지 않게 하는 기능. 저조도에서 더 긴 노출을 가능하게 한다.", ch: "camera" },
+    { ko: "센서 시프트 OIS", en: "Sensor-shift OIS", abbr: "", def: "렌즈 대신 이미지 센서를 움직여 흔들림을 보정하는 방식. 무거운 대구경 렌즈를 움직이지 않아도 되고 회전 보정도 가능하다.", ch: "camera" },
+    { ko: "보이스 코일 모터", en: "Voice coil motor", abbr: "VCM", def: "영구자석 사이 코일에 전류를 흘려 로런츠 힘으로 렌즈를 움직이는 액추에이터. AF와 OIS에 쓰이며, 스프링 지지형과 볼 가이드형이 있다.", ch: "camera" },
+    { ko: "위상차 AF", en: "Phase-detection autofocus", abbr: "PDAF", def: "렌즈 동공의 서로 다른 쪽을 지난 빛이 만든 두 상의 어긋남으로 초점 방향과 양을 한 번에 구하는 AF. 듀얼 픽셀이나 2×2 공유 마이크로렌즈 구조로 구현한다.", ch: "camera" },
+    { ko: "콘트라스트 AF", en: "Contrast-detection autofocus", abbr: "CDAF", def: "렌즈를 움직이며 영상 선명도가 최대인 위치를 찾는 AF. 추가 하드웨어가 필요 없지만 왕복 탐색으로 느리다.", ch: "camera" },
+    { ko: "잠망경 망원", en: "Periscope (folded) telephoto", abbr: "", def: "프리즘·미러로 광로를 90° 꺾어 렌즈를 폰 평면 방향으로 눕힌 망원 카메라. 두께 제약을 피해 환산 100 mm 이상의 긴 초점 거리를 얻는다.", ch: "camera" },
+    { ko: "카메라 범프", en: "Camera bump", abbr: "", def: "후면 카메라가 본체보다 튀어나온 부분. 렌즈 전장과 모듈 높이가 본체 내부 가용 높이를 넘기 때문에 생기며, 큰 센서·망원일수록 커진다.", ch: "camera" },
+    { ko: "주광선각", en: "Chief ray angle", abbr: "CRA", def: "화면 가장자리 상에 도달하는 주광선이 센서 면과 이루는 각. 짧은 폰 렌즈는 30° 이상이라 마이크로렌즈를 시프트해 맞춘다.", ch: "camera" },
+    { ko: "비구면 플라스틱 렌즈", en: "Aspheric plastic lens", abbr: "", def: "사출 성형한 비구면 플라스틱 렌즈를 5~8장 쌓은 폰 렌즈. 비구면이 수차를 적은 매수로 잡아 짧은 전장을 가능하게 한다.", ch: "camera" },
+    { ko: "적외선 차단 필터", en: "IR-cut filter", abbr: "", def: "가시광은 통과시키고 약 650 nm 이상 근적외선을 막는 필터. 실리콘 센서가 근적외선에도 반응해 생기는 색 틀어짐을 막는다.", ch: "camera" },
+    { ko: "쿼드 베이어", en: "Quad Bayer (tetra-cell)", abbr: "", def: "같은 색 2×2 화소를 한 단위로 배열한 컬러 필터. 어두울 때는 4개를 합쳐(비닝) 감도를 높이고, 밝을 때는 리모자이크로 풀해상도를 얻는다.", ch: "camera" },
+    { ko: "픽셀 비닝", en: "Pixel binning", abbr: "", def: "이웃 화소의 신호를 합쳐 하나로 읽는 것. 해상도는 줄지만 화소당 신호가 늘어 SNR이 좋아진다.", ch: "camera" },
+    { ko: "MIPI CSI-2", en: "MIPI Camera Serial Interface 2", abbr: "CSI-2", def: "카메라 센서에서 AP로 영상을 보내는 직렬 인터페이스. 물리층은 D-PHY 또는 C-PHY이며, 고해상도·고프레임에서 여러 레인을 쓴다.", ch: "camera" },
+    { ko: "변조 전달 함수", en: "Modulation transfer function", abbr: "MTF", def: "공간 주파수별로 명암 대비가 얼마나 보존되는지 나타내는 해상력 지표. 렌즈와 센서의 MTF를 곱하면 시스템 MTF가 된다.", ch: "camera" },
+
+    // 09 센서
+    { ko: "멤스", en: "Micro-electro-mechanical systems", abbr: "MEMS", def: "반도체 공정으로 만든 미세한 기계 구조(질량, 스프링, 막)와 전자 회로를 결합한 소자. 가속도계, 자이로, 기압계, 마이크가 대표적이다.", ch: "sensors" },
+    { ko: "가속도계", en: "Accelerometer", abbr: "", def: "스프링에 매달린 검증 질량의 변위를 정전용량으로 읽어 가속도(중력 포함)를 재는 센서. 화면 회전, 걸음 수, 낙하 감지에 쓴다.", ch: "sensors" },
+    { ko: "자이로스코프", en: "Gyroscope", abbr: "", def: "각속도를 재는 센서. MEMS 자이로는 진동하는 질량에 작용하는 코리올리 힘을 감지하며, OIS·자세 추정·게임에 쓴다.", ch: "sensors" },
+    { ko: "코리올리 힘", en: "Coriolis force", abbr: "", def: "회전하는 좌표계에서 움직이는 물체에 작용하는 겉보기 힘, F = −2m Ω × v. 구동 방향과 회전축 모두에 수직인 방향으로 작용한다.", ch: "sensors" },
+    { ko: "관성 측정 장치", en: "Inertial measurement unit", abbr: "IMU", def: "3축 가속도계와 3축 자이로를 한 패키지에 넣은 6축 센서. 지자기 센서를 더해 9축으로 자세를 추정하기도 한다.", ch: "sensors" },
+    { ko: "영점 오프셋", en: "Zero-rate offset (bias)", abbr: "ZRO", def: "회전이 없을 때도 자이로가 내는 출력. 적분하면 각도 오차가 시간에 비례해 쌓이므로 온도 보정과 정지 상태 재보정이 필요하다.", ch: "sensors" },
+    { ko: "잡음 밀도", en: "Noise density", abbr: "", def: "센서 출력 잡음을 대역폭 1 Hz당으로 나타낸 값(µg/√Hz, dps/√Hz). 대역폭의 제곱근을 곱하면 RMS 잡음이 된다.", ch: "sensors" },
+    { ko: "지자기 센서", en: "Magnetometer (e-compass)", abbr: "", def: "지구 자기장(약 25~65 µT)의 3축 성분을 홀·자기저항(AMR/TMR) 소자로 재 방위를 구하는 센서. 폰 내부 자석과 전류에 쉽게 오염된다.", ch: "sensors" },
+    { ko: "하드 아이언 오프셋", en: "Hard-iron offset", abbr: "", def: "스피커 자석이나 전류처럼 폰과 함께 움직이는 고정 자기장이 만드는 지자기 오프셋. 측정점 구 전체를 원점에서 평행 이동시키며 보정으로 빼낸다.", ch: "sensors" },
+    { ko: "소프트 아이언 왜곡", en: "Soft-iron distortion", abbr: "", def: "주변 연자성 금속이 외부 자기장을 휘게 해 측정 구를 타원체로 찌그러뜨리는 효과. 3×3 행렬 보정으로 다시 구로 되돌린다.", ch: "sensors" },
+    { ko: "센서 퓨전", en: "Sensor fusion", abbr: "", def: "가속도·자이로·지자기 등 성격이 다른 센서를 칼만 필터나 상보 필터로 결합해, 각 센서 단독보다 정확하고 안정적인 자세·위치를 구하는 것.", ch: "sensors" },
+    { ko: "센서 허브", en: "Sensor hub", abbr: "", def: "센서를 상시 읽고 걸음 수·제스처 인식 같은 처리를 하는 저전력 프로세서. 메인 CPU를 깨우지 않아 대기 전력을 줄인다.", ch: "sensors" },
+    { ko: "기압 센서", en: "Barometric pressure sensor", abbr: "", def: "MEMS 막의 휨으로 대기압을 재는 센서. 해수면 근처에서 1 hPa ≈ 8.3 m 고도 차라 층 구분과 GNSS 고도 보조에 쓴다. 방수 구조가 내부 압력 평형을 막으면 오차가 생긴다.", ch: "sensors" },
+    { ko: "근접 센서", en: "Proximity sensor", abbr: "", def: "적외선 펄스를 쏘아 반사 세기(또는 비행 시간)로 가까운 물체를 감지하는 센서. 통화 중 얼굴이 닿으면 화면과 터치를 끈다.", ch: "sensors" },
+    { ko: "조도 센서", en: "Ambient light sensor", abbr: "ALS", def: "주변 밝기(lux)와 색온도를 재 화면 휘도와 색을 자동 조절하는 센서. 화면 아래에 둘 때는 디스플레이 자체 빛을 빼는 보정이 필요하다.", ch: "sensors" },
+    { ko: "비행 시간 센서", en: "Time of flight", abbr: "ToF", def: "빛이 물체까지 왕복한 시간으로 거리를 재는 센서. 펄스 왕복 시간을 SPAD로 직접 재는 dToF와, 변조광의 위상차로 재는 iToF가 있다.", ch: "sensors" },
+    { ko: "구조광", en: "Structured light", abbr: "", def: "수만 개의 적외선 점이나 패턴을 투사하고, 물체 표면에서 패턴이 어긋나는 정도를 삼각측량해 3D 깊이를 구하는 방식. 얼굴 인식에 쓰인다.", ch: "sensors" },
+    { ko: "광학식 화면 지문", en: "Optical in-display fingerprint", abbr: "", def: "OLED가 비춘 빛이 손가락 융선·골에서 다르게 반사되는 것을 화면 아래 이미지 센서로 찍는 지문 센서. 싸지만 2D라 위조에 상대적으로 약하다.", ch: "sensors" },
+    { ko: "초음파 지문", en: "Ultrasonic fingerprint", abbr: "", def: "초음파 펄스를 보내 손가락 융선(피부 접촉)과 골(공기)의 음향 임피던스 차이로 생긴 반사를 읽는 지문 센서. 젖은 손가락에 강하고 깊이 정보를 얻는다.", ch: "sensors" },
+    { ko: "타인 수락률", en: "False acceptance rate", abbr: "FAR", def: "타인을 본인으로 잘못 받아들이는 확률. 판정 임계를 엄격하게 하면 내려가지만 FRR이 올라간다. 강한 생체 인증 등급은 대개 1/50,000 이하 수준을 요구한다.", ch: "sensors" },
+    { ko: "본인 거부율", en: "False rejection rate", abbr: "FRR", def: "등록된 본인을 거부하는 확률. 사용 편의성을 좌우하며 FAR과 시소 관계다. 두 값이 같아지는 점을 EER이라 한다.", ch: "sensors" },
+
+    // 10 오디오
+    { ko: "리니어 공진 액추에이터", en: "Linear resonant actuator", abbr: "LRA", def: "스프링에 매단 질량을 코일·자석으로 공진 주파수 근처에서 직선 왕복시키는 진동 모터. 응답이 빨라 또렷하고 다양한 햅틱 효과를 낸다.", ch: "audio" },
+    { ko: "편심 회전 질량 모터", en: "Eccentric rotating mass motor", abbr: "ERM", def: "축에 편심 추를 단 DC 모터. 싸고 진동이 강하지만 시동·정지에 수십 ms 이상 걸려 짧고 정교한 촉감 표현이 어렵다.", ch: "audio" },
+    { ko: "햅틱 드라이버", en: "Haptic driver IC", abbr: "", def: "LRA 공진 주파수를 추적하며 파형을 만드는 IC. 시작 때 과구동(overdrive), 끝날 때 역위상 제동(braking)으로 잔진동을 줄인다.", ch: "audio" },
+    { ko: "마이크로 스피커", en: "Microspeaker", abbr: "", def: "수 mm~1 cm대 크기의 동전형 스피커. 진동판 면적과 변위가 작아 저음이 약하며, 음향 챔버와 스마트 앰프로 성능을 끌어올린다.", ch: "audio" },
+    { ko: "백 볼륨", en: "Back volume", abbr: "", def: "스피커 진동판 뒤의 밀폐 공기 공간. 작을수록 공기 스프링이 단단해져 공진 주파수가 올라가 저음이 줄어든다. 폰 안에서 얻기 가장 어려운 부피다.", ch: "audio" },
+    { ko: "공진 주파수", en: "Resonance frequency", abbr: "f₀", def: "진동계가 가장 크게 응답하는 주파수, f₀ = (1/2π)√(k/m). 마이크로 스피커는 수백 Hz~1 kHz 근처이며 그 아래로 출력이 급히 준다.", ch: "audio" },
+    { ko: "스마트 앰프", en: "Smart amplifier", abbr: "", def: "스피커 전압·전류를 실시간으로 감지해 진동판 변위와 보이스 코일 온도를 추정하고, 한계 직전까지 구동하는 앰프. 같은 스피커에서 더 큰 소리와 저음을 낸다.", ch: "audio" },
+    { ko: "MEMS 마이크", en: "MEMS microphone", abbr: "", def: "진동막과 백플레이트 사이 정전용량 변화를 ASIC으로 읽는 실리콘 마이크. 작고 리플로우 납땜이 가능해 폰에 3~4개씩 들어간다.", ch: "audio" },
+    { ko: "음향 과부하점", en: "Acoustic overload point", abbr: "AOP", def: "마이크 출력 왜곡(대개 THD 10 %)이 시작되는 음압. 120~135 dB SPL 수준이며, 콘서트·바람 소리 녹음 품질을 좌우한다.", ch: "audio" },
+    { ko: "마이크 신호 대 잡음비", en: "Microphone SNR", abbr: "", def: "94 dB SPL(1 kHz) 기준 신호와 마이크 자체 잡음의 비. MEMS 마이크는 65~70 dB대이며 조용한 소리 녹음과 원거리 음성 인식에 중요하다.", ch: "audio" },
+    { ko: "마이크 빔포밍", en: "Microphone beamforming", abbr: "", def: "여러 마이크 신호에 지연과 가중을 주어 합해 특정 방향 소리는 키우고 다른 방향 잡음은 줄이는 처리. 마이크 간격과 위치가 성능을 정한다.", ch: "audio" },
+    { ko: "에코 제거", en: "Acoustic echo cancellation", abbr: "AEC", def: "스피커에서 나간 소리가 마이크로 다시 들어오는 성분을 적응 필터로 빼내는 처리. 스피커폰 통화의 필수 기능이다.", ch: "audio" },
+    { ko: "방수 음향 메시", en: "Acoustic mesh / membrane", abbr: "", def: "스피커·마이크 구멍을 막는 미세 메시나 방수막. 물과 먼지를 막지만 음향 저항을 더해 감도와 고음을 깎으므로 음향 설계에 포함해야 한다.", ch: "audio" },
+
+    // 11 열
+    { ko: "열 계면 재료", en: "Thermal interface material", abbr: "TIM", def: "칩과 쉴드·방열판 사이의 미세한 공기 틈을 메우는 열전도성 그리스·패드·젤(약 1~10 W/m·K). 얇게, 공기 없이 채우는 것이 핵심이다.", ch: "thermal" },
+    { ko: "베이퍼 챔버", en: "Vapor chamber", abbr: "VC", def: "밀봉된 얇은 판 안에서 작동 유체가 뜨거운 곳에서 증발하고 차가운 곳에서 응축한 뒤 윅으로 돌아오는 2상 열 확산기. 두께 0.3~0.6 mm 수준으로 넓은 면적에 열을 편다.", ch: "thermal" },
+    { ko: "히트 파이프", en: "Heat pipe", abbr: "", def: "관 형태의 2상 열전달 장치. 베이퍼 챔버와 원리는 같지만 한 방향으로 열을 멀리 옮기는 데 유리하다.", ch: "thermal" },
+    { ko: "그래파이트 시트", en: "Graphite sheet", abbr: "", def: "면 방향 열전도도가 수백~천수백 W/m·K로 매우 높지만 두께 방향은 낮은 이방성 탄소 시트. 수십 µm 두께로 핫스팟 열을 넓게 펼친다.", ch: "thermal" },
+    { ko: "열전도도", en: "Thermal conductivity", abbr: "k", def: "재료가 열을 전달하는 능력(W/m·K). 구리 약 400, 알루미늄 합금 150~200, 티타늄 합금 약 7, 유리 약 1 수준이다.", ch: "thermal" },
+    { ko: "열저항", en: "Thermal resistance", abbr: "R_th", def: "열 흐름 1 W당 생기는 온도 차(K/W), R = ΔT/P. 직렬 경로는 더하고 병렬 경로는 역수로 더해 전기 회로처럼 계산한다.", ch: "thermal" },
+    { ko: "열 용량", en: "Thermal capacitance", abbr: "C_th", def: "온도를 1 K 올리는 데 필요한 열(J/K). 폰의 열 용량 덕분에 짧은 고부하는 온도 한계에 닿기 전에 끝날 수 있다. 버스트 성능과 지속 성능이 다른 이유다.", ch: "thermal" },
+    { ko: "접합 온도", en: "Junction temperature", abbr: "Tj", def: "칩 내부 트랜지스터 부근의 온도. 상한(대개 100 °C 안팎)을 넘지 않게 관리하며, 높을수록 누설 전력이 늘어 열이 더 난다.", ch: "thermal" },
+    { ko: "피부 온도", en: "Skin (surface) temperature", abbr: "", def: "사용자가 만지는 폰 표면의 온도. 오래 쥐어도 불편하지 않도록 대략 40 °C대 초중반을 상한으로 관리하며, 폰 지속 전력의 실질적 천장이 된다.", ch: "thermal" },
+    { ko: "스로틀링", en: "Thermal throttling", abbr: "", def: "온도가 한계에 가까워지면 DVFS로 클럭·전압이나 화면 밝기, 충전 전류를 낮춰 발열을 줄이는 것. 지속 성능 하락으로 나타난다.", ch: "thermal" },
+    { ko: "지속 성능", en: "Sustained performance", abbr: "", def: "열 평형에 이른 뒤에도 유지되는 성능. 피크 성능의 50~80 % 수준이 흔하며, 방열 설계와 칩 효율이 함께 결정한다.", ch: "thermal" },
+    { ko: "핫스팟", en: "Hotspot", abbr: "", def: "열원 바로 위처럼 국부적으로 온도가 높은 지점. 같은 총 열량이라도 핫스팟이 심하면 표면 한계에 먼저 닿으므로 열 확산이 중요하다.", ch: "thermal" },
+    { ko: "자연 대류", en: "Natural convection", abbr: "", def: "팬 없이 공기의 부력으로만 생기는 대류. 열전달 계수가 약 5~10 W/m²·K로 작아, 복사와 합쳐도 폰이 버릴 수 있는 열은 몇 W에 그친다.", ch: "thermal" },
+
+    // 12 기구
+    { ko: "이온 교환 강화", en: "Ion-exchange chemical strengthening", abbr: "", def: "알루미노실리케이트 유리를 약 400 °C 질산칼륨 용융염에 담가 표면의 작은 Na⁺를 큰 K⁺로 바꾸는 공정. 표면에 압축 응력층이 생겨 균열이 잘 자라지 않는다.", ch: "mechanical" },
+    { ko: "압축 응력", en: "Compressive stress", abbr: "CS", def: "강화 유리 표면에 남은 압축 응력의 크기(수백~1,000 MPa 수준). 균열이 열리려면 먼저 이 압축을 이겨야 하므로 긁힘·굽힘 강도가 오른다.", ch: "mechanical" },
+    { ko: "압축층 깊이", en: "Depth of layer", abbr: "DOL", def: "표면 압축 응력이 미치는 깊이(수십~백여 µm). 깊을수록 날카로운 접촉으로 생긴 깊은 결함까지 막아 낙하에 강하다. 리튬계 유리는 Li⁺ 교환으로 더 깊게 만든다.", ch: "mechanical" },
+    { ko: "결정화 유리", en: "Glass-ceramic", abbr: "", def: "유리 속에 나노 결정을 석출시킨 재료. 투명성을 유지하면서 파괴 인성을 높여 낙하 내성이 좋다.", ch: "mechanical" },
+    { ko: "IP68", en: "Ingress protection rating 68", abbr: "IP68", def: "IEC 60529 방진·방수 등급. 6은 먼지 완전 차단, 8은 제조사가 정한 조건(1 m 초과)의 연속 침수 보호이며 폰은 흔히 1.5~6 m, 30분 조건이다.", ch: "mechanical" },
+    { ko: "방수 실링", en: "Waterproof sealing", abbr: "", def: "디스플레이·후면 유리 둘레의 접착 테이프, 버튼·포트의 고무 가스켓, 구멍의 방수막으로 물길을 막는 설계. 수리할 때마다 재밀봉이 필요하다.", ch: "mechanical" },
+    { ko: "압력 평형 벤트", en: "Pressure-equalization vent", abbr: "", def: "ePTFE 같은 미세 다공막으로 물은 막고 공기는 통하게 해 내부·외부 기압을 맞추는 구멍. 기압 센서와 스피커 동작에 필요하다.", ch: "mechanical" },
+    { ko: "공차 스택업", en: "Tolerance stack-up", abbr: "", def: "여러 부품·공정의 치수 공차가 누적되어 최종 간극이나 단차가 얼마나 흔들리는지 계산하는 것. 최악값 합과 통계적 RSS 방식이 있다.", ch: "mechanical" },
+    { ko: "아노다이징", en: "Anodizing", abbr: "", def: "알루미늄을 전해액에서 양극 산화해 다공성 산화막(수~수십 µm)을 키운 뒤 염색·봉공하는 표면 처리. 단단하고 색을 낼 수 있으며 막은 전기 절연체다.", ch: "mechanical" },
+    { ko: "물리 기상 증착", en: "Physical vapor deposition", abbr: "PVD", def: "진공에서 금속이나 질화물을 증착해 수 µm 이하의 얇은 장식·경질 코팅을 만드는 공정. 스테인리스·티타늄 프레임의 색과 내마모성에 쓴다.", ch: "mechanical" },
+    { ko: "미드플레이트", en: "Midplate (mid-frame plate)", abbr: "", def: "측면 프레임 안쪽의 판. 디스플레이를 받치고 보드·배터리·스피커를 고정하며, 굽힘 강성과 열 확산 경로, 안테나 그라운드 역할을 함께 한다.", ch: "mechanical" },
+    { ko: "나노 몰딩 기술", en: "Nano molding technology", abbr: "NMT", def: "금속 표면에 나노 기공을 만든 뒤 수지를 직접 사출해 단단히 접합하는 기술. 금속 프레임 안테나의 분할 슬릿을 메워 강성과 방수를 확보한다.", ch: "mechanical" },
+    { ko: "7000계 알루미늄", en: "7000-series aluminum alloy", abbr: "", def: "아연을 주 합금 원소로 한 고강도 알루미늄 합금. 6000계보다 강해 얇은 프레임의 굽힘 변형을 줄이지만, 가공·아노다이징 색 품질이 까다롭다.", ch: "mechanical" },
+    { ko: "티타늄 합금", en: "Titanium alloy (e.g., Grade 5)", abbr: "", def: "Ti-6Al-4V(Grade 5) 등. 비강도가 높고 부식에 강하지만 열전도도가 알루미늄의 수십 분의 일이라 방열 경로를 따로 고려해야 하며 가공비가 비싸다.", ch: "mechanical" },
+    { ko: "굽힘 강성", en: "Bending stiffness", abbr: "EI", def: "굽힘에 대한 저항, 영률 E와 단면 2차 모멘트 I의 곱. 판의 강성은 두께의 세제곱에 비례하므로 얇은 폰일수록 프레임 재료와 리브 설계가 중요하다.", ch: "mechanical" },
+    { ko: "초박형 유리", en: "Ultra-thin glass", abbr: "UTG", def: "두께 수십 µm(약 30 µm 수준)의 강화 유리. 폴더블 화면 커버에 쓰여 플라스틱보다 단단하고 매끄러운 촉감을 준다.", ch: "mechanical" },
+    { ko: "낙하 시험", en: "Drop test", abbr: "", def: "정해진 높이(예: 1~1.5 m)에서 면·모서리·꼭짓점으로 반복 낙하시켜 유리·접합·내부 부품의 손상을 확인하는 신뢰성 시험.", ch: "mechanical" },
+
+    // 13 설계
+    { ko: "부품 명세서", en: "Bill of materials", abbr: "BOM", def: "제품을 이루는 모든 부품의 목록과 수량, 단가. 플래그십 BOM에서는 AP, 디스플레이, 카메라, 메모리가 큰 몫을 차지한다.", ch: "design" },
+    { ko: "EVT", en: "Engineering validation test", abbr: "EVT", def: "첫 시제품으로 기능과 목표 성능을 검증하는 단계. 회로·기구 변경이 아직 자유롭다.", ch: "design" },
+    { ko: "DVT", en: "Design validation test", abbr: "DVT", def: "최종에 가까운 설계로 신뢰성(낙하·방수·온습도)과 인증 시험을 통과해 설계와 금형을 확정하는 단계.", ch: "design" },
+    { ko: "PVT", en: "Production validation test", abbr: "PVT", def: "실제 양산 라인과 공정으로 소량 생산해 수율, 공정 능력, 택트 타임을 검증하는 단계. 통과하면 양산(MP)으로 넘어간다.", ch: "design" },
+    { ko: "양산", en: "Mass production", abbr: "MP", def: "검증된 설계와 공정으로 대량 생산하는 단계. 이후 변경은 원가와 일정에 큰 부담이 되어 엄격한 변경 관리(ECN)를 거친다.", ch: "design" },
+    { ko: "부피 예산", en: "Volume budget", abbr: "", def: "본체 내부 부피(대략 80~100 cm³ 안팎)를 배터리·보드·카메라·스피커·안테나 클리어런스 등에 나누는 계획. 배터리가 가장 큰 몫을 가져간다.", ch: "design" },
+    { ko: "무게 예산", en: "Mass budget", abbr: "", def: "목표 무게를 부품별로 배분한 표. 배터리, 유리, 프레임이 큰 몫이며 무게 중심 위치도 손에 쥐는 느낌에 영향을 준다.", ch: "design" },
+    { ko: "트레이드오프", en: "Trade-off", abbr: "", def: "한 지표를 좋게 하면 다른 지표가 나빠지는 관계. 배터리 용량 대 두께·무게, 카메라 센서 크기 대 범프, 휘도 대 전력이 대표적이다.", ch: "design" },
+    { ko: "파레토 전선", en: "Pareto front", abbr: "", def: "다른 지표를 희생하지 않고는 어느 지표도 개선할 수 없는 설계들의 집합. 그 위의 어느 점을 고를지는 제품 전략이 정한다.", ch: "design" },
+    { ko: "제조 용이성 설계", en: "Design for manufacturing", abbr: "DFM", def: "공정 능력, 조립 순서, 공차, 검사 가능성을 설계 단계에서 반영해 수율과 원가를 개선하는 활동.", ch: "design" },
+    { ko: "일회성 개발비", en: "Non-recurring engineering cost", abbr: "NRE", def: "금형, 설계 인력, 인증, 시험 등 생산량과 무관하게 한 번 드는 비용. 판매 대수로 나누어 대당 원가에 반영된다.", ch: "design" },
+    { ko: "설계 마진", en: "Design margin (guard band)", abbr: "", def: "공정 편차, 온도, 노화, 측정 오차를 감안해 스펙 한계와 실제 목표 사이에 남겨 두는 여유. 너무 크면 성능과 원가를, 너무 작으면 수율을 잃는다.", ch: "design" },
+    { ko: "화면 켜짐 시간", en: "Screen-on time", abbr: "SOT", def: "한 번 충전으로 화면을 켜고 쓸 수 있는 시간. 배터리 Wh를 화면·SoC·모뎀 평균 전력의 합으로 나눈 값으로 사용 시간을 가늠한다.", ch: "design" },
+  ];
+
+  /* =============================================================== 공통 */
+  var CH = {}, ORDER = {};
+  var CHS = PB.CHAPTERS.filter(function (c) { return c.slug !== "glossary"; });
+  CHS.forEach(function (c, i) { CH[c.slug] = c; ORDER[c.slug] = i; });
+  var SHORT = { anatomy: "해부", display: "디스플레이", soc: "AP(SoC)", board: "보드·메모리", battery: "배터리", power: "전력·충전", rf: "통신·RF", camera: "카메라", sensors: "센서", audio: "오디오·햅틱", thermal: "열", mechanical: "기구", design: "설계" };
+  function hue(slug) { return Math.round(ORDER[slug] * 360 / CHS.length + 175) % 360; }
+  function chColor(slug, a) { var d = PB.isDark(); return "hsla(" + hue(slug) + "," + (d ? 62 : 58) + "%," + (d ? 62 : 44) + "%," + (a == null ? 1 : a) + ")"; }
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function norm(s) { return String(s).toLowerCase().replace(/[\s\-·_/()]/g, ""); }
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+
+  var CHO = ["ㄱ", "ㄲ", "ㄴ", "ㄷ", "ㄸ", "ㄹ", "ㅁ", "ㅂ", "ㅃ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅉ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
+  var MERGE = { "ㄲ": "ㄱ", "ㄸ": "ㄷ", "ㅃ": "ㅂ", "ㅆ": "ㅅ", "ㅉ": "ㅈ" };
+  function koInitial(s) {
+    var c = s.charCodeAt(0);
+    if (c >= 0xac00 && c <= 0xd7a3) { var j = CHO[Math.floor((c - 0xac00) / 588)]; return MERGE[j] || j; }
+    if (/[0-9]/.test(s[0])) return "0–9";
+    return "A–Z";
+  }
+  function enInitial(s) { var c = s.trim()[0].toUpperCase(); return /[A-Z]/.test(c) ? c : "0–9"; }
+  function gOrdKo(g) { var i = CHO.indexOf(g); return i >= 0 ? i : g === "0–9" ? 99 : 100; }
+  TERMS.forEach(function (t, i) { t.id = i; t._key = norm(t.ko + " " + t.en + " " + t.abbr); t._def = norm(t.def); t._ki = koInitial(t.ko); t._ei = enInitial(t.en); });
+
+  /* =============================================================== 퀴즈 개수 (지도용) */
+  var qEls = [].slice.call(document.querySelectorAll("#fq-list .quiz-q"));
+  var QCOUNT = {}; qEls.forEach(function (q) { QCOUNT[q.dataset.ch] = (QCOUNT[q.dataset.ch] || 0) + 1; });
+  var TCOUNT = {}; TERMS.forEach(function (t) { TCOUNT[t.ch] = (TCOUNT[t.ch] || 0) + 1; });
+
+  /* =============================================================== 용어집 */
+  var qEl = document.getElementById("gl-q"), listEl = document.getElementById("gl-list"), countEl = document.getElementById("gl-count");
+  var curCh = "all";
+  var sortSel = PB.seg("gl-sort", renderGlossary);
+  qEl.addEventListener("input", renderGlossary);
+
+  function buildChips(box, counts, onPick) {
+    var html = '<button type="button" data-value="all" class="on">전체 <span class="c">' + Object.keys(counts).reduce(function (s, k) { return s + counts[k]; }, 0) + "</span></button>";
+    CHS.forEach(function (c) {
+      if (!counts[c.slug]) return;
+      html += '<button type="button" data-value="' + c.slug + '"><i data-sw="' + c.slug + '"></i>' + c.num + " " + esc(SHORT[c.slug]) + ' <span class="c">' + counts[c.slug] + "</span></button>";
+    });
+    box.innerHTML = html;
+    var btns = [].slice.call(box.querySelectorAll("button"));
+    function set(v) { btns.forEach(function (b) { var on = b.dataset.value === v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); }); }
+    btns.forEach(function (b) { b.addEventListener("click", function () { set(b.dataset.value); onPick(b.dataset.value); }); });
+    set("all");
+    return set;
+  }
+  function paintSwatches() {
+    [].forEach.call(document.querySelectorAll("[data-sw]"), function (i) { i.style.background = chColor(i.dataset.sw); });
+  }
+  var setGlChip = buildChips(document.getElementById("gl-ch"), TCOUNT, function (v) { curCh = v; renderGlossary(); if (mapCv) mapCv.redraw(); });
+
+  function hl(text, q) {
+    var t = esc(text);
+    if (!q) return t;
+    var i = text.toLowerCase().indexOf(q);
+    if (i < 0) return t;
+    return esc(text.slice(0, i)) + "<mark>" + esc(text.slice(i, i + q.length)) + "</mark>" + esc(text.slice(i + q.length));
+  }
+  function setChapter(v) { curCh = v; setGlChip(v); renderGlossary(); if (mapCv) mapCv.redraw(); }
+
+  function renderGlossary() {
+    var raw = qEl.value.trim(), q = norm(raw), qLow = raw.toLowerCase(), mode = sortSel();
+    var items = TERMS.filter(function (t) {
+      if (curCh !== "all" && t.ch !== curCh) return false;
+      if (!q) return true;
+      return t._key.indexOf(q) >= 0 || t._def.indexOf(q) >= 0;
+    });
+    var rank = function (t) { return q && t._key.indexOf(q) < 0 ? 1 : 0; };
+    items.sort(function (a, b) {
+      if (mode === "ch") { var d = ORDER[a.ch] - ORDER[b.ch]; if (d) return d; return a.id - b.id; }
+      var r = rank(a) - rank(b); if (r) return r;
+      if (mode === "en") return a.en.localeCompare(b.en, "en", { sensitivity: "base" });
+      var g = gOrdKo(a._ki) - gOrdKo(b._ki); if (g) return g;
+      return a.ko.localeCompare(b.ko, "ko");
+    });
+    countEl.textContent = items.length + " / " + TERMS.length + "개 용어";
+    PB.stat("o-sel", curCh === "all" ? "전체" : CH[curCh].num + " " + SHORT[curCh] + " · " + TCOUNT[curCh] + "개");
+    if (!items.length) { listEl.innerHTML = '<div class="gl-empty">“' + esc(raw) + "”에 해당하는 용어가 없습니다." + (curCh !== "all" ? " 장 필터를 ‘전체’로 바꾸거나" : "") + " 영어나 약어로도 검색해 보세요.</div>"; return; }
+    var html = [], last = null;
+    items.forEach(function (t) {
+      var g = mode === "ch" ? t.ch : (q && rank(t) ? "본문 일치" : (mode === "en" ? t._ei : t._ki));
+      if (g !== last) {
+        last = g;
+        html.push('<div class="gl-group">' + (mode === "ch" ? CH[g].num + " · " + esc(CH[g].title) : esc(g)) + "</div>");
+      }
+      var c = CH[t.ch];
+      html.push('<div class="gl-item" id="term-' + t.id + '"><h4>' + hl(t.ko, qLow) + '<span class="en">' + hl(t.en, qLow) + "</span>" +
+        (t.abbr && t.abbr !== t.ko ? '<span class="abbr">' + hl(t.abbr, qLow) + "</span>" : "") + "</h4><p>" + hl(t.def, qLow) + "</p>" +
+        '<a class="ch" href="' + t.ch + '.html"><i style="background:' + chColor(t.ch) + '"></i>' + c.num + "장 " + esc(c.title) + " →</a></div>");
+    });
+    listEl.innerHTML = html.join("");
+  }
+
+  /* =============================================================== 용어 지도 */
+  var mapBars = [], hover = null, mapCv = null;
+  var maxT = Math.max.apply(null, CHS.map(function (c) { return TCOUNT[c.slug] || 0; }));
+  function drawMap(ctx, w, h) {
+    var P = PB.palette(), horiz = w < 560;
+    mapBars = [];
+    ctx.font = "12px " + PB.color("font");
+    ctx.textBaseline = "middle";
+    var scaleMax = Math.ceil((maxT + 2) / 5) * 5;
+    if (horiz) {
+      var left = 92, right = 40, top = 10, rh = (h - top - 10) / CHS.length, bw = w - left - right;
+      // grid
+      ctx.strokeStyle = P.grid; ctx.lineWidth = 1;
+      for (var gx = 0; gx <= scaleMax; gx += 5) { var xx = left + bw * gx / scaleMax; ctx.beginPath(); ctx.moveTo(xx, top); ctx.lineTo(xx, h - 10); ctx.stroke(); }
+      CHS.forEach(function (c, i) {
+        var n = TCOUNT[c.slug] || 0, y = top + i * rh, bh = rh * 0.62, yb = y + (rh - bh) / 2;
+        var sel = curCh === c.slug, dim = curCh !== "all" && !sel;
+        ctx.fillStyle = chColor(c.slug, dim ? 0.3 : (hover === i ? 1 : 0.85));
+        var L = bw * n / scaleMax;
+        ctx.fillRect(left, yb, L, bh);
+        if (sel) { ctx.strokeStyle = P.text; ctx.lineWidth = 2; ctx.strokeRect(left + 1, yb + 1, L - 2, bh - 2); }
+        ctx.fillStyle = sel ? P.text : P.dim; ctx.textAlign = "right";
+        ctx.fillText(c.num + " " + SHORT[c.slug], left - 6, y + rh / 2);
+        ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.font = "11px " + PB.color("mono");
+        ctx.fillText(n, left + L + 4, y + rh / 2);
+        ctx.font = "12px " + PB.color("font");
+        var qn = QCOUNT[c.slug] || 0;
+        for (var k = 0; k < qn; k++) { ctx.beginPath(); ctx.arc(left + 6 + k * 8, y + rh / 2, 2.6, 0, 7); ctx.fillStyle = P.text; ctx.fill(); }
+        mapBars.push({ x0: 0, x1: w, y0: y, y1: y + rh, slug: c.slug, i: i });
+      });
+    } else {
+      var l2 = 40, r2 = 12, t2 = 18, b2 = 46, cw = (w - l2 - r2) / CHS.length, ph = h - t2 - b2;
+      ctx.strokeStyle = P.grid; ctx.lineWidth = 1; ctx.fillStyle = P.faint; ctx.textAlign = "right"; ctx.font = "11px " + PB.color("mono");
+      for (var gy = 0; gy <= scaleMax; gy += 5) { var yy = t2 + ph - ph * gy / scaleMax; ctx.beginPath(); ctx.moveTo(l2, yy); ctx.lineTo(w - r2, yy); ctx.stroke(); ctx.fillText(gy, l2 - 6, yy); }
+      CHS.forEach(function (c, i) {
+        var n = TCOUNT[c.slug] || 0, x = l2 + i * cw, bwid = cw * 0.66, xb = x + (cw - bwid) / 2;
+        var H = ph * n / scaleMax, sel = curCh === c.slug, dim = curCh !== "all" && !sel;
+        ctx.fillStyle = chColor(c.slug, dim ? 0.3 : (hover === i ? 1 : 0.85));
+        ctx.fillRect(xb, t2 + ph - H, bwid, H);
+        if (sel) { ctx.strokeStyle = P.text; ctx.lineWidth = 2; ctx.strokeRect(xb + 1, t2 + ph - H + 1, bwid - 2, H - 2); }
+        ctx.fillStyle = P.text; ctx.textAlign = "center"; ctx.font = "11px " + PB.color("mono");
+        ctx.fillText(n, x + cw / 2, t2 + ph - H - 9);
+        var qn = QCOUNT[c.slug] || 0;
+        for (var k = 0; k < qn; k++) { ctx.beginPath(); ctx.arc(x + cw / 2, t2 + ph - 8 - k * 9, 3, 0, 7); ctx.fillStyle = PB.isDark() ? "rgba(0,0,0,.75)" : "rgba(255,255,255,.92)"; ctx.fill(); ctx.strokeStyle = P.text; ctx.lineWidth = 1; ctx.stroke(); }
+        ctx.fillStyle = sel ? P.accent : P.dim; ctx.font = (sel ? "700 " : "") + "12px " + PB.color("mono");
+        ctx.fillText(c.num, x + cw / 2, h - b2 + 14);
+        ctx.font = (sel ? "700 " : "") + "11px " + PB.color("font");
+        var lab = SHORT[c.slug].replace(/[·(].*$/, "");
+        while (ctx.measureText(lab).width > cw - 2 && lab.length > 2) lab = lab.slice(0, -1);
+        ctx.fillText(lab, x + cw / 2, h - b2 + 31);
+        mapBars.push({ x0: x, x1: x + cw, y0: 0, y1: h, slug: c.slug, i: i });
+      });
+    }
+  }
+  function hit(ev) {
+    var r = ev.currentTarget.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
+    for (var i = 0; i < mapBars.length; i++) { var b = mapBars[i]; if (x >= b.x0 && x < b.x1 && y >= b.y0 && y < b.y1) return b; }
+    return null;
+  }
+  var cvEl = document.getElementById("cv-map");
+  mapCv = PB.canvas(cvEl, drawMap, { get height() { return (cvEl.parentElement.clientWidth || 600) < 560 ? CHS.length * 26 + 20 : 300; } });
+  cvEl.addEventListener("mousemove", function (ev) { var b = hit(ev), hv = b ? b.i : null; if (hv !== hover) { hover = hv; mapCv.redraw(); } cvEl.title = b ? CH[b.slug].num + " " + CH[b.slug].title + " · 용어 " + (TCOUNT[b.slug] || 0) + "개, 퀴즈 " + (QCOUNT[b.slug] || 0) + "문항" : ""; });
+  cvEl.addEventListener("mouseleave", function () { hover = null; mapCv.redraw(); });
+  cvEl.addEventListener("click", function (ev) {
+    var b = hit(ev); if (!b) return;
+    setChapter(curCh === b.slug ? "all" : b.slug);
+  });
+  PB.stat("o-total", TERMS.length + "개");
+  PB.stat("o-abbr", TERMS.filter(function (t) { return t.abbr; }).length + "개");
+  PB.stat("o-quiz", qEls.length + "문항");
+
+  /* =============================================================== 종합 퀴즈 */
+  var listQ = document.getElementById("fq-list"), quizCh = "all";
+  qEls.forEach(function (q, i) {
+    var c = CH[q.dataset.ch], p = q.querySelector("p");
+    var tag = document.createElement("span"); tag.className = "qch";
+    tag.innerHTML = '<span class="qno"></span>' + c.num + " · " + esc(c.title);
+    p.insertBefore(tag, p.firstChild);
+    var exp = q.querySelector(".quiz-exp");
+    exp.insertAdjacentHTML("beforeend", ' <a href="' + q.dataset.ch + '.html">→ ' + c.num + "장 복습</a>");
+    q.addEventListener("answered", function (e) { q.dataset.res = e.detail.correct ? "ok" : "bad"; updateScore(); });
+  });
+  buildChips(document.getElementById("fq-ch"), QCOUNT, function (v) { quizCh = v; applyQuizFilter(); });
+  function visibleQs() { return qEls.filter(function (q) { return !q.hidden; }); }
+  function applyQuizFilter() {
+    qEls.forEach(function (q) { q.hidden = quizCh !== "all" && q.dataset.ch !== quizCh; });
+    renumber(); updateScore();
+  }
+  function renumber() { var n = 0; [].forEach.call(listQ.querySelectorAll(".quiz-q"), function (q) { if (!q.hidden) q.querySelector(".qno").textContent = "Q" + (++n); }); }
+  var RANKS = [
+    [0, "분해 입문자", "드라이버를 막 들었다. 1장의 3D 분해부터 천천히 다시 둘러보자."],
+    [0.4, "부품 수집가", "주요 부품은 알아본다. 틀린 장의 시뮬레이터를 다시 만지면 금방 오른다."],
+    [0.65, "하드웨어 엔지니어", "스펙시트를 읽고 부품 간 트레이드오프를 설명할 수 있는 수준이다."],
+    [0.85, "스마트폰 아키텍트!", "두께·열·전력·안테나·원가를 한 번에 저울질할 줄 안다. 13장에서 직접 설계해 보자."],
+  ];
+  function updateScore() {
+    var vis = visibleQs(), ok = 0, bad = 0;
+    vis.forEach(function (q) { if (q.dataset.res === "ok") ok++; else if (q.dataset.res === "bad") bad++; });
+    var n = vis.length, done = ok + bad;
+    PB.stat("fq-ok", ok); PB.stat("fq-bad", bad); PB.stat("fq-left", n - done);
+    PB.stat("fq-pct", done ? "정답률 " + Math.round(ok / done * 100) + " %" : (quizCh === "all" ? "전체 " : CH[quizCh].num + "장 ") + n + "문항");
+    document.getElementById("fq-fill-ok").style.width = (n ? ok / n * 100 : 0) + "%";
+    document.getElementById("fq-fill-bad").style.width = (n ? bad / n * 100 : 0) + "%";
+    var res = document.getElementById("fq-result");
+    if (n && done === n) {
+      var frac = ok / n, rank = RANKS[0];
+      RANKS.forEach(function (r) { if (frac >= r[0]) rank = r; });
+      PB.stat("fq-title", esc(rank[1]));
+      PB.stat("fq-big", ok + "<small> / " + n + "</small>");
+      PB.stat("fq-msg", "정답률 " + Math.round(frac * 100) + " % · " + esc(rank[2]));
+      var m = {};
+      vis.forEach(function (q) { if (q.dataset.res === "bad") m[q.dataset.ch] = (m[q.dataset.ch] || 0) + 1; });
+      var weak = CHS.filter(function (c) { return m[c.slug]; });
+      PB.stat("fq-review", weak.length
+        ? "다시 볼 장: " + weak.map(function (c) { return '<a href="' + c.slug + '.html">' + c.num + " " + esc(c.title) + "</a> (" + m[c.slug] + "문항)"; }).join(" · ")
+        : "모두 정답! <a href=\"design.html\">13장 설계 플레이그라운드</a>에서 자신만의 폰을 설계해 보자.");
+      var wasHidden = res.hidden;
+      res.hidden = false;
+      if (wasHidden) res.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    } else res.hidden = true;
+  }
+  function resetQuiz() {
+    var arr = shuffle(qEls.slice());
+    arr.forEach(function (q) {
+      delete q.dataset.res;
+      q.classList.remove("done");
+      var box = q.querySelector(".opts"), opts = shuffle([].slice.call(box.querySelectorAll("button.opt")));
+      opts.forEach(function (b) { b.disabled = false; b.classList.remove("right", "wrong"); box.appendChild(b); });
+      listQ.appendChild(q);
+    });
+    renumber(); updateScore();
+    document.getElementById("final-quiz").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  document.getElementById("fq-retry").addEventListener("click", resetQuiz);
+  document.getElementById("fq-retry2").addEventListener("click", resetQuiz);
+
+  /* =============================================================== 초기화 */
+  try {
+    var h = decodeURIComponent(location.hash || "");
+    if (h.indexOf("#q=") === 0) qEl.value = h.slice(3);
+  } catch (e) {}
+  paintSwatches();
+  renderGlossary();
+  renumber(); updateScore();
+  PB.onTheme(function () { paintSwatches(); renderGlossary(); });
+})();
+</script>
+</body>
+</html>

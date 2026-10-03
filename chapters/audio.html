@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오디오와 햅틱 · PhoneBook</title>
+<meta name="description" content="마이크로 스피커와 스피커 박스, 스마트 앰프의 변위·온도 보호, MEMS 마이크와 빔포밍·노이즈 캔슬, ERM과 LRA 햅틱, 방수 멤브레인까지 스마트폰 음향 설계를 시뮬레이터로 배운다.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  .fig-lg svg .t, .fig-lg svg .t-acc { font-size: 16px; }
+  .fig-lg svg .t-dim { font-size: 14px; }
+  .fig-lg svg .t-mono { font-size: 13px; }
+  .au-hot { cursor: pointer; }
+  .au-hot:hover .au-k, .au-hot.on .au-k { stroke: var(--accent); stroke-width: 3; }
+  .au-k { stroke: var(--border); stroke-width: 1.2; }
+  .au-spk { fill: var(--accent); fill-opacity: .28; }
+  .au-mic { fill: var(--accent-2); }
+  .au-hap { fill: var(--warn); fill-opacity: .45; }
+  .au-mag { fill: var(--text-dim); opacity: .55; }
+  .au-coil { fill: var(--warn); opacity: .85; }
+  .au-dia { fill: none; stroke: var(--accent); stroke-width: 3; }
+  .au-mem { fill: none; stroke: var(--accent-2); stroke-width: 3; stroke-dasharray: 2 3; }
+  .au-info { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); font-size: 15px; min-height: 70px; }
+  .au-info b { color: var(--accent); }
+  .au-vib { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .au-vib .btn { font-size: 13px; padding: 6px 10px; }
+  .au-small { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+</style>
+</head>
+<body data-chapter="audio">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 10</div>
+    <h1>오디오와 햅틱</h1>
+    <p class="lead">폰은 두께 8 mm 안에서 소리를 내고, 듣고, 손에 진동을 전한다. 스피커는 손톱만 한 진동판으로 1 cc 남짓한 공기실과 씨름하고, 마이크는 수 µm 간격의 정전용량 변화로 속삭임부터 콘서트 소리까지 받아들이며, 진동 모터는 수십 ms 안에 "딸깍" 하고 멈춰야 한다. 이 장에서는 이 세 가지 기계-음향 부품을 하나씩 뜯어 보고, 작은 부피가 왜 저음을 앗아 가는지, 소프트웨어가 어떻게 그 한계를 밀어붙이는지 직접 만져 본다.</p>
+    <ul class="objectives">
+      <li>마이크로 스피커의 구조(자석·보이스코일·진동판)와 힘 \(F = Bli\)를 설명한다.</li>
+      <li>후방 공기실 부피가 공진 주파수와 저역 한계를 정하는 이유를 공기 스프링 모델로 계산한다.</li>
+      <li>스마트 앰프가 진동판 변위와 보이스코일 온도를 실시간 모델로 보호하는 방법을 이해한다.</li>
+      <li>MEMS 마이크의 SNR·AOP를 해석하고, 다중 마이크 빔포밍과 적응 노이즈 캔슬의 원리를 시뮬레이션한다.</li>
+      <li>ERM과 LRA 햅틱의 응답 차이, 오버드라이브·브레이크로 짧은 클릭을 만드는 방법을 안다.</li>
+      <li>방수 멤브레인·그릴·물 배출, 그리고 부피·진동·누설을 둘러싼 설계 트레이드오프를 정리한다.</li>
+    </ul>
+  </header>
+
+  <!-- ============================================================ 1 -->
+  <section id="layout">
+    <h2>폰 안의 소리 부품</h2>
+    <p>스마트폰 한 대에는 소리와 진동을 다루는 부품이 생각보다 많다. 대표적인 구성은 이렇다. 아래쪽 모서리에 <span class="term">하단 스피커</span><span class="en">(Bottom Speaker)</span>, 화면 위쪽 틈에 통화용 <span class="term">수화부 스피커</span><span class="en">(Earpiece / Receiver)</span>, 서로 멀리 떨어진 자리에 <span class="term">MEMS 마이크</span> 3~4개, 그리고 하단 모듈 근처의 <span class="term">리니어 진동 모터</span><span class="en">(LRA, Linear Resonant Actuator)</span>다. 요즘 플래그십은 수화부 스피커가 통화용을 넘어 음악용 두 번째 스피커 역할까지 해서, 가로로 쥐면 하단 스피커와 짝을 이뤄 <b>스테레오</b>가 된다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 720 400" role="img" aria-label="스마트폰 정면도에 표시한 소리 부품 위치">
+        <rect x="40" y="20" width="176" height="360" rx="26" class="f-surface"/>
+        <rect x="50" y="30" width="156" height="340" rx="18" class="f-elev"/>
+        <circle cx="128" cy="48" r="5" fill="var(--text-dim)" opacity=".6"/>
+        <!-- earpiece -->
+        <g class="au-hot" data-k="ear"><rect x="98" y="24" width="60" height="7" rx="3.5" class="au-spk au-k"/></g>
+        <!-- top mic -->
+        <g class="au-hot" data-k="mtop"><circle cx="170" cy="20" r="6" class="au-mic au-k"/></g>
+        <!-- rear mic (dashed: back side) -->
+        <g class="au-hot" data-k="mrear"><circle cx="84" cy="96" r="6" class="au-mic au-k" fill-opacity=".45"/><text x="94" y="100" class="t-mono">후면</text></g>
+        <!-- bottom speaker module -->
+        <g class="au-hot" data-k="spk"><rect x="150" y="318" width="52" height="46" rx="6" class="au-spk au-k"/><text x="176" y="345" class="t-mono" text-anchor="middle">SPK</text>
+          <g fill="var(--text-dim)"><circle cx="168" cy="380" r="2"/><circle cx="176" cy="380" r="2"/><circle cx="184" cy="380" r="2"/><circle cx="192" cy="380" r="2"/></g></g>
+        <!-- haptic LRA -->
+        <g class="au-hot" data-k="lra"><rect x="58" y="320" width="56" height="20" rx="4" class="au-hap au-k"/><text x="86" y="334" class="t-mono" text-anchor="middle">LRA</text></g>
+        <!-- usb -->
+        <rect x="114" y="372" width="28" height="8" rx="4" fill="var(--text-dim)" opacity=".5"/>
+        <!-- bottom mic -->
+        <g class="au-hot" data-k="mbot"><circle cx="92" cy="380" r="6" class="au-mic au-k"/></g>
+        <!-- legend / callouts -->
+        <g class="t">
+          <line x1="158" y1="27" x2="270" y2="40" class="s-line"/><text x="276" y="44">수화부 스피커 (통화 + 스테레오 R)</text>
+          <line x1="176" y1="20" x2="270" y2="76" class="s-line"/><text x="276" y="80">상단 마이크 (기준·스테레오 녹음)</text>
+          <line x1="90" y1="96" x2="270" y2="114" class="s-line"/><text x="276" y="118">후면 마이크 (카메라 옆, 영상 녹음)</text>
+          <line x1="202" y1="340" x2="270" y2="300" class="s-line"/><text x="276" y="304">하단 스피커 + 후방 공기실 (스테레오 L)</text>
+          <line x1="114" y1="330" x2="270" y2="262" class="s-line"/><text x="276" y="266">리니어 진동 모터 (X축 LRA)</text>
+          <line x1="98" y1="380" x2="270" y2="352" class="s-line"/><text x="276" y="356">하단 주 마이크 (통화 입 쪽)</text>
+        </g>
+        <text x="276" y="196" class="t-dim">부품을 눌러 보세요 ▸</text>
+        <text x="276" y="216" class="t-mono">● 마이크  ■ 스피커  ■ 햅틱</text>
+      </svg>
+      <div class="au-info" id="au-info"><b>하단 스피커</b>를 비롯한 각 부품을 누르면 역할과 대표 수치가 여기에 나온다.</div>
+      <figcaption><b>그림 10-1.</b> 전형적인 소리 부품 배치(정면에서 본 모습, 후면 마이크는 뒷면). 마이크는 서로 최대한 멀리, 스피커는 서로 반대 끝에 둔다. 실제 배치는 제품마다 다르다.</figcaption>
+    </figure>
+
+    <p>배치의 논리는 단순하다. <b>스피커 둘은 반대 끝</b>에 있어야 스테레오 분리감이 생기고, <b>마이크는 서로 멀어야</b> 다중 마이크 신호 처리에 쓸 시간차와 레벨차가 커진다. 하단 마이크는 통화할 때 입에 가장 가깝고, 상단·후면 마이크는 입에서 멀어 주변 소음의 "기준"을 잡는 데 쓴다. 진동 모터는 손이 가장 많이 닿는 아래쪽 근처에 둔다. 그리고 이 모든 부품이 하단 모듈의 좁은 공간에서 <a href="battery.html">배터리</a>, USB-C 포트, 안테나와 자리를 다툰다.</p>
+
+    <div class="sim" id="sim-3d">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>폰 안의 위치: 하단 모듈과 수화부</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v3d-aud"><div class="part-card" id="aud-card" hidden></div><div class="hint">드래그: 회전 · 클릭: 부품 정보</div></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>강조 부품</span><div class="seg" id="aud-part"><button data-value="bottom" class="on">하단 모듈</button><button data-value="frontcam">전면 상단(수화부)</button></div></div>
+          <label class="ctrl"><span>분해 정도 <output id="aud-ex-out"></output></span><input type="range" id="aud-ex" min="0" max="1" step="0.01" value="0.6"></label>
+          <label class="check"><input type="checkbox" id="aud-xray"> X-ray (나머지 투명)</label>
+          <label class="check"><input type="checkbox" id="aud-lbl"> 모든 부품 이름</label>
+        </div>
+      </div>
+      <div class="sim-note">해볼 것: 분해 정도를 0으로 내리면 하단 모듈이 배터리 바로 아래, 폰 길이의 마지막 10~15 mm 안에 끼어 있는 것이 보인다. 이 좁은 띠에 스피커·공기실·진동 모터·USB-C 포트·마이크가 모두 들어간다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 2 -->
+  <section id="speaker">
+    <h2>마이크로 스피커: 자석·보이스코일·진동판</h2>
+    <p>폰의 스피커는 <span class="term">마이크로 스피커</span><span class="en">(Micro-speaker)</span>라 부르는 다이내믹(전기역학식) 스피커다. 원리는 거실 스피커와 똑같다. 영구 자석이 만든 자기장 속의 틈(<span class="term">자기 갭</span>)에 <span class="term">보이스코일</span><span class="en">(Voice Coil)</span>이 들어 있고, 코일에 음성 전류가 흐르면 로런츠 힘이 코일을 위아래로 민다. 코일에 붙은 얇은 <span class="term">진동판</span><span class="en">(Diaphragm)</span>이 함께 움직이며 공기를 밀어 소리를 만든다.</p>
+    <div class="formula">$$F = B\,l\,i, \qquad i \approx \frac{v_{\text{amp}}}{R_e}$$
+      <div class="where">\(B\): 갭의 자속 밀도(네오디뮴 자석으로 ~1 T 수준), \(l\): 갭 안에 있는 코일 도선의 총 길이, \(Bl\): 힘 계수(마이크로 스피커는 대략 0.5~1 T·m), \(R_e\): 코일 직류 저항(보통 6~8 Ω). 예: \(Bl\) = 0.8 T·m, 4 V / 7 Ω ≈ 0.57 A → 약 0.46 N.</div>
+    </div>
+    <p>크기는 대략 가로세로 10~16 mm, 높이 3~4 mm다. 진동판 면적 \(S_d\)는 1~2 cm², 움직이는 질량은 수십 mg에 불과하다. 진동판은 PEEK 같은 고분자 필름이나 복합 필름이며, 가운데에 강성을 높이는 판을 붙여 고역에서 진동판이 일그러지는 <span class="term">분할 진동</span><span class="en">(Breakup)</span>을 늦춘다. 자석이 작으니 효율이 낮다. 1 W를 넣어도 소리로 나가는 음향 출력은 그 1% 남짓도 안 되고 나머지는 거의 모두 코일의 열이 된다. 이것이 뒤에서 볼 온도 보호가 필요한 이유다.</p>
+
+    <div class="sim" id="sim-spk">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>마이크로 스피커 단면: 전류가 공기를 미는 과정</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-spk"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>앰프 전압(피크) <output id="spk-v-out"></output></span><input type="range" id="spk-v" min="0" max="10" step="0.1" value="4"></label>
+          <label class="ctrl"><span>주파수 <output id="spk-f-out"></output></span><input type="range" id="spk-f" min="0" max="1" step="0.001" value="0.5"></label>
+          <label class="ctrl"><span>애니메이션 속도 <output id="spk-s-out"></output></span><input type="range" id="spk-s" min="0.2" max="3" step="0.1" value="1"></label>
+          <label class="check"><input type="checkbox" id="spk-b" checked> 자기장(B) 표시</label>
+          <label class="check"><input type="checkbox" id="spk-air" checked> 공기 입자 표시</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">코일 전류</span><span class="v" id="spk-o-i">—</span></div>
+        <div class="stat"><span class="k">힘 \(Bli\)</span><span class="v" id="spk-o-f">—</span></div>
+        <div class="stat"><span class="k">진동판 변위(피크)</span><span class="v" id="spk-o-x">—</span></div>
+        <div class="stat"><span class="k">밀어낸 공기 \(S_d x\)</span><span class="v" id="spk-o-vd">—</span></div>
+      </div>
+      <div class="sim-note">애니메이션은 실제 주파수를 수백 배 느리게 보여 준다. 해볼 것: 주파수를 낮추면 같은 전압에서도 변위가 커진다(공진 아래에서는 스프링이 막고, 위에서는 질량이 막는다). 변위가 한계 ±0.35 mm에 가까워지면 진동판이 붉게 변한다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 3 -->
+  <section id="box">
+    <h2>스피커 박스: 1 cc의 공기 스프링과 저음의 한계</h2>
+    <p>진동판 뒤쪽 공기는 앞쪽과 반대 위상으로 움직인다. 이 둘이 만나면 서로 상쇄되어 저음이 사라지므로(<span class="term">음향 단락</span>), 마이크로 스피커는 뒤쪽을 밀폐된 <span class="term">후방 공기실</span><span class="en">(Back Volume, 스피커 박스)</span>로 막는다. 문제는 이 갇힌 공기가 <b>스프링</b>처럼 진동판을 되민다는 것이다. 공기실이 작을수록 공기 스프링이 단단해지고, 진동판-질량 계의 공진 주파수가 올라간다.</p>
+    <div class="formula">$$k_{\text{box}} = \frac{\rho c^2 S_d^2}{V_b},\qquad f_c = f_s\sqrt{1+\frac{V_{as}}{V_b}},\qquad Q_{tc} = Q_{ts}\sqrt{1+\frac{V_{as}}{V_b}}$$
+      <div class="where">\(\rho c^2\) ≈ 1.42×10⁵ Pa(공기의 체적 탄성률), \(V_b\): 후방 공기실 부피, \(f_s\)·\(Q_{ts}\): 자유 공간에서의 공진 주파수와 Q, \(V_{as}\): 서스펜션 강성과 같은 강성을 갖는 공기의 부피(등가 부피). 밀폐형 스피커는 \(f_c\) 아래에서 12 dB/옥타브로 출력이 떨어지는 2차 고역통과 필터처럼 동작한다(Thiele–Small 모델).</div>
+    </div>
+    <p>폰의 후방 공기실은 대략 <b>0.5~1.5 cc</b>다. 마이크로 스피커의 \(V_{as}\)도 1 cc 안팎이어서 \(V_{as}/V_b\)가 1을 넘나들고, 그 결과 \(f_c\)가 <b>700 Hz~1 kHz</b> 근처에 놓인다. 음악의 저음(베이스 40~150 Hz)은 물론 사람 목소리의 기본 주파수(남성 ~100 Hz, 여성 ~200 Hz)조차 \(f_c\) 아래다. 우리가 폰 스피커에서 "저음이 없다"고 느끼는 이유가 여기에 있다. 실제로 들리는 것은 배음이고, 뇌가 기본음을 채워 넣는다(<span class="term">잃어버린 기본음</span> 현상). 오디오 처리에서 이를 이용해 저음 배음을 인위적으로 만드는 <span class="term">가상 저음</span><span class="en">(Psychoacoustic Bass)</span>을 쓴다.</p>
+    <div class="callout tip"><strong>공기실을 키우지 않고 키우는 법</strong>공기실 안에 <span class="term">흡음 파우더</span>(제올라이트 같은 다공성 입자)를 채우면 압축될 때 공기 분자가 입자 표면에 흡착되며 압력 상승이 줄어든다. 공기 스프링이 부드러워지니 부피가 1.3~2배쯤 커진 것처럼 동작한다(가상 부피). 대신 입자가 새지 않도록 밀봉·필터가 필요하고 원가가 오른다.</div>
+
+    <div class="sim" id="sim-box">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>박스 부피 vs 공진 주파수 · 주파수 응답</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-box"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>후방 공기실 \(V_b\) <output id="box-vb-out"></output></span><input type="range" id="box-vb" min="0.3" max="3" step="0.05" value="1"></label>
+          <label class="ctrl"><span>자유 공진 \(f_s\) <output id="box-fs-out"></output></span><input type="range" id="box-fs" min="400" max="1100" step="10" value="700"></label>
+          <label class="ctrl"><span>\(Q_{ts}\) <output id="box-q-out"></output></span><input type="range" id="box-q" min="0.4" max="1.6" step="0.05" value="0.8"></label>
+          <label class="check"><input type="checkbox" id="box-abs"> 흡음 파우더(가상 부피 ×1.6)</label>
+          <label class="check"><input type="checkbox" id="box-leak"> 공기실 누설(밀봉 불량)</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">\(V_{as}\)</span><span class="v" id="box-o-vas">—</span></div>
+        <div class="stat"><span class="k">박스 공진 \(f_c\)</span><span class="v" id="box-o-fc">—</span></div>
+        <div class="stat"><span class="k">\(Q_{tc}\)</span><span class="v" id="box-o-q">—</span></div>
+        <div class="stat"><span class="k">200 Hz 출력</span><span class="v" id="box-o-200">—</span></div>
+      </div>
+      <div class="sim-note">모델: \(S_d\) = 1.2 cm², 가동 질량 80 mg 고정. 고역의 봉우리는 앞쪽 소리길(전면 공기실 + 그릴)의 헬름홀츠 공진(~6 kHz)이다. 해볼 것: \(V_b\)를 1 cc에서 0.5 cc로 줄여 보자. \(f_c\)가 약 20% 오르고 200 Hz 출력이 3 dB 넘게 떨어진다. '누설'을 켜면 저역이 더 무너진다. 이 설정은 아래 스마트 앰프·직접 듣기 시뮬레이터에 그대로 이어진다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 4 -->
+  <section id="smartamp">
+    <h2>스마트 앰프: 한계까지 밀되 망가뜨리지 않기</h2>
+    <p>작은 스피커에서 큰 소리를 내려면 전압을 올려야 한다. 그래서 폰의 스피커 앰프는 배터리 전압(3.5~4.4 V)을 부스트 컨버터로 8~11 V 수준까지 올린 뒤 D급(Class-D) 증폭으로 구동하는 경우가 많다. 그런데 스피커를 망가뜨리는 길은 두 가지다.</p>
+    <ul>
+      <li><b>변위 초과</b>: 진동판이 허용 행정 \(X_{\max}\)(마이크로 스피커는 대략 ±0.3~0.5 mm)를 넘으면 코일이 자석 판에 부딪히거나 서스펜션이 늘어난다. 변위는 공진 \(f_c\) 근처와 그 아래 저역에서 가장 크다.</li>
+      <li><b>과열</b>: 넣은 전력의 99%가 코일 열이 된다. 코일 온도가 접착제·절연 한계(대략 100 °C 안팎, 제품마다 다름)를 넘으면 코일이 풀리거나 타 버린다.</li>
+    </ul>
+    <p>예전에는 안전 여유를 크게 두고 고정된 최대 볼륨을 걸었다. <span class="term">스마트 앰프</span><span class="en">(Smart Amplifier)</span>는 대신 코일에 흐르는 <b>전류와 전압을 실시간으로 측정</b>(I/V 센싱)한다. 측정된 임피던스 곡선에서 공진 주파수와 Q를 추정해 <b>진동판 변위를 예측</b>하고, 직류 저항 \(R_e\)가 온도에 따라 오르는 성질(구리 약 +0.39 %/°C)로 <b>코일 온도를 추정</b>한다. 예측 변위나 온도가 한계에 다가가면 그 순간, 그 주파수 대역만 게인을 줄인다. 덕분에 평소에는 한계 가까이 몰아붙여 수 dB 더 큰 소리와 더 많은 저음을 낼 수 있다.</p>
+    <div class="formula">$$x(f) = \frac{Bl\,V/R_e}{k_{\text{tot}}}\,\left|\frac{\omega_c^2}{\omega_c^2-\omega^2+j\omega\,\omega_c/Q_{tc}}\right|,\qquad R_e(T) = R_{e0}\,[1+\alpha\,(T-T_0)]$$
+      <div class="where">\(k_{\text{tot}} = (2\pi f_c)^2 M_{ms}\): 서스펜션 + 공기 스프링의 총 강성. \(f_c\) 아래에서 변위는 거의 일정(강성 제어), 위에서는 \(1/f^2\)로 감소(질량 제어). \(\alpha\) ≈ 0.0039 /°C. 코일 저항이 10% 올랐다면 코일은 약 26 °C 데워진 것이다.</div>
+    </div>
+
+    <div class="sim" id="sim-amp">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>스마트 앰프 보호: 변위와 코일 온도</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-amp"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>구동 전압(피크) <output id="amp-v-out"></output></span><input type="range" id="amp-v" min="1" max="11" step="0.1" value="8"></label>
+          <div class="ctrl"><span>콘텐츠(파고율)</span><div class="seg" id="amp-c"><button data-value="12">음성 12 dB</button><button data-value="9" class="on">음악 9 dB</button><button data-value="4">EDM 4 dB</button></div></div>
+          <label class="check"><input type="checkbox" id="amp-p" checked> 스마트 보호 켜기</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">최대 변위(보호 없음)</span><span class="v" id="amp-o-x">—</span></div>
+        <div class="stat"><span class="k">평균 전력</span><span class="v" id="amp-o-p">—</span></div>
+        <div class="stat"><span class="k">최고 코일 온도</span><span class="v" id="amp-o-t">—</span></div>
+        <div class="stat"><span class="k">열 보호 게인 감소</span><span class="v" id="amp-o-g">—</span></div>
+      </div>
+      <div class="sim-note">위: 사인 신호를 넣었을 때 주파수별 진동판 변위(\(X_{\max}\) = 0.35 mm). 보호를 켜면 넘치는 대역만 게인을 깎는다. 아래: 3분간 계속 재생할 때 코일 온도(점선 = 보호 없음). 열 모델은 코일→자석(τ ≈ 2 s)과 자석→폰 내부(τ ≈ 90 s)의 2단 RC다. 해볼 것: 'EDM'을 고르고 전압을 11 V로 올려 보자.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 5 -->
+  <section id="listen">
+    <h2>직접 들어 보기: 작은 스피커는 무엇을 잃는가</h2>
+    <p>숫자로 보는 것보다 귀로 듣는 편이 빠르다. 아래 시뮬레이터는 브라우저의 Web Audio API로 소리를 합성해 재생한다. '작은 스피커'를 켜면 앞 시뮬레이터의 박스 설정에서 나온 \(f_c\)와 \(Q_{tc}\)로 만든 2차 고역통과 필터, 전면 헬름홀츠 공진 봉우리, 고역 감쇠를 거친 소리가 나온다. 이어폰이나 저음이 잘 나오는 스피커로 들어야 차이가 뚜렷하다(노트북 내장 스피커는 이미 '작은 스피커'다).</p>
+
+    <div class="sim" id="sim-listen">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>Web Audio: 원음 vs 폰 스피커</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-listen"></canvas></div>
+        <div class="sim-controls">
+          <button class="btn primary" id="ls-play">▶ 재생</button>
+          <div class="ctrl"><span>소리</span><div class="seg" id="ls-src"><button data-value="music" class="on">음악 루프</button><button data-value="sweep">저음 스윕</button><button data-value="noise">핑크 노이즈</button></div></div>
+          <div class="ctrl"><span>경로</span><div class="seg" id="ls-path"><button data-value="dry" class="on">원음</button><button data-value="wet">작은 스피커</button></div></div>
+          <label class="ctrl"><span>음량 <output id="ls-vol-out"></output></span><input type="range" id="ls-vol" min="0" max="1" step="0.01" value="0.35"></label>
+          <p class="au-small" id="ls-note">처음에는 소리가 나지 않는다. 재생 버튼을 눌러야 오디오가 시작된다.</p>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">필터 \(f_c\) / \(Q\)</span><span class="v" id="ls-o-fc">—</span></div>
+        <div class="stat"><span class="k">100 Hz 감쇠</span><span class="v" id="ls-o-100">—</span></div>
+        <div class="stat"><span class="k">상태</span><span class="v" id="ls-o-st">정지</span></div>
+      </div>
+      <div class="sim-note">막대: 지금 나오는 소리의 스펙트럼(AnalyserNode). 선: '작은 스피커' 필터의 주파수 응답. 해볼 것: '저음 스윕'을 틀고 두 경로를 오가며 몇 Hz부터 소리가 들리기 시작하는지 들어 보자. 박스 시뮬레이터에서 \(V_b\)를 바꾸면 필터가 바로 바뀐다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 6 -->
+  <section id="mems">
+    <h2>MEMS 마이크: 수 µm 간격의 콘덴서</h2>
+    <p>폰의 마이크는 거의 모두 실리콘 웨이퍼 위에 만든 <span class="term">MEMS 마이크</span>다. 구조는 콘덴서 마이크를 축소한 것이다. 두께 1 µm 안팎의 폴리실리콘 <b>진동판</b>과 구멍이 숭숭 뚫린 단단한 <b>백플레이트</b>가 수 µm 간격으로 마주 보며 축전기를 이룬다. 소리 압력이 진동판을 밀면 간격 \(g\)가 바뀌고, 정전용량이 바뀐다. 전하를 일정하게 유지하면(차지 펌프로 10 V 안팎의 바이어스) 전압 변화로 읽힌다.</p>
+    <div class="formula">$$C = \frac{\varepsilon_0 A}{g},\qquad \Delta V \approx V_{\text{bias}}\,\frac{\Delta g}{g}$$
+      <div class="where">진동판 지름 ~0.5~1 mm, 간격 \(g\) ~2~4 µm. 94 dB SPL(1 Pa)에서 진동판 변위는 수 nm에 불과하다. 같은 패키지 안의 ASIC이 이를 증폭하고, 디지털 마이크라면 PDM(펄스 밀도 변조) 비트열로 바꿔 내보낸다.</div>
+    </div>
+
+    <figure class="diagram fig-lg">
+      <svg viewBox="0 0 720 300" role="img" aria-label="하단 포트형 MEMS 마이크 단면">
+        <rect x="60" y="230" width="600" height="26" class="f-elev"/><text x="70" y="275" class="t-dim">기판(PCB, 사운드 포트 구멍)</text>
+        <rect x="190" y="256" width="40" height="24" fill="var(--canvas-bg)"/>
+        <path d="M210 296 V258" class="s-acc" marker-end="url(#au-ar)"/><text x="232" y="294" class="t-acc">소리</text>
+        <path d="M60 230 V70 H660 V230" fill="none" stroke="var(--text-dim)" stroke-width="3"/><text x="560" y="62" class="t-dim">금속 뚜껑(차폐·후방 공기실)</text>
+        <!-- MEMS die -->
+        <rect x="130" y="170" width="40" height="60" class="f-surface"/><rect x="250" y="170" width="40" height="60" class="f-surface"/>
+        <path d="M170 196 Q210 206 250 196" class="au-dia"/>
+        <g fill="var(--text-dim)"><rect x="170" y="176" width="10" height="5"/><rect x="186" y="176" width="10" height="5"/><rect x="202" y="176" width="10" height="5"/><rect x="218" y="176" width="10" height="5"/><rect x="234" y="176" width="10" height="5"/></g>
+        <text x="210" y="160" class="t-mono" text-anchor="middle">백플레이트(구멍)</text>
+        <text x="300" y="214" class="t">진동판</text><line x1="296" y1="210" x2="250" y2="200" class="s-line"/>
+        <text x="210" y="122" class="t-mono" text-anchor="middle">간격 g ≈ 2~4 µm</text>
+        <!-- ASIC -->
+        <rect x="420" y="190" width="120" height="40" rx="3" class="f-acc2-soft"/><text x="480" y="215" class="t" text-anchor="middle">ASIC</text>
+        <path d="M290 180 Q360 130 430 190" fill="none" stroke="var(--warn)" stroke-width="1.5"/><text x="356" y="140" class="t-mono" text-anchor="middle">와이어 본딩</text>
+        <text x="480" y="110" class="t-mono" text-anchor="middle">후방 공기실(뚜껑 안)</text>
+        <defs><marker id="au-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker></defs>
+      </svg>
+      <figcaption><b>그림 10-2.</b> 하단 포트형(bottom-port) MEMS 마이크 단면. 소리는 기판의 구멍으로 들어와 진동판을 밀고, 뚜껑 안의 공기가 후방 공기실 역할을 한다. 패키지 크기는 대략 3.5 × 2.7 × 1 mm 수준이다.</figcaption>
+    </figure>
+
+    <p>마이크 사양서에서 꼭 볼 숫자는 셋이다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>지표</th><th>정의</th><th>대표 범위</th><th>의미</th></tr></thead>
+      <tbody>
+        <tr><td>감도</td><td>94 dB SPL(1 Pa) 1 kHz에서의 출력</td><td>−26 ~ −38 dBFS (디지털)</td><td>같은 소리에 얼마나 큰 신호를 내나</td></tr>
+        <tr><td>SNR</td><td>94 dB SPL 신호 대 A-가중 자기 잡음</td><td>~64 ~ 70 dB(A)</td><td>자기 잡음 = 94 − SNR ≈ 24~30 dB(A) SPL</td></tr>
+        <tr><td>AOP</td><td>THD 10%가 되는 음압(Acoustic Overload Point)</td><td>~120 ~ 135 dB SPL</td><td>콘서트·바람·차량 소음에서 찌그러지지 않나</td></tr>
+        <tr><td>전력</td><td>동작 전류</td><td>저전력 모드 ~ 수십 µA, 고성능 ~ 수백 µA</td><td>상시 호출어 감지(always-on)에 중요</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="sim" id="sim-mic">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>MEMS 마이크의 다이내믹 레인지: 잡음 바닥과 과부하</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-mic"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>입력 음압 <output id="mic-spl-out"></output></span><input type="range" id="mic-spl" min="20" max="140" step="1" value="60"></label>
+          <label class="ctrl"><span>마이크 SNR <output id="mic-snr-out"></output></span><input type="range" id="mic-snr" min="55" max="75" step="0.5" value="66"></label>
+          <label class="ctrl"><span>AOP <output id="mic-aop-out"></output></span><input type="range" id="mic-aop" min="110" max="140" step="1" value="125"></label>
+          <div class="ctrl"><span>예시 소리</span><div class="seg" id="mic-ex"><button data-value="30">속삭임</button><button data-value="60" class="on">대화</button><button data-value="94">기준 1 Pa</button><button data-value="115">콘서트</button><button data-value="130">강풍</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">자기 잡음</span><span class="v" id="mic-o-n">—</span></div>
+        <div class="stat"><span class="k">이 입력의 SNR</span><span class="v" id="mic-o-s">—</span></div>
+        <div class="stat"><span class="k">다이내믹 레인지</span><span class="v" id="mic-o-dr">—</span></div>
+        <div class="stat"><span class="k">헤드룸</span><span class="v" id="mic-o-h">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽: dB SPL 사다리. 오른쪽: 마이크 출력 파형(1 kHz, 자동 확대). 해볼 것: '속삭임'에서 SNR을 낮추면 신호가 잡음에 묻히고, '강풍'에서 AOP를 낮추면 파형 꼭대기가 잘린다. 바람 소음은 저역에 에너지가 몰려 실제 음압이 130 dB를 넘기도 한다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 7 -->
+  <section id="beam">
+    <h2>다중 마이크 빔포밍: 소리가 오는 방향을 고른다</h2>
+    <p>마이크 하나는 모든 방향의 소리를 거의 똑같이 받는다(무지향). 마이크 두 개를 간격 \(d\)로 두면, 각도 \(\theta\)에서 온 평면파는 두 마이크에 \(\tau_\theta = d\cos\theta/c\)만큼 시간차를 두고 도착한다. 이 시간차를 이용해 특정 방향을 키우거나 지우는 것이 <span class="term">빔포밍</span><span class="en">(Beamforming)</span>이다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 720 230" role="img" aria-label="두 마이크에 비스듬히 도착하는 평면파">
+        <g stroke="var(--accent)" stroke-width="2" opacity=".55"><line x1="60" y1="40" x2="200" y2="200"/><line x1="140" y1="20" x2="300" y2="200"/><line x1="230" y1="10" x2="400" y2="200"/></g>
+        <path d="M120 60 L190 120" class="s-acc" marker-end="url(#au-ar)"/><text x="40" y="70" class="t-acc">평면파</text>
+        <line x1="240" y1="170" x2="520" y2="170" class="s-axis"/>
+        <circle cx="300" cy="170" r="9" class="au-mic"/><circle cx="460" cy="170" r="9" class="au-mic"/>
+        <text x="300" y="200" class="t" text-anchor="middle">마이크 1</text><text x="460" y="200" class="t" text-anchor="middle">마이크 2</text>
+        <line x1="300" y1="150" x2="460" y2="150" class="s-line"/><text x="380" y="142" class="t-mono" text-anchor="middle">간격 d</text>
+        <path d="M460 170 L404 108" class="s-line" stroke-dasharray="4 3"/><text x="410" y="96" class="t-mono">d cos θ</text>
+        <path d="M520 170 A 40 40 0 0 0 488 132" class="s-line"/><text x="526" y="150" class="t-mono">θ</text>
+        <text x="560" y="60" class="t">지연-합(DS): 신호를 맞춰 더함</text>
+        <text x="560" y="84" class="t-dim">→ 원하는 방향 강화</text>
+        <text x="560" y="124" class="t">차동(DMA): 지연 후 뺌</text>
+        <text x="560" y="148" class="t-dim">→ 특정 방향을 0으로</text>
+      </svg>
+      <figcaption><b>그림 10-3.</b> 두 마이크의 도착 시간차. 음속 343 m/s에서 간격 15 mm면 최대 시간차는 약 44 µs다. 48 kHz 샘플 간격(20.8 µs)의 두 배 남짓이라 분수 지연 필터로 처리한다.</figcaption>
+    </figure>
+
+    <div class="formula">$$B_{\text{DS}}(\theta) = \tfrac12\left|1+e^{-j\omega(\tau_\theta-\tau_s)}\right|,\qquad B_{\text{DMA}}(\theta) = \left|1-e^{-j\omega(\tau+\tau_\theta)}\right|$$
+      <div class="where">\(\tau_s\): 조향 지연, \(\tau\): 차동 마이크의 내부 지연. \(\tau = d/c\)이면 뒤쪽(180°)이 0이 되는 카디오이드, \(\tau = d/(3c)\)면 하이퍼카디오이드가 된다. 간격이 반파장보다 크면(\(f > c/2d\)) 같은 위상차가 다른 방향에서도 생겨 <span class="term">공간 앨리어싱</span>이 일어난다.</div>
+    </div>
+    <p>폰에서는 두 방식이 섞여 쓰인다. 간격이 10~20 mm로 가까운 쌍(예: 하단 두 마이크, 후면 마이크와 상단 마이크)은 <b>차동</b> 방식으로 뒤쪽 소음을 지우고, 간격이 140 mm쯤인 상하단 쌍은 시간차보다 <b>레벨차</b>가 크다는 점(입에서 하단 마이크가 훨씬 가깝다)을 이용한다. 차동 방식의 대가는 저역 감도다. 저역에서는 두 신호가 거의 같아서 빼면 남는 것이 적다. 감도가 6 dB/옥타브로 떨어지니 등화(EQ)로 끌어올려야 하고, 그만큼 마이크 자기 잡음도 커진다.</p>
+
+    <div class="sim" id="sim-bf">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>두 마이크 빔포밍: 폴라 패턴과 소음 방향</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-bf"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>방식</span><div class="seg" id="bf-mode"><button data-value="ds" class="on">지연-합</button><button data-value="dma">차동</button></div></div>
+          <label class="ctrl"><span>마이크 간격 d <output id="bf-d-out"></output></span><input type="range" id="bf-d" min="5" max="150" step="1" value="40"></label>
+          <label class="ctrl"><span>주파수 <output id="bf-f-out"></output></span><input type="range" id="bf-f" min="0" max="1" step="0.001" value="0.62"></label>
+          <label class="ctrl"><span id="bf-p-lbl">조향 각 / 지연 <output id="bf-p-out"></output></span><input type="range" id="bf-p" min="0" max="1" step="0.01" value="0"></label>
+          <label class="ctrl"><span>소음 방향 <output id="bf-n-out"></output></span><input type="range" id="bf-n" min="0" max="180" step="1" value="150"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">소음 방향 억제</span><span class="v" id="bf-o-n">—</span></div>
+        <div class="stat"><span class="k">정면 감도(단일 대비)</span><span class="v" id="bf-o-g">—</span></div>
+        <div class="stat"><span class="k">지향 지수 DI</span><span class="v" id="bf-o-di">—</span></div>
+        <div class="stat"><span class="k">앨리어싱 시작</span><span class="v" id="bf-o-al">—</span></div>
+      </div>
+      <div class="sim-note">목표(입)는 0° 방향. 폴라 그림에서 소음 화살표를 드래그해도 된다. 오른쪽 그래프는 정면(목표)과 소음 방향의 주파수별 감도. 해볼 것: 지연-합에서 d = 40 mm, 1 kHz면 패턴이 거의 둥글다(파장 34 cm에 비해 간격이 너무 작다). 차동으로 바꾸고 지연을 1(카디오이드)로 하면 뒤쪽이 깊게 파이지만 저역 감도가 크게 떨어진다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 8 -->
+  <section id="anc">
+    <h2>노이즈 캔슬: 적응 필터가 소음을 배운다</h2>
+    <p>빔포밍은 고정된 기하에 기대지만, 실제 소음의 경로(손의 위치, 반사, 바람)는 계속 바뀐다. 그래서 통화 소음 제거(ENC)에는 <span class="term">적응 필터</span><span class="en">(Adaptive Filter)</span>가 들어간다. 입에서 먼 기준 마이크는 거의 소음만 듣는다. 적응 필터는 이 기준 신호를 어떻게 걸러야 주 마이크에 들어간 소음과 같아지는지를 실시간으로 배워, 그 추정치를 빼 버린다. 가장 기본적인 알고리즘이 LMS다.</p>
+    <div class="formula">$$e[n] = d[n] - \mathbf{w}^{\!\top}\mathbf{x}[n],\qquad \mathbf{w} \leftarrow \mathbf{w} + \frac{\mu}{\epsilon+\|\mathbf{x}\|^2}\,e[n]\,\mathbf{x}[n]$$
+      <div class="where">\(d\): 주 마이크(음성 + 경로를 거친 소음), \(\mathbf{x}\): 기준 마이크의 최근 샘플 묶음, \(\mathbf{w}\): 필터 계수, \(\mu\): 학습률(정규화 LMS). 오차 \(e\)가 곧 출력이다. 같은 구조가 스피커 소리가 마이크로 되돌아오는 메아리를 지우는 <span class="term">에코 캔슬러</span>(AEC)에도 쓰인다. 이때 기준 신호는 스피커로 내보낸 신호다.</div>
+    </div>
+    <p>함정은 <b>기준 마이크에도 음성이 새어 들어갈 때</b>다. 필터는 음성 일부까지 "소음"으로 배워 지워 버린다. 그래서 기준 마이크는 입에서 최대한 멀리, 음성 검출(VAD)로 말하는 동안에는 학습을 늦추는 식으로 설계한다. 최근에는 이 고전적 신호 처리 뒤에 신경망 기반 잡음 억제를 덧붙이는 경우가 많다.</p>
+
+    <div class="sim" id="sim-lms">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>LMS 노이즈 캔슬러</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-lms"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>학습률 μ <output id="lms-mu-out"></output></span><input type="range" id="lms-mu" min="0" max="1" step="0.01" value="0.25"></label>
+          <label class="ctrl"><span>기준 마이크로 새는 음성 <output id="lms-x-out"></output></span><input type="range" id="lms-x" min="0" max="0.6" step="0.01" value="0.05"></label>
+          <label class="ctrl"><span>필터 길이 <output id="lms-n-out"></output></span><input type="range" id="lms-n" min="2" max="32" step="1" value="16"></label>
+          <label class="check"><input type="checkbox" id="lms-on" checked> 적응(학습) 켜기</label>
+          <button class="btn" id="lms-reset">필터 초기화</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">소음 감소</span><span class="v" id="lms-o-nr">—</span></div>
+        <div class="stat"><span class="k">음성 손실</span><span class="v" id="lms-o-sd">—</span></div>
+      </div>
+      <div class="sim-note">위: 회색 = 주 마이크 입력, 색 = 캔슬러 출력, 점선 = 깨끗한 음성(정답). 아래: 시간에 따른 소음 감소량. 해볼 것: '필터 초기화' 뒤 수렴 속도를 μ에 따라 비교하고, 새는 음성을 0.4 이상으로 올려 음성 손실이 커지는 것을 확인하자. 필터 길이가 소음 경로(약 5탭)보다 짧으면 감소량이 제한된다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 9 -->
+  <section id="haptics">
+    <h2>햅틱: ERM에서 LRA로</h2>
+    <p>진동은 손에 전하는 "소리"다. 오래된 폰은 모터 축에 반달 모양 추를 단 <span class="term">ERM</span><span class="en">(Eccentric Rotating Mass)</span>을 썼다. 회전 속도가 곧 진동 주파수이고, 원심력 \(F = m r\omega^2\)이 진동 세기다. 모터가 정격 속도에 이르는 데 수십 ms가 걸리고 멈출 때도 관성으로 계속 돈다. 그래서 "부르르" 하는 둔한 진동은 낼 수 있어도 "딸깍" 하는 짧고 또렷한 클릭은 만들기 어렵다.</p>
+    <p>요즘 폰은 <span class="term">LRA</span>를 쓴다. 스프링에 매달린 추(자석)를 코일이 교류로 밀고 당기는 질량-스프링 공진기다. 공진 주파수 \(f_0 = \frac{1}{2\pi}\sqrt{k/m}\)에서 구동하면 작은 전력으로 큰 진폭이 나온다. 원형(Z축) LRA는 화면에 수직으로 떨며 \(f_0\)가 대략 170~240 Hz다. 플래그십은 폰의 긴 변을 따라 수평으로 움직이는 <b>X축(가로형) LRA</b>를 쓰는 경우가 많다. 추가 더 무겁고 행정이 길어 \(f_0\)가 100~170 Hz 수준으로 낮고, 공진에서 벗어난 넓은 대역(약 50~500 Hz)도 구동할 수 있어 다양한 질감을 표현한다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 720 220" role="img" aria-label="ERM과 LRA의 구조 비교">
+        <rect x="30" y="60" width="150" height="80" rx="40" class="f-elev"/><text x="105" y="104" class="t" text-anchor="middle">DC 모터</text>
+        <rect x="180" y="94" width="40" height="12" class="au-mag"/>
+        <path d="M220 70 A 30 30 0 0 1 220 130 Z" class="au-hap" stroke="var(--warn)"/>
+        <path d="M262 74 A 34 34 0 0 1 262 126" class="s-acc" marker-end="url(#au-ar)"/>
+        <text x="130" y="176" class="t" text-anchor="middle">ERM: 편심 추 회전</text>
+        <text x="130" y="198" class="t-mono" text-anchor="middle">F = m r ω², 주파수 = 회전수</text>
+        <!-- LRA X -->
+        <rect x="380" y="60" width="300" height="80" rx="10" class="f-surface"/>
+        <path d="M392 100 l10 -14 l10 28 l10 -28 l10 28 l10 -28 l10 14" fill="none" stroke="var(--text-dim)" stroke-width="2"/>
+        <path d="M668 100 l-10 -14 l-10 28 l-10 -28 l-10 28 l-10 -28 l-10 14" fill="none" stroke="var(--text-dim)" stroke-width="2"/>
+        <rect x="462" y="74" width="136" height="52" rx="6" class="au-hap" stroke="var(--warn)"/><text x="530" y="105" class="t" text-anchor="middle">가동 질량(자석)</text>
+        <g fill="var(--accent-2)" opacity=".7"><rect x="470" y="130" width="120" height="6" rx="2"/></g><text x="530" y="158" class="t-mono" text-anchor="middle">고정 코일</text>
+        <path d="M480 48 H580" class="s-acc" marker-end="url(#au-ar)"/><path d="M580 48 H480" class="s-acc" marker-end="url(#au-ar)"/>
+        <text x="530" y="198" class="t" text-anchor="middle">X축 LRA: 질량-스프링 공진기</text>
+      </svg>
+      <figcaption><b>그림 10-4.</b> ERM은 회전, LRA는 직선 왕복. LRA는 공진을 쓰기 때문에 효율이 좋지만, 공진기라서 스스로 천천히 커지고 천천히 멈추려 한다. 이것을 구동 파형으로 다스리는 것이 햅틱 드라이버의 일이다.</figcaption>
+    </figure>
+
+    <p>공진기의 응답 시간은 Q로 정해진다. 진폭의 포락선은 시상수 \(\tau = Q/(\pi f_0)\)로 커지고 줄어든다. \(f_0\) = 170 Hz, Q = 15이면 τ ≈ 28 ms로, 짧은 클릭(10~20 ms)에는 너무 느리다. 그래서 햅틱 드라이버 IC는 두 가지 기법을 쓴다. 시작할 때 처음 한두 주기를 정격보다 큰 전압으로 미는 <b>오버드라이브</b>, 끝날 때 위상을 뒤집어 움직임을 능동적으로 멈추는 <b>브레이크</b>다. 드라이버는 코일의 역기전력(back-EMF)으로 추의 속도와 실제 공진 주파수를 감지해, 온도·개체 편차로 \(f_0\)가 흔들려도 공진을 추적한다.</p>
+
+    <div class="sim" id="sim-hap">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>ERM vs LRA: 구동 파형 → 진동 응답</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-hap"></canvas></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>액추에이터</span><div class="seg" id="hap-a"><button data-value="erm">ERM</button><button data-value="lraz">Z축 LRA</button><button data-value="lrax" class="on">X축 LRA</button></div></div>
+          <div class="ctrl"><span>구동</span><div class="seg" id="hap-d"><button data-value="plain" class="on">단순 구동</button><button data-value="od">오버드라이브+브레이크</button></div></div>
+          <label class="ctrl"><span>구동 시간 <output id="hap-t-out"></output></span><input type="range" id="hap-t" min="5" max="80" step="1" value="15"></label>
+          <label class="ctrl"><span>구동 주파수 / f₀ <output id="hap-f-out"></output></span><input type="range" id="hap-f" min="0.7" max="1.3" step="0.01" value="1"></label>
+          <label class="ctrl"><span>기계적 Q <output id="hap-q-out"></output></span><input type="range" id="hap-q" min="4" max="40" step="1" value="15"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">공진 / 시상수</span><span class="v" id="hap-o-f0">—</span></div>
+        <div class="stat"><span class="k">피크 도달(90%)</span><span class="v" id="hap-o-r">—</span></div>
+        <div class="stat"><span class="k">잔진동(구동 끝→10%)</span><span class="v" id="hap-o-tail">—</span></div>
+        <div class="stat"><span class="k">피크 가속도(190 g 폰)</span><span class="v" id="hap-o-g">—</span></div>
+      </div>
+      <div class="sim-note">회색 = 구동 전압, 색 = 폰 몸체 가속도, 점선 = 포락선. 해볼 것: 구동 15 ms에서 '단순 구동'과 '오버드라이브+브레이크'를 비교해 보자. 구동 주파수를 f₀에서 15%만 벗어나도 진폭이 크게 줄고 맥놀이가 생긴다. ERM은 무엇을 해도 짧은 클릭이 어렵다.</div>
+      <div style="padding:0 16px 14px">
+        <div class="au-vib" id="hap-vib">
+          <button class="btn" data-p="10">짧은 클릭 10 ms</button>
+          <button class="btn" data-p="12,70,12">더블 탭</button>
+          <button class="btn" data-p="200,120,200">알림</button>
+          <button class="btn" data-p="40,90,25,600,40,90,25">심장 박동</button>
+          <button class="btn" data-p="500">길게 0.5 s</button>
+        </div>
+        <p class="au-small" id="hap-vib-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 10 -->
+  <section id="water">
+    <h2>방수와 음향: 멤브레인, 그릴, 물 배출</h2>
+    <p>IP68 방수 폰에도 스피커와 마이크 구멍은 뚫려 있다. 물은 막고 소리는 통과시키기 위해 구멍마다 층을 쌓는다. 바깥에는 이물질을 거르는 금속 <b>그릴·메시</b>, 그 안쪽에 물을 막는 <span class="term">방수 음향 멤브레인</span>(ePTFE 같은 미세 다공성 막이나 얇은 비다공성 필름)이 있고, 프레임과의 틈은 접착 개스킷으로 밀봉한다. 멤브레인은 공기의 압력 변동(소리)에는 북 가죽처럼 같이 떨지만, 물은 표면 장력과 막 자체 때문에 일정 수압까지 막아 낸다.</p>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 720 230" role="img" aria-label="마이크 포트의 방수 적층">
+        <rect x="40" y="40" width="70" height="150" class="f-surface"/><text x="75" y="210" class="t-dim" text-anchor="middle">프레임</text>
+        <rect x="40" y="96" width="70" height="38" fill="var(--canvas-bg)"/>
+        <path d="M20 115 H120" class="s-acc" marker-end="url(#au-ar)"/><text x="10" y="90" class="t-acc">소리</text>
+        <g stroke="var(--text-dim)" stroke-width="2"><line x1="118" y1="90" x2="118" y2="140" stroke-dasharray="3 3"/></g><text x="118" y="80" class="t-mono" text-anchor="middle">메시</text>
+        <rect x="126" y="80" width="14" height="70" class="f-elev"/><rect x="164" y="80" width="14" height="70" class="f-elev"/><text x="152" y="70" class="t-mono" text-anchor="middle">개스킷</text>
+        <path d="M152 86 Q147 115 152 144" class="au-mem"/><text x="152" y="168" class="t-mono" text-anchor="middle">멤브레인</text>
+        <rect x="178" y="96" width="120" height="38" class="f-elev"/><text x="238" y="120" class="t-mono" text-anchor="middle">음향 통로(포트)</text>
+        <rect x="298" y="70" width="110" height="90" rx="6" class="f-acc2-soft"/><text x="353" y="120" class="t" text-anchor="middle">MEMS 마이크</text>
+        <text x="460" y="80" class="t">추가되는 것</text>
+        <text x="460" y="106" class="t-dim">· 멤브레인 질량 → 공진 ↓</text>
+        <text x="460" y="130" class="t-dim">· 멤브레인 강성 → 저역 손실</text>
+        <text x="460" y="154" class="t-dim">· 저항 → 감도 ↓, 잡음 ↑</text>
+        <text x="460" y="178" class="t-dim">· 물이 차면 질량 수백 배</text>
+      </svg>
+      <figcaption><b>그림 10-5.</b> 마이크 포트의 방수 적층(개념도). 포트 통로의 공기 질량과 마이크 앞 공기실의 탄성이 헬름홀츠 공진기를 이룬다.</figcaption>
+    </figure>
+
+    <p>포트 통로 속 공기는 덩어리(질량)처럼, 그 뒤의 작은 공기실은 스프링처럼 행동해 <span class="term">헬름홀츠 공진기</span>가 된다. 공진 위에서는 응답이 급격히 떨어지므로, 포트는 짧고 굵게, 앞 공기실은 작게 만들어 공진을 가청 대역 위(10 kHz 이상)로 올리는 것이 원칙이다.</p>
+    <div class="formula">$$f_H = \frac{c}{2\pi}\sqrt{\frac{S}{V\,L_{\text{eff}}}},\qquad L_{\text{eff}} \approx L + 0.85\,d$$
+      <div class="where">\(S\): 포트 단면적, \(L\): 포트 길이, \(d\): 포트 지름(끝 보정), \(V\): 앞 공기실 부피.</div>
+    </div>
+    <p>그릴이나 포트에 물이 차면 이 질량이 공기의 수백 배가 되어 공진이 수백 Hz로 떨어진다. 물에 빠졌던 폰의 소리가 먹먹한 이유다. 일부 폰은 스피커로 저주파 음(대략 수백 Hz)을 큰 진폭으로 반복 재생해 그릴에 남은 물방울을 밀어내는 <b>물 배출</b> 기능을 둔다. 진동판의 큰 변위가 앞 공기실의 공기를 펌프처럼 밀어 내는 원리다.</p>
+
+    <div class="sim" id="sim-port">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>마이크 포트의 헬름홀츠 공진: 멤브레인과 물</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-port"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>포트 지름 <output id="pt-d-out"></output></span><input type="range" id="pt-d" min="0.4" max="2" step="0.05" value="0.8"></label>
+          <label class="ctrl"><span>포트 길이 <output id="pt-l-out"></output></span><input type="range" id="pt-l" min="0.3" max="3" step="0.05" value="1"></label>
+          <label class="ctrl"><span>앞 공기실 <output id="pt-v-out"></output></span><input type="range" id="pt-v" min="2" max="40" step="1" value="8"></label>
+          <label class="check"><input type="checkbox" id="pt-m" checked> 방수 멤브레인</label>
+          <label class="check"><input type="checkbox" id="pt-w"> 포트에 물이 참</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">헬름홀츠 공진</span><span class="v" id="pt-o-f">—</span></div>
+        <div class="stat"><span class="k">1 kHz 손실</span><span class="v" id="pt-o-1k">—</span></div>
+        <div class="stat"><span class="k">8 kHz 레벨</span><span class="v" id="pt-o-8k">—</span></div>
+      </div>
+      <div class="sim-note">점선 = 포트가 없는 이상적 마이크(0 dB). 멤브레인: 면밀도 ~8 g/m², 지름 2 mm 가정. 해볼 것: 포트를 길고 가늘게 만들면 공진이 음성 대역(~8 kHz)으로 내려와 치찰음이 과장된다. '물이 참'을 켜면 응답이 수백 Hz부터 무너진다.</div>
+    </div>
+  </section>
+
+  <!-- ============================================================ 11 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <p>오디오·햅틱 부품의 성능은 부품 자체보다 <b>폰 안에서 얼마나 공간과 조용함을 얻어 내느냐</b>로 정해진다. 설계 회의에서 반복해서 부딪히는 쟁점은 다음과 같다.</p>
+    <h3>1. 부피 전쟁: 스피커 박스 vs 배터리</h3>
+    <p>하단 모듈의 공기실 1 cc는 배터리로 환산하면 대략 150~180 mAh(셀 에너지 밀도 ~700 Wh/L, 패키징 손실 고려)다. 저음을 위해 공기실을 키우면 배터리가 줄고, 배터리를 키우면 \(f_c\)가 오른다. 가로형 X축 LRA도 큰 추와 긴 행정 때문에 1 cc 안팎을 차지해 같은 자리를 노린다. 이 모든 것이 USB-C 포트, 안테나 급전부와 함께 폭 70 mm × 길이 15 mm 띠 안에서 경쟁한다.</p>
+
+    <div class="sim" id="sim-budget">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>트레이드오프: 공기실 부피 ↔ 배터리 용량</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-budget"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>공기실에 할당 <output id="bd-v-out"></output></span><input type="range" id="bd-v" min="0.3" max="2.5" step="0.05" value="1"></label>
+          <label class="ctrl"><span>X축 LRA 부피 <output id="bd-l-out"></output></span><input type="range" id="bd-l" min="0.3" max="1.5" step="0.05" value="0.8"></label>
+          <label class="check"><input type="checkbox" id="bd-abs"> 흡음 파우더 사용</label>
+          <label class="check"><input type="checkbox" id="bd-smart" checked> 스마트 앰프 (+3 dB 여유)</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">박스 공진 \(f_c\)</span><span class="v" id="bd-o-fc">—</span></div>
+        <div class="stat"><span class="k">300 Hz 최대 음압(상대)</span><span class="v" id="bd-o-spl">—</span></div>
+        <div class="stat"><span class="k">배터리 용량</span><span class="v" id="bd-o-b">—</span></div>
+        <div class="stat"><span class="k">사용 시간 변화(평균 1 W)</span><span class="v" id="bd-o-t">—</span></div>
+      </div>
+      <div class="sim-note">가정: 하단 모듈과 배터리가 공유하는 공간에서 기준(공기실 1 cc, LRA 0.8 cc) 대비 늘어난 부피만큼 배터리가 줄어든다. 5,000 mAh 기준, 1 cc ≈ 160 mAh. 300 Hz 음압은 변위 한계(\(X_{\max}\))로 제한되는 최대 출력 기준(2.5 cc = 0 dB). 해볼 것: 흡음 파우더가 왜 "공짜 부피"처럼 팔리는지 확인하자.</div>
+    </div>
+
+    <h3>2. 진동이 카메라와 센서를 흔든다</h3>
+    <p>LRA의 100~250 Hz 진동은 카메라 모듈의 OIS 액추에이터와 같은 대역이다. 촬영 중 햅틱이 울리면 렌즈가 흔들려 사진이 번지고, <a href="sensors.html">자이로·가속도계(IMU)</a>는 진동을 회전·움직임으로 착각한다. 진폭이 크면 MEMS 자이로가 포화되기도 한다. 스피커도 마찬가지로, 큰 저음은 몸체를 울려 IMU와 카메라 모듈에 잡음을 넣는다. 그래서 대부분의 폰은 카메라 동작 중 햅틱 세기를 줄이거나 끄고, LRA는 카메라 모듈과 멀리, 진동 방향을 OIS의 민감한 축과 다르게 배치한다. 고정 브래킷과 완충재로 부품 사이의 진동 전달 경로를 끊는 것도 중요하다. 카메라 모듈의 진동 문제는 <a href="camera.html">8장</a>과 <a href="https://sensorbook.euiyun.com/chapters/module.html">SensorBook 카메라 모듈 장</a>을 참고하자.</p>
+    <h3>3. 음향 누설과 되먹임</h3>
+    <ul>
+      <li><b>공기실 누설</b>: 접착·개스킷 불량으로 후방 공기실이 새면 저역이 무너지고 Q가 변한다(박스 시뮬레이터의 '누설'). 공정 검사에서 임피던스 곡선의 공진 주파수로 걸러 낸다.</li>
+      <li><b>스피커 → 마이크 누설</b>: 스피커 소리가 프레임 내부나 틈을 통해 마이크로 새면 에코 캔슬러가 감당할 수 없는 비선형·고레벨 메아리가 된다. 스피커와 마이크 포트를 다른 면에 두고, 내부 음향 경로를 개스킷으로 막는다.</li>
+      <li><b>수화부 누설</b>: 통화 중 수화부 소리가 옆 사람에게 들리는 프라이버시 문제, 그리고 귀와 폰 사이 틈에 따라 저음이 변하는 문제(귀 밀착도에 둔감하게 설계).</li>
+      <li><b>기구 잡음</b>: 큰 음량에서 프레임·카메라 데코·배터리 커버가 떨려 '지지직' 소리를 낸다(rub & buzz). 출하 검사의 단골 불량이다.</li>
+    </ul>
+    <h3>4. 방수 멤브레인의 대가</h3>
+    <p>멤브레인은 마이크 감도를 1~3 dB 깎고, 저항 성분이 열잡음(SNR 저하)을 더하며, 스피커 쪽에서는 고역과 최대 음압을 낮춘다. 수압 등급을 올리려 막을 두껍게 하면 손실이 커진다. 생산 공정에서는 멤브레인 접착 위치가 조금만 어긋나도 포트를 부분적으로 가려 음향 특성이 흔들린다.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>설계 결정</th><th>얻는 것</th><th>잃는 것 / 부딪히는 부품</th></tr></thead>
+      <tbody>
+        <tr><td>공기실 확대</td><td>\(f_c\) ↓, 저음·최대 음압 ↑</td><td>배터리 용량, 하단 안테나 공간</td></tr>
+        <tr><td>부스트 + 스마트 앰프</td><td>+3~6 dB 음량, 저음 확장</td><td>순간 전류(배터리 전압 강하), 코일 열, 앰프 원가</td></tr>
+        <tr><td>X축 광대역 LRA</td><td>또렷한 클릭, 다양한 질감</td><td>~1 cc 부피, 순간 전력, OIS/IMU 간섭</td></tr>
+        <tr><td>마이크 4개</td><td>빔포밍·바람 잡음 억제·공간 음향 녹음</td><td>포트 구멍(방수·디자인), 배선, 전력</td></tr>
+        <tr><td>두꺼운 방수 멤브레인</td><td>수압 등급 ↑</td><td>감도·SNR ↓, 최대 음압 ↓</td></tr>
+        <tr><td>스테레오 수화부 스피커</td><td>스테레오 재생</td><td>화면 상단 공간, 통화 누설, 전면 카메라·센서와 경쟁</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout warn"><strong>흔한 실패 사례</strong>
+      <ul style="margin:6px 0 0">
+        <li>공기실 접착 누설 → 일부 제품만 저음이 약함(공정 산포).</li>
+        <li>스마트 앰프 모델 파라미터 오설정 → 특정 음악에서 코일 파손 또는 지나친 볼륨 제한.</li>
+        <li>최대 음량 + 저배터리 → 부스트 순간 전류로 전압 강하, 시스템 리셋 위험(<a href="power.html">6장</a>).</li>
+        <li>LRA를 카메라 모듈 가까이 → 촬영 중 알림 진동으로 영상 흔들림.</li>
+        <li>그릴 메시 막힘·먼지 → 시간이 지나며 고역 감쇠, 마이크 감도 저하.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>폰에는 하단 스피커, 수화부 스피커(스테레오 겸용), MEMS 마이크 3~4개, LRA가 있다. 스피커는 서로 반대 끝, 마이크는 서로 멀리 둔다.</li>
+      <li>마이크로 스피커는 \(F = Bli\)로 진동판을 민다. 효율이 낮아 넣은 전력 대부분이 코일 열이 된다.</li>
+      <li>후방 공기실은 공기 스프링이다. \(f_c = f_s\sqrt{1+V_{as}/V_b}\)라서 1 cc 남짓한 박스는 \(f_c\)를 700 Hz~1 kHz로 끌어올리고, 그 아래는 12 dB/oct로 줄어든다.</li>
+      <li>스마트 앰프는 I/V 센싱으로 변위(공진 근처·저역)와 코일 온도(\(R_e\) 상승)를 실시간 추정해, 필요한 순간·대역만 게인을 줄인다.</li>
+      <li>MEMS 마이크의 자기 잡음은 94 − SNR dB(A) SPL, 다이내믹 레인지는 AOP − 자기 잡음이다.</li>
+      <li>빔포밍은 마이크 간 시간차를 이용한다. 차동 방식은 뒤쪽 소음을 지우지만 저역 감도가 6 dB/oct 떨어지고, 간격이 반파장을 넘으면 공간 앨리어싱이 생긴다.</li>
+      <li>LRA는 공진기라 τ = Q/(πf₀)로 느리게 반응한다. 오버드라이브와 브레이크로 수십 ms짜리 또렷한 클릭을 만든다.</li>
+      <li>방수 멤브레인과 포트는 헬름홀츠 공진기를 이룬다. 공진을 가청 대역 위로 두고, 멤브레인 손실(1~3 dB)을 감안한다.</li>
+      <li>설계의 핵심은 부피(박스 vs 배터리), 진동 격리(LRA vs OIS/IMU), 음향 누설 관리다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>Q1. 마이크로 스피커의 후방 공기실 부피를 절반으로 줄였다. 가장 먼저 나타나는 변화는?</p><div class="opts">
+        <button class="opt">고역(10 kHz 이상) 출력이 줄어든다</button><button class="opt" data-correct>공기 스프링이 단단해져 박스 공진 주파수가 오르고 저역이 줄어든다</button><button class="opt">진동판 질량이 줄어 효율이 오른다</button><button class="opt">코일 저항이 바뀐다</button>
+      </div><div class="quiz-exp">공기 스프링 강성은 \(\rho c^2 S_d^2/V_b\)로 부피에 반비례한다. 총 강성이 커지면 \(f_c = f_s\sqrt{1+V_{as}/V_b}\)가 오르고, 그 아래 대역은 12 dB/oct로 떨어진다.</div></div>
+
+      <div class="quiz-q"><p>Q2. SNR이 65 dB(A)인 MEMS 마이크의 자기 잡음(등가 입력 잡음)은?</p><div class="opts">
+        <button class="opt">약 65 dB SPL</button><button class="opt">약 159 dB SPL</button><button class="opt" data-correct>약 29 dB(A) SPL</button><button class="opt">약 0 dB SPL</button>
+      </div><div class="quiz-exp">SNR은 94 dB SPL 기준 신호와 자기 잡음의 차이다. 94 − 65 = 29 dB(A) SPL. 조용한 침실(약 30 dB)과 비슷한 수준이다.</div></div>
+
+      <div class="quiz-q"><p>Q3. 스마트 앰프가 큰 음량에서 주로 저역(공진 근처와 그 아래)의 게인을 줄이는 이유는?</p><div class="opts">
+        <button class="opt">저역은 사람이 듣지 못하기 때문</button><button class="opt">저역에서 코일 저항이 낮아져 전류가 폭주하기 때문</button><button class="opt" data-correct>같은 전압에서 진동판 변위가 공진 근처·저역에서 가장 커서 \(X_{\max}\)를 넘기 쉽기 때문</button><button class="opt">D급 앰프가 저역을 증폭하지 못하기 때문</button>
+      </div><div class="quiz-exp">\(f_c\) 아래에서는 변위가 강성으로 정해져 거의 일정하고, 공진 근처에서는 Q배로 커진다. 위로 갈수록 \(1/f^2\)로 준다. 그래서 변위 보호는 저역 위주로 동작한다.</div></div>
+
+      <div class="quiz-q"><p>Q4. 간격 20 mm인 두 마이크로 빔포밍할 때 공간 앨리어싱이 시작되는 주파수는 대략? (c = 343 m/s)</p><div class="opts">
+        <button class="opt">약 860 Hz</button><button class="opt">약 17 kHz</button><button class="opt" data-correct>약 8.6 kHz</button><button class="opt">약 43 kHz</button>
+      </div><div class="quiz-exp">간격이 반파장과 같아지는 주파수 \(f = c/2d\) = 343 / 0.04 ≈ 8.6 kHz. 그 위에서는 다른 방향에서도 같은 위상차가 나와 엉뚱한 방향에 빔(그레이팅 로브)이 생긴다.</div></div>
+
+      <div class="quiz-q"><p>Q5. 차동(DMA) 마이크 배열의 대표적인 단점은?</p><div class="opts">
+        <button class="opt" data-correct>저역 감도가 6 dB/oct로 떨어져, 보상하면 자기 잡음도 함께 커진다</button><button class="opt">고역에서 감도가 0이 된다</button><button class="opt">마이크가 반드시 4개 이상 필요하다</button><button class="opt">지향성을 바꿀 수 없다</button>
+      </div><div class="quiz-exp">저역에서는 두 마이크 신호가 거의 같아서 빼면 남는 것이 \(\omega\tau\)에 비례해 작다. EQ로 끌어올리면 두 마이크의 서로 무관한 자기 잡음도 함께 커진다.</div></div>
+
+      <div class="quiz-q"><p>Q6. \(f_0\) = 160 Hz, Q = 20인 LRA를 짧은 클릭에 쓰기 위해 햅틱 드라이버가 하는 일로 가장 알맞은 것은?</p><div class="opts">
+        <button class="opt">공진 주파수에서 일부러 멀리 떨어진 주파수로 구동한다</button><button class="opt" data-correct>처음에 과전압으로 밀고(오버드라이브), 끝에 위상을 뒤집어 능동 제동한다(브레이크)</button><button class="opt">Q를 높이기 위해 감쇠재를 제거한다</button><button class="opt">DC 전압을 걸어 추를 한쪽으로 붙인다</button>
+      </div><div class="quiz-exp">시상수 τ = Q/(πf₀) ≈ 40 ms로 자연 응답은 클릭에 너무 느리다. 오버드라이브로 빨리 키우고 브레이크로 빨리 멈추면 10~20 ms짜리 또렷한 진동이 된다.</div></div>
+
+      <div class="quiz-q"><p>Q7. 물에 빠졌던 폰의 마이크 소리가 먹먹해지는 주된 이유는?</p><div class="opts">
+        <button class="opt">물이 MEMS 진동판을 녹인다</button><button class="opt">물이 마이크의 바이어스 전압을 단락시킨다</button><button class="opt" data-correct>포트·그릴의 물이 헬름홀츠 공진기의 질량을 크게 늘려 공진이 낮아지고 고역이 감쇠한다</button><button class="opt">물 때문에 음속이 느려진다</button>
+      </div><div class="quiz-exp">\(f_H \propto 1/\sqrt{M}\). 물의 밀도는 공기의 약 830배라 같은 길이가 물로 차면 공진이 수십 분의 1로 떨어진다. 물이 빠지면 대개 회복된다.</div></div>
+
+      <div class="quiz-q"><p>Q8. 많은 폰이 카메라 촬영 중 햅틱 진동을 약하게 하거나 끄는 이유는?</p><div class="opts">
+        <button class="opt">촬영 중에는 배터리 전압이 낮아서</button><button class="opt" data-correct>LRA의 100~250 Hz 진동이 OIS와 자이로를 교란해 사진·영상이 흔들리기 때문</button><button class="opt">진동 소리가 마이크 감도를 영구히 낮추기 때문</button><button class="opt">카메라와 LRA가 같은 GPIO를 쓰기 때문</button>
+      </div><div class="quiz-exp">OIS는 수십~수백 Hz 대역의 손떨림을 보정한다. 같은 대역의 기계 진동이 렌즈와 자이로를 직접 흔들면 보정이 틀어지거나 포화된다.</div></div>
+    </div>
+  </section>
+</main>
+<script>
+/*JS*/
+</script>
+</body>
+</html>
