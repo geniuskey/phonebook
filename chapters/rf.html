@@ -383,6 +383,24 @@
       <div class="where">\(k = 2\pi/\lambda\), \(d\): 소자 간격, \(\beta\): 이웃 소자 간 위상차. 빔을 \(\theta_0\)로 돌리려면 \(\beta = -kd\sin\theta_0\). 배열 이득은 약 \(10\log_{10}N\) dB(송신은 각 소자에 PA가 있으므로 EIRP가 \(20\log_{10}N\)만큼 는다). 간격이 \(d > \lambda/(1+|\sin\theta_0|)\)이면 원치 않는 방향에 같은 크기의 빔(그레이팅 로브)이 생긴다.</div>
     </div>
 
+    <figure class="diagram">
+      <svg viewBox="0 0 760 240" role="img" aria-label="mmWave 안테나 인 패키지 모듈 단면과 위상 조향">
+        <g transform="translate(30,30)">
+          <text class="t" x="0" y="0">AiP 모듈 단면 (개략)</text>
+          <rect x="0" y="60" width="300" height="16" fill="var(--accent)" opacity=".75"/><text class="t-mono" x="310" y="72">패치 안테나 ×4~8 (간격 ≈ λ/2 ≈ 5 mm)</text>
+          <rect x="0" y="78" width="300" height="34" class="f-surface" stroke="var(--border)"/><text class="t-mono" x="150" y="99" text-anchor="middle">다층 기판(급전선·그라운드)</text>
+          <rect x="70" y="114" width="160" height="26" rx="3" fill="var(--accent-2)" opacity=".8"/><text class="t-mono" x="150" y="131" text-anchor="middle">RFIC: 위상 변위기·PA·LNA</text>
+          <rect x="60" y="142" width="180" height="8" fill="var(--text-faint)"/><text class="t-mono" x="310" y="150">→ 보드로 IF/LO·전원 (동축·FPC)</text>
+          <g stroke="var(--accent)" fill="none" stroke-width="1.5">
+            <path d="M20 52 l60 -40 M95 52 l60 -40 M170 52 l60 -40 M245 52 l60 -40"/>
+            <path d="M10 40 L280 -2" stroke-dasharray="4 4" stroke="var(--accent-2)"/>
+          </g>
+          <text class="t-mono" x="0" y="190">각 소자에 위상 0, β, 2β, 3β … → 파면이 기울어 빔이 θ₀ 방향으로 간다</text>
+          <text class="t-mono" x="0" y="208">모듈은 측면 프레임의 수지 창 뒤, 또는 후면 유리 아래에 두고 2~3개를 서로 다른 면에 배치한다</text>
+        </g>
+      </svg>
+      <figcaption><b>그림 7-4.</b> mmWave 안테나 인 패키지(AiP). 손톱만 한 모듈 위에 패치 배열이 있고, 바로 아래 RFIC가 소자마다 위상을 바꿔 빔을 조향한다. 선로 손실이 큰 mmWave에서는 안테나와 칩 사이 거리를 mm 단위로 줄이는 것이 핵심이다.</figcaption>
+    </figure>
     <div class="sim" id="sim-bf">
       <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>위상배열 빔 패턴</h3></div>
       <div class="sim-body side">

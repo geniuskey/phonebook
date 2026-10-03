@@ -1,0 +1,1278 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>센서와 생체 인증 · PhoneBook</title>
+<meta name="description" content="MEMS 가속도계와 자이로, 센서 퓨전, 지자기 보정, 기압 고도, 근접·조도 센서, 지문과 얼굴 인식, FAR/FRR, 센서 허브까지 폰 속 센서를 시뮬레이터로 배운다.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+<link rel="stylesheet" href="../css/style.css">
+<script src="../js/common.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/phone3d.js"></script>
+<style>
+  .smap .dot { cursor: pointer; }
+  .smap .dot circle { fill: var(--accent); fill-opacity: .25; stroke: var(--accent); stroke-width: 2; transition: fill-opacity .15s; }
+  .smap .dot:hover circle, .smap .dot.on circle { fill-opacity: .9; }
+  .smap .dot text { pointer-events: none; }
+  .smap .body { fill: var(--surface); stroke: var(--border); stroke-width: 2; }
+  .smap .scr { fill: var(--surface-2); }
+  .s-info { padding: 14px 18px; border-top: 1px solid var(--border); font-size: 14.5px; line-height: 1.65; min-height: 7em; }
+  .s-info b.t { display: block; font-size: 15.5px; margin-bottom: 4px; color: var(--accent); }
+  .s-info .kv { font-family: var(--mono); font-size: 12.5px; color: var(--text-dim); margin-top: 6px; }
+  .fp-ridge { fill: var(--text-dim); opacity: .55; }
+  .fp-glass { fill: var(--accent); fill-opacity: .12; stroke: var(--accent); stroke-opacity: .5; }
+  .fp-sensor { fill: var(--accent-2); fill-opacity: .7; }
+  .fp-layer { fill: var(--surface-2); stroke: var(--border); }
+</style>
+</head>
+<body data-chapter="sensors">
+<main class="chapter">
+  <header class="chapter-hero">
+    <div class="eyebrow">Chapter 09</div>
+    <h1>센서와 생체 인증</h1>
+    <p class="lead">폰은 자기가 어느 쪽으로 기울었는지, 얼마나 빨리 도는지, 북쪽이 어디인지, 몇 층에 있는지, 얼굴이 가까이 왔는지, 주변이 얼마나 밝은지를 늘 알고 있다. 그 감각의 대부분은 <b>수 µm 크기의 실리콘 구조물</b>이 nm 단위로 움직이며 만든 fF 단위의 정전용량 변화에서 나온다. 이 장에서는 그 작은 기계들을 직접 흔들어 보고, 여러 센서를 엮어 자세를 추정하고, 지문과 얼굴로 '나'를 증명하는 원리와 그 오차를 다룬다.</p>
+    <ul class="objectives">
+      <li>MEMS 가속도계(질량–스프링–댐퍼, 빗살 정전용량)와 자이로(코리올리 효과)의 동작을 수식과 수치로 설명한다.</li>
+      <li>상보 필터로 가속도와 자이로를 융합해 자세를 추정하고, 지자기 하드아이언·소프트아이언 보정과 기압 고도 계산을 한다.</li>
+      <li>근접 센서의 크로스토크, 조도 센서와 자동 밝기 곡선을 이해한다.</li>
+      <li>정전용량·광학·초음파 지문과 구조광·ToF 얼굴 인식의 원리를 비교하고, FAR/FRR·ROC로 생체 인증 성능을 읽는다.</li>
+      <li>센서 허브의 저전력 상시 감지와, 배치·캘리브레이션·전력·보안 같은 설계 요점을 정리한다.</li>
+    </ul>
+  </header>
+
+  <!-- =============================================================== 1 -->
+  <section id="where">
+    <h2>폰 안의 위치와 센서 지도</h2>
+    <p>센서는 폰 곳곳에 흩어져 있지만 두 곳에 몰린다. 하나는 <b>화면 상단</b>이다. 전면 카메라 옆에 근접·조도 센서, 얼굴 인식용 IR 카메라와 도트 프로젝터가 모인다(사람의 얼굴과 귀가 오는 곳이다). 다른 하나는 <b>메인보드</b>다. 가속도·자이로를 한 패키지에 넣은 6축 IMU, 지자기 센서, 기압 센서가 칩 형태로 보드에 납땜된다. 이 모델에서는 전면 카메라 영역과 AP가 있는 보드 하판을 강조한다.</p>
+    <div class="sim" id="sim-where">
+      <div class="sim-head"><span class="sim-tag three">3D</span><h3>센서가 모인 곳</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view three" id="v3d-where"><div class="part-card" id="where-card" hidden></div><span class="hint">드래그로 회전 · 부품 클릭</span></div>
+        <div class="sim-controls">
+          <div class="ctrl"><span>강조할 부품</span><div class="seg" id="where-part"><button data-value="frontcam" class="on">화면 상단 센서</button><button data-value="boardBottom">보드(IMU 등)</button></div></div>
+          <label class="ctrl"><span>분해 정도 <output id="where-ex-out"></output></span><input type="range" id="where-ex" min="0" max="1" step="0.01" value="0.65"></label>
+          <label class="check"><input type="checkbox" id="where-xray" checked> 엑스레이(나머지 반투명)</label>
+          <label class="check"><input type="checkbox" id="where-imu" checked> IMU 좌표축 표시</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">선택</span><span class="v" id="where-sel">—</span></div>
+        <div class="stat"><span class="k">폰 좌표계</span><span class="v">x 오른쪽 · y 위 · z 화면 밖</span></div>
+      </div>
+      <div class="sim-note">빨강·초록·파랑 화살표는 안드로이드·iOS가 쓰는 기기 좌표계(x: 화면 오른쪽, y: 화면 위쪽, z: 화면에서 나오는 방향)다. 이 3D 모델의 내부 좌표와는 다르니 주의하자. 센서 칩마다 실장 방향이 달라서, 드라이버가 칩 좌표를 이 기기 좌표로 회전시켜 앱에 넘긴다.</div>
+    </div>
+
+    <div class="sim" id="sim-map">
+      <div class="sim-head"><span class="sim-tag">INTERACTIVE</span><h3>폰 센서 지도</h3></div>
+      <div class="sim-view" style="padding:10px 6px">
+        <svg class="smap" viewBox="0 0 760 360" role="img" aria-label="스마트폰 센서 배치 지도">
+          <text class="t-dim" x="150" y="20" text-anchor="middle">앞면</text>
+          <rect class="body" x="70" y="30" width="160" height="320" rx="26"/><rect class="scr" x="80" y="40" width="140" height="300" rx="18"/>
+          <text class="t-dim" x="450" y="20" text-anchor="middle">보드(뒷면 아래)</text>
+          <rect class="body" x="370" y="30" width="160" height="320" rx="26"/>
+          <rect x="384" y="48" width="132" height="92" rx="6" fill="var(--accent-soft)" stroke="var(--border)"/><text class="t-mono" x="450" y="132" text-anchor="middle">메인보드</text>
+          <rect x="384" y="150" width="132" height="150" rx="6" fill="var(--surface-2)" stroke="var(--border)"/><text class="t-mono" x="450" y="230" text-anchor="middle">배터리</text>
+          <rect x="400" y="310" width="100" height="26" rx="4" fill="var(--surface-2)" stroke="var(--border)"/><text class="t-mono" x="450" y="327" text-anchor="middle">스피커·LRA</text>
+          <g class="dot" data-k="prox"><circle cx="122" cy="52" r="9"/><text class="t-mono" x="122" y="56" text-anchor="middle">P</text></g>
+          <g class="dot" data-k="als"><circle cx="178" cy="52" r="9"/><text class="t-mono" x="178" y="56" text-anchor="middle">L</text></g>
+          <g class="dot" data-k="face"><circle cx="150" cy="64" r="11"/><text class="t-mono" x="150" y="68" text-anchor="middle">F</text></g>
+          <g class="dot" data-k="fp"><circle cx="150" cy="290" r="13"/><text class="t-mono" x="150" y="294" text-anchor="middle">FP</text></g>
+          <g class="dot" data-k="imu"><circle cx="420" cy="80" r="11"/><text class="t-mono" x="420" y="84" text-anchor="middle">IMU</text></g>
+          <g class="dot" data-k="mag"><circle cx="490" cy="66" r="10"/><text class="t-mono" x="490" y="70" text-anchor="middle">M</text></g>
+          <g class="dot" data-k="baro"><circle cx="470" cy="112" r="10"/><text class="t-mono" x="470" y="116" text-anchor="middle">B</text></g>
+          <g class="dot" data-k="hall"><circle cx="520" cy="200" r="10"/><text class="t-mono" x="520" y="204" text-anchor="middle">H</text></g>
+          <g class="dot" data-k="uwb"><circle cx="400" cy="160" r="10"/><text class="t-mono" x="400" y="164" text-anchor="middle">U</text></g>
+          <g class="dot" data-k="hub"><circle cx="440" cy="108" r="9"/><text class="t-mono" x="440" y="112" text-anchor="middle">S</text></g>
+          <g transform="translate(570,40)">
+            <text class="t-dim" x="0" y="0">P 근접 · L 조도/색온도</text>
+            <text class="t-dim" x="0" y="24">F 얼굴(도트·IR 카메라)</text>
+            <text class="t-dim" x="0" y="48">FP 화면 아래 지문</text>
+            <text class="t-dim" x="0" y="72">IMU 가속도+자이로</text>
+            <text class="t-dim" x="0" y="96">M 지자기 · B 기압</text>
+            <text class="t-dim" x="0" y="120">H 홀 센서 · U UWB</text>
+            <text class="t-dim" x="0" y="144">S 센서 허브</text>
+            <text class="t-mono" x="0" y="190">점을 눌러 보자</text>
+          </g>
+        </svg>
+      </div>
+      <div class="s-info" id="map-info"></div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 2 -->
+  <section id="accel">
+    <h2>MEMS 가속도계: 실리콘 속 스프링 저울</h2>
+    <p>가속도계의 원리는 놀랄 만큼 단순하다. 스프링에 매달린 질량(검증 질량, <span class="en">proof mass</span>)은 기기가 가속하면 관성 때문에 뒤처지고, 그 변위가 가속도에 비례한다. 스마트폰의 MEMS 가속도계는 이것을 실리콘을 깎아 만든다. 질량은 수 µg, 스프링은 폭 수 µm의 접힌 실리콘 빔, 변위 측정은 질량 옆에 빗(comb)처럼 맞물린 전극의 <b>정전용량 차이</b>로 한다.</p>
+    <div class="formula">$$m\ddot{x} + c\dot{x} + kx = -m a \;\Rightarrow\; x_{\text{static}} = \frac{m a}{k} = \frac{a}{\omega_0^2},\qquad \omega_0 = \sqrt{k/m}$$
+      <div class="where">공진 주파수 \(f_0\)가 2~5 kHz 수준이면, 1 g(9.81 m/s²)에서의 변위는 \(9.81/(2\pi\cdot 3000)^2 \approx 28\) nm에 불과하다. 감도(변위/가속도)는 \(1/\omega_0^2\)라서 공진을 낮추면 감도가 오르지만 대역폭과 충격 내성이 줄어든다.</div>
+    </div>
+    <div class="formula">$$C_{1,2} = \frac{\varepsilon_0 A}{g_0 \mp x},\qquad \Delta C = C_1 - C_2 \approx \frac{2\varepsilon_0 A}{g_0^2}\,x$$
+      <div class="where">차동 구조: 질량이 움직이면 한쪽 간극은 좁아지고 다른 쪽은 넓어진다. \(g_0\) ≈ 1~2 µm, 빗살 수백 쌍으로 기준 정전용량은 수백 fF, 1 g 변화는 수 fF 수준이고, ASIC는 aF(10⁻¹⁸ F) 단위 변화까지 읽는다.</div>
+    </div>
+
+    <div class="sim" id="sim-acc">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>질량–스프링–댐퍼와 빗살 전극</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-acc"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>기울기 (x축 중력 성분) <output id="acc-tilt-out"></output></span><input type="range" id="acc-tilt" min="-90" max="90" value="30"></label>
+          <label class="ctrl"><span>감쇠비 ζ <output id="acc-z-out"></output></span><input type="range" id="acc-z" min="0.05" max="1.5" step="0.01" value="0.4"></label>
+          <label class="ctrl"><span>공진 주파수 f₀ <output id="acc-f-out"></output></span><input type="range" id="acc-f" min="1000" max="6000" step="100" value="3000"></label>
+          <button class="btn primary" id="acc-tap">톡 치기(충격)</button>
+          <label class="check"><input type="checkbox" id="acc-dev"> 실제 폰 기울기 사용</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">가속도 aₓ</span><span class="v" id="acc-a">—</span></div>
+        <div class="stat"><span class="k">질량 변위</span><span class="v" id="acc-x">—</span></div>
+        <div class="stat"><span class="k">ΔC = C₁ − C₂</span><span class="v" id="acc-c">—</span></div>
+      </div>
+      <div class="sim-note">그림의 변위는 보이도록 크게 과장했다(실제는 nm). 해볼 것: 감쇠비를 0.1로 낮추고 '톡 치기'를 누르면 질량이 오래 울린다(링잉). 실제 센서는 질량 주변 공기의 압착막 감쇠(squeeze-film damping)로 ζ ≈ 0.5~0.7 근처를 맞추며, 패키지 내부 기압이 이 감쇠를 정한다. 공진을 낮추면 변위(감도)가 커지는 것도 확인하자.</div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>항목</th><th>스마트폰 IMU의 가속도계 (전형적 범위)</th></tr></thead>
+      <tbody>
+        <tr><td>측정 범위</td><td>±2 / 4 / 8 / 16 g 선택</td></tr>
+        <tr><td>잡음 밀도</td><td>~70~200 µg/√Hz</td></tr>
+        <tr><td>영점 오프셋</td><td>±20~40 mg (출하 시), 온도에 따라 변동</td></tr>
+        <tr><td>출력 데이터율</td><td>~1 Hz ~ 6.7 kHz</td></tr>
+        <tr><td>전류</td><td>저전력 모드 수 µA, 고성능 모드 ~100~200 µA</td></tr>
+        <tr><td>패키지</td><td>6축(가속도+자이로) LGA ~2.5×3×0.8 mm</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- =============================================================== 3 -->
+  <section id="gyro">
+    <h2>자이로스코프: 코리올리 힘으로 회전을 잰다</h2>
+    <p>MEMS 자이로에는 도는 팽이가 없다. 대신 질량을 한 방향으로 <b>계속 진동</b>시킨다(구동 모드, 수십 kHz). 이 상태에서 기기가 회전하면, 움직이는 질량에 진동 방향과 회전축 모두에 수직인 <span class="term">코리올리 힘</span>이 생겨 질량이 옆으로 흔들린다(감지 모드). 옆으로 흔들리는 진폭이 각속도에 비례한다.</p>
+    <div class="formula">$$\vec F_c = -2m\,\vec\Omega \times \vec v,\qquad |a_c| = 2\,\Omega\, v_{\text{drive}} = 2\,\Omega\,\omega_d X_d \cos\omega_d t$$
+      <div class="where">\(\Omega\): 각속도, \(X_d\): 구동 진폭(수 µm), \(\omega_d\): 구동 각주파수. 예: \(X_d\) = 5 µm, \(f_d\) = 25 kHz, \(\Omega\) = 100 °/s(1.75 rad/s)이면 \(a_c\) 진폭 ≈ 2 × 1.75 × 0.79 m/s ≈ 2.7 m/s². 감지 변위는 pm~nm이고, 구동 주파수에서 진폭 변조되어 나오므로 동기 복조(lock-in)로 꺼낸다.</div>
+    </div>
+
+    <figure class="diagram">
+      <svg viewBox="0 0 760 250" role="img" aria-label="진동 자이로의 구동과 감지 모드">
+        <defs><marker id="se-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker>
+        <marker id="se-ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent-2)"/></marker></defs>
+        <rect x="30" y="30" width="330" height="190" rx="10" fill="none" stroke="var(--border)" stroke-width="2"/>
+        <text class="t-mono" x="40" y="48">기판(앵커)</text>
+        <path d="M60 125 h30 l6 -10 l8 20 l8 -20 l8 20 l8 -20 l6 10 h20" fill="none" stroke="var(--text-dim)" stroke-width="1.5"/>
+        <path d="M330 125 h-30 l-6 -10 l-8 20 l-8 -20 l-8 20 l-8 -20 l-6 10 h-20" fill="none" stroke="var(--text-dim)" stroke-width="1.5"/>
+        <rect x="150" y="85" width="90" height="80" rx="6" class="f-acc-soft" stroke="var(--accent)" stroke-width="2"/>
+        <text class="t" x="195" y="130" text-anchor="middle">m</text>
+        <path d="M160 190 H230" class="s-acc" marker-end="url(#se-ar)" fill="none"/><path d="M230 190 H160" class="s-acc" marker-end="url(#se-ar)" fill="none"/>
+        <text class="t-acc" x="195" y="210" text-anchor="middle" style="font-size:12px">구동 진동 v (정전기력, ~25 kHz)</text>
+        <path d="M262 150 V92" stroke="var(--accent-2)" stroke-width="2" marker-end="url(#se-ar2)" fill="none"/>
+        <text class="t" x="270" y="104" style="fill:var(--accent-2);font-size:12px">F<tspan dy="3" style="font-size:9px">c</tspan></text>
+        <circle cx="195" cy="60" r="14" fill="none" stroke="var(--warn)" stroke-width="2"/><path d="M207 52 l4 -6 l2 8" fill="none" stroke="var(--warn)" stroke-width="2"/>
+        <text class="t" x="216" y="58" style="fill:var(--warn);font-size:12px">Ω (지면에 수직)</text>
+        <g transform="translate(400,30)">
+          <text class="t" x="0" y="10">튜닝 포크(쌍 질량) 구조가 많은 이유</text>
+          <text class="t-dim" x="0" y="40">· 두 질량을 반대 위상으로 진동시키면 코리올리 힘도</text>
+          <text class="t-dim" x="0" y="58">  반대 방향 → 차동으로 읽으면 신호는 2배,</text>
+          <text class="t-dim" x="0" y="76">  선형 가속도(같은 방향)는 상쇄된다.</text>
+          <text class="t-dim" x="0" y="104">· 구동 공진과 감지 공진을 가깝게 맞추면 감도가 크지만</text>
+          <text class="t-dim" x="0" y="122">  온도·공정 편차에 민감해진다(모드 매칭 트레이드오프).</text>
+          <text class="t-dim" x="0" y="150">· 패키지 내부를 진공에 가깝게 밀봉해 구동 Q를 높인다</text>
+          <text class="t-dim" x="0" y="168">  (가속도계는 반대로 공기 감쇠가 필요 → 공정이 다르다).</text>
+        </g>
+      </svg>
+      <figcaption><b>그림 9-2.</b> 진동 자이로의 원리(개략). 질량을 x 방향으로 구동하고, 지면에 수직인 축으로 회전이 생기면 y 방향 코리올리 힘이 질량을 흔든다. 감지 빗살 전극이 이 y 변위를 정전용량 차이로 읽는다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-gyro">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>진동 질량 자이로</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-gyro"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>각속도 Ω (z축) <output id="gy-w-out"></output></span><input type="range" id="gy-w" min="-500" max="500" step="5" value="150"></label>
+          <label class="ctrl"><span>구동 진폭 Xd <output id="gy-x-out"></output></span><input type="range" id="gy-x" min="1" max="10" step="0.5" value="5"></label>
+          <label class="check"><input type="checkbox" id="gy-q"> 직교 오차(구조 비대칭) 추가</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">코리올리 가속도 진폭</span><span class="v" id="gy-ac">—</span></div>
+        <div class="stat"><span class="k">복조 출력</span><span class="v" id="gy-out">—</span></div>
+      </div>
+      <div class="sim-note">애니메이션은 슬로 모션이다(실제 구동 ~25 kHz). 가로 흔들림이 구동, 세로 흔들림이 코리올리 응답이다. 회전 방향을 바꾸면 세로 흔들림의 위상이 뒤집혀 궤적이 반대로 기운다. '직교 오차'는 구동 변위에 비례해 새는 가짜 신호로, 코리올리 신호(구동 속도에 비례)와 90° 위상이 달라서 동기 복조로 걸러낼 수 있다.</div>
+    </div>
+    <p>자이로의 고질병은 <b>영점 드리프트</b>다. 회전이 없어도 출력이 0.1~1 °/s 수준으로 어긋나고 온도에 따라 변한다. 각속도를 적분해 각도를 구하면 이 오차도 함께 적분되어 시간에 비례해 커진다. 1 °/s의 오프셋이면 1분에 60°가 틀어진다. 그래서 자이로 혼자서는 자세를 오래 유지할 수 없고, 다른 센서와 섞어야 한다.</p>
+  </section>
+
+  <!-- =============================================================== 4 -->
+  <section id="fusion">
+    <h2>센서 퓨전: 상보 필터로 자세 추정</h2>
+    <p>가속도계는 정지해 있을 때 중력 방향을 알려 주므로 기울기를 <b>장기적으로 정확히</b> 알지만, 손 떨림·걸음의 가속도가 섞여 <b>단기적으로 시끄럽다</b>. 자이로는 반대로 단기적으로 매끄럽고 정확하지만 장기적으로 드리프트한다. 두 센서의 장점만 취하는 가장 간단한 방법이 <span class="term">상보 필터</span><span class="en">(complementary filter)</span>다. 자이로에는 고역 통과, 가속도에는 저역 통과를 거는 셈이다.</p>
+    <div class="formula">$$\hat\theta_k = \alpha\left(\hat\theta_{k-1} + \omega_k\,\Delta t\right) + (1-\alpha)\,\theta_{\text{acc},k},\qquad \theta_{\text{acc}} = \operatorname{atan2}(a_x, a_z),\qquad \tau = \frac{\alpha\,\Delta t}{1-\alpha}$$
+      <div class="where">\(\alpha\)가 1에 가까울수록 자이로를 믿는다. 시정수 \(\tau\)보다 빠른 변화는 자이로가, 느린 변화는 가속도계가 맡는다. 실제 폰은 칼만 필터나 Madgwick·Mahony 같은 쿼터니언 필터로 3축 자세와 자이로 바이어스까지 함께 추정한다.</div>
+    </div>
+
+    <div class="sim" id="sim-fuse">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>자이로 드리프트 vs 가속도 노이즈 vs 퓨전</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-fuse"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>필터 계수 α <output id="fu-a-out"></output></span><input type="range" id="fu-a" min="0.5" max="0.999" step="0.001" value="0.98"></label>
+          <label class="ctrl"><span>자이로 바이어스 <output id="fu-b-out"></output></span><input type="range" id="fu-b" min="0" max="5" step="0.1" value="2"></label>
+          <label class="ctrl"><span>가속도 노이즈(흔들림) <output id="fu-n-out"></output></span><input type="range" id="fu-n" min="0" max="20" step="0.5" value="6"></label>
+          <label class="check"><input type="checkbox" id="fu-dev"> 실제 폰 기울기 사용(DeviceOrientation)</label>
+          <button class="btn" id="fu-reset">초기화</button>
+        </div>
+      </div>
+      <div class="legend"><span><i style="background:var(--text)"></i>실제 각도</span><span><i style="background:var(--warn)"></i>자이로 적분</span><span><i style="background:var(--text-faint)"></i>가속도계</span><span><i style="background:var(--accent)"></i>상보 필터</span></div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">시정수 τ (Δt = 10 ms)</span><span class="v" id="fu-tau">—</span></div>
+        <div class="stat"><span class="k">자이로 적분 오차</span><span class="v" id="fu-eg">—</span></div>
+        <div class="stat"><span class="k">퓨전 RMS 오차</span><span class="v" id="fu-ef">—</span></div>
+      </div>
+      <div class="sim-note">해볼 것: α를 0.5로 내리면 퓨전 출력이 가속도계 노이즈를 그대로 따라가고, 0.999로 올리면 자이로 드리프트가 서서히 끼어든다. 그 사이의 최적점이 있다. 휴대폰에서 '실제 폰 기울기 사용'을 켜면 앞뒤 기울기(beta)가 실제 각도로 쓰인다(브라우저가 동작 센서 권한을 물을 수 있다).</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 5 -->
+  <section id="mag">
+    <h2>지자기 센서와 나침반 보정</h2>
+    <p>지구 자기장은 25~65 µT로 약하다. 폰 속에는 이보다 수십~수백 배 센 자석(스피커, 수화부, 무선 충전 정렬 자석, 카메라 OIS 자석)이 있다. 지자기 센서(홀, AMR, TMR 소자 등)는 이 모두를 더한 값을 잰다. 폰에 고정되어 같이 도는 자석은 측정값에 <b>일정한 오프셋</b>을 더하고(<span class="term">하드아이언</span>), 폰 안의 연자성체(실드 캔, 스테인리스)는 지구 자기장을 방향에 따라 다르게 휘게 만든다(<span class="term">소프트아이언</span>).</p>
+    <div class="formula">$$\mathbf{m}_{\text{raw}} = \mathbf{S}\,\mathbf{R}\,\mathbf{B}_{\text{earth}} + \mathbf{b}_{\text{hard}} + \mathbf{n},\qquad \mathbf{B}_{\text{cal}} = \mathbf{S}^{-1}(\mathbf{m}_{\text{raw}} - \mathbf{b}_{\text{hard}})$$
+      <div class="where">폰을 모든 방향으로 돌리면 이상적인 측정값은 원점 중심의 구(2D에서는 원) 위에 놓인다. 하드아이언은 중심을 옮기고, 소프트아이언 \(\mathbf S\)는 구를 타원체로 찌그러뜨린다. '8자 그리기'는 여러 방향의 샘플을 모아 이 타원체를 맞추는(fit) 과정이다.</div>
+    </div>
+    <div class="sim" id="sim-mag">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>하드·소프트아이언과 8자 보정</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-mag"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>하드아이언 오프셋 <output id="mg-h-out"></output></span><input type="range" id="mg-h" min="0" max="60" value="35"></label>
+          <label class="ctrl"><span>소프트아이언 찌그러짐 <output id="mg-s-out"></output></span><input type="range" id="mg-s" min="0" max="0.5" step="0.01" value="0.25"></label>
+          <label class="ctrl"><span>폰 방위(실제) <output id="mg-a-out"></output></span><input type="range" id="mg-a" min="0" max="359" value="60"></label>
+          <button class="btn primary" id="mg-cal">8자 보정 시작</button>
+          <button class="btn" id="mg-clr">보정 지우기</button>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">보정 전 방위</span><span class="v" id="mg-raw">—</span></div>
+        <div class="stat"><span class="k">보정 후 방위</span><span class="v" id="mg-cal-v">—</span></div>
+        <div class="stat"><span class="k">추정 오프셋</span><span class="v" id="mg-off">—</span></div>
+      </div>
+      <div class="sim-note">수평면(x–y) 성분만 그렸다. 회색 점은 폰을 돌리며 모은 원시 측정값, 초록 원은 지구 자기장의 참값(반지름 30 µT, 원점 중심)이다. '8자 보정'을 누르면 폰이 여러 방향으로 돌며 샘플을 모으고, 타원 맞춤으로 중심과 축을 구해 보정한다. 해볼 것: 보정 전에는 방위를 돌릴 때 오차가 최대 수십 도까지 출렁인다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 6 -->
+  <section id="baro">
+    <h2>기압계: 몇 층에 있는가</h2>
+    <p>기압 센서는 밀봉된 진공 공동 위의 얇은 실리콘 박막이 바깥 기압에 눌려 휘는 정도를 피에조 저항(또는 정전용량)으로 잰다. 해수면 근처에서 고도가 1 m 오르면 기압은 약 0.12 hPa 떨어진다. 스마트폰용 센서의 <b>상대 정확도</b>는 ±0.06 hPa(약 ±0.5 m) 수준이라, 한 층(약 3 m, 0.36 hPa)을 충분히 구분한다. 긴급 구조 위치 측위에서 층 정보를 주는 용도로도 쓰인다.</p>
+    <div class="formula">$$h = 44330\left[1 - \left(\frac{p}{p_0}\right)^{1/5.255}\right]\ \text{m},\qquad \frac{dp}{dh} \approx -\frac{p\,g\,M}{R\,T} \approx -0.12\ \text{hPa/m}$$
+      <div class="where">국제 표준 대기 근사. \(p_0\): 기준(해수면) 기압. 날씨에 따라 \(p_0\) 자체가 하루 수 hPa 변하므로(수십 m에 해당), 절대 고도는 기준점(GNSS, 기상 데이터)이 필요하고 상대 고도(층 변화, 계단 오르기)에 강하다.</div>
+    </div>
+    <div class="sim" id="sim-baro">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>엘리베이터 속 기압계</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-baro"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>목표 층 <output id="ba-f-out"></output></span><input type="range" id="ba-f" min="1" max="20" value="8"></label>
+          <label class="ctrl"><span>센서 RMS 노이즈 <output id="ba-n-out"></output></span><input type="range" id="ba-n" min="0.005" max="0.1" step="0.005" value="0.02"></label>
+          <label class="ctrl"><span>날씨 변화(기압 추세) <output id="ba-w-out"></output></span><input type="range" id="ba-w" min="-3" max="3" step="0.1" value="0"></label>
+          <label class="check"><input type="checkbox" id="ba-avg" checked> 평균 필터(1초)</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">측정 기압</span><span class="v" id="ba-p">—</span></div>
+        <div class="stat"><span class="k">추정 고도</span><span class="v" id="ba-h">—</span></div>
+        <div class="stat"><span class="k">추정 층</span><span class="v" id="ba-fl">—</span></div>
+      </div>
+      <div class="sim-note">층고 3 m, 1층 = 해발 30 m, 기준 기압 1013.25 hPa. 시간 축은 빠르게 감았다(그래프 전체 ≈ 3분). 해볼 것: 날씨 변화를 ±3 hPa/시간으로 두면 가만히 있어도 추정 고도가 흘러간다. 그래서 층 판단은 '짧은 시간의 기압 변화'로 하고, 가끔 기준을 다시 잡는다. 바람·에어컨·문 여닫힘도 수 Pa의 순간 변화를 만든다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 7 -->
+  <section id="prox">
+    <h2>근접 센서와 조도 센서</h2>
+    <p><b>근접 센서</b>는 통화 중 귀가 화면에 닿았는지를 판단해 화면과 터치를 끈다. 940 nm 적외선 LED(또는 VCSEL)가 짧은 펄스를 쏘고, 옆의 포토다이오드가 반사광을 잰다. 가까울수록 반사광이 세다(대략 거리의 제곱에 반비례). 문제는 <span class="term">크로스토크</span>다. 빛의 일부가 물체에 닿기 전에 커버 유리 안에서 반사되거나 유리 속을 타고 곧장 수광부로 들어간다. 이 성분은 물체가 없어도 늘 있으므로, 유리에 지문·기름·보호 필름이 붙으면 더 커져 '항상 가까움' 오동작을 만든다.</p>
+    <div class="sim" id="sim-prox">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>근접 센서: 반사광, 크로스토크, 문턱</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-prox"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>물체 거리 <output id="px-d-out"></output></span><input type="range" id="px-d" min="2" max="150" value="60"></label>
+          <label class="ctrl"><span>물체 반사율 <output id="px-r-out"></output></span><input type="range" id="px-r" min="0.03" max="0.9" step="0.01" value="0.3"></label>
+          <label class="ctrl"><span>크로스토크(유리 오염) <output id="px-x-out"></output></span><input type="range" id="px-x" min="0" max="1" step="0.01" value="0.2"></label>
+          <label class="check"><input type="checkbox" id="px-cal" checked> 크로스토크 오프셋 보정</label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">수광 신호</span><span class="v" id="px-s">—</span></div>
+        <div class="stat"><span class="k">판정</span><span class="v" id="px-st">—</span></div>
+      </div>
+      <div class="sim-note">문턱은 히스테리시스를 둔다(가까움 진입 &gt; 해제). 해볼 것: 크로스토크를 1로 올리고 보정을 끄면 물체가 멀어도 '가까움'에 갇힌다. 반사율이 낮은 물체(검은 머리카락 ~3~5%)는 같은 거리에서도 신호가 작아 늦게 감지된다. 화면 아래(OLED 뒤)에 근접 센서를 숨기면 투과율이 낮아지고 화면 발광이 잡음으로 섞여, 화면 주사와 동기를 맞추는 등의 기법이 필요하다.</div>
+    </div>
+
+    <p><b>조도 센서</b>(ALS)는 사람 눈의 시감 곡선에 맞춘 필터를 단 포토다이오드로 주변 밝기(lux)를 잰다. 요즘은 R·G·B·투명(Clear)·IR 채널을 함께 재서 <b>색온도</b>까지 추정하고, 화면의 화이트 밸런스를 주변 조명에 맞춘다. 밤의 0.1 lux에서 한낮 직사광선 100,000 lux까지 10⁶ 배를 다뤄야 하므로 자동 이득 조절이 필수다. 화면 아래에 둔 조도 센서는 화면 자신의 빛을 함께 받기 때문에, 화면이 꺼진 짧은 순간(OLED 발광 펄스 사이)에 측정하거나 화면 내용을 빼 주는 보정을 한다.</p>
+    <div class="formula">$$L_{\text{display}} = L_{\min} + (L_{\max}-L_{\min})\cdot\left(\frac{\log_{10}(E/E_{\min})}{\log_{10}(E_{\max}/E_{\min})}\right)^{\gamma}$$
+      <div class="where">사람의 밝기 지각은 대략 로그(베버–페히너)이므로, 자동 밝기 곡선은 조도 \(E\)(lux)의 로그에 대해 그린다. 실제 곡선은 구간별 선형 보간으로 정의하고, 사용자가 밝기 슬라이더를 움직이면 그 점을 학습해 곡선을 고친다.</div>
+    </div>
+    <div class="sim" id="sim-als">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>자동 밝기 곡선</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-als"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>주변 조도 <output id="al-e-out"></output></span><input type="range" id="al-e" min="-1" max="5" step="0.01" value="2.5"></label>
+          <label class="ctrl"><span>곡선 지수 γ <output id="al-g-out"></output></span><input type="range" id="al-g" min="0.5" max="2.5" step="0.05" value="1.3"></label>
+          <label class="ctrl"><span>사용자 보정(밝게/어둡게) <output id="al-u-out"></output></span><input type="range" id="al-u" min="-0.5" max="0.5" step="0.01" value="0"></label>
+          <label class="ctrl"><span>최대 휘도(HBM) <output id="al-m-out"></output></span><input type="range" id="al-m" min="600" max="3000" step="50" value="1600"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">상황</span><span class="v" id="al-sc">—</span></div>
+        <div class="stat"><span class="k">화면 휘도</span><span class="v" id="al-l">—</span></div>
+        <div class="stat"><span class="k">디스플레이 전력(상대)</span><span class="v" id="al-p">—</span></div>
+      </div>
+      <div class="sim-note">OLED 전력은 휘도에 거의 비례하므로 자동 밝기 곡선은 배터리 수명 정책이기도 하다. 최대 휘도는 직사광선 아래에서만 잠깐 쓰고(고휘도 모드), 열이 오르면 제한된다(<a href="display.html">2장</a>, <a href="thermal.html">11장</a>). 해볼 것: γ를 키우면 실내 구간이 어두워지고 야외에서 급격히 밝아진다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 8 -->
+  <section id="fp">
+    <h2>지문 인식: 정전용량, 광학, 초음파</h2>
+    <p>지문의 융선(ridge)과 골(valley) 간격은 약 0.4~0.5 mm다. 이를 구분하려면 50 µm(500 dpi) 수준의 해상도가 필요하다. 세 방식은 '무엇으로 융선과 골의 차이를 보는가'가 다르다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 780 300" role="img" aria-label="정전용량식, 광학식, 초음파식 지문 센서 단면 비교">
+        <!-- capacitive -->
+        <g transform="translate(10,20)">
+          <text class="t" x="115" y="0" text-anchor="middle">① 정전용량식</text>
+          <path class="fp-ridge" d="M10 40 q20 -26 40 0 q20 -26 40 0 q20 -26 40 0 q20 -26 40 0 q20 -26 40 0 V20 H10z"/>
+          <text class="t-mono" x="115" y="14" text-anchor="middle">손가락(융선·골)</text>
+          <rect x="10" y="44" width="200" height="20" class="fp-glass"/><text class="t-mono" x="115" y="58" text-anchor="middle">보호층 (얇아야 함)</text>
+          <g>
+            <rect x="14" y="66" width="20" height="10" class="fp-sensor"/><rect x="40" y="66" width="20" height="10" class="fp-sensor"/><rect x="66" y="66" width="20" height="10" class="fp-sensor"/><rect x="92" y="66" width="20" height="10" class="fp-sensor"/><rect x="118" y="66" width="20" height="10" class="fp-sensor"/><rect x="144" y="66" width="20" height="10" class="fp-sensor"/><rect x="170" y="66" width="20" height="10" class="fp-sensor"/>
+          </g>
+          <text class="t-mono" x="115" y="94" text-anchor="middle">전극 배열(픽셀 ~50 µm)</text>
+          <text class="t-dim" x="0" y="130">융선은 전극에 가까워 C가 크고</text>
+          <text class="t-dim" x="0" y="148">골은 공기층 때문에 C가 작다.</text>
+          <text class="t-dim" x="0" y="176">+ 빠르고 저렴, 위조에 비교적 강함</text>
+          <text class="t-dim" x="0" y="194">− 두꺼운 유리를 못 뚫음 → 버튼·측면</text>
+          <text class="t-dim" x="0" y="212">   전원 키에 둔다</text>
+        </g>
+        <!-- optical -->
+        <g transform="translate(270,20)">
+          <text class="t" x="115" y="0" text-anchor="middle">② 광학식(화면 아래)</text>
+          <path class="fp-ridge" d="M10 40 q20 -26 40 0 q20 -26 40 0 q20 -26 40 0 q20 -26 40 0 q20 -26 40 0 V20 H10z"/>
+          <rect x="10" y="44" width="200" height="16" class="fp-glass"/><text class="t-mono" x="115" y="56" text-anchor="middle">커버 유리</text>
+          <rect x="10" y="62" width="200" height="14" class="fp-layer"/><text class="t-mono" x="115" y="73" text-anchor="middle">OLED (광원 겸 창)</text>
+          <rect x="10" y="78" width="200" height="12" class="fp-layer"/><text class="t-mono" x="115" y="88" text-anchor="middle">콜리메이터/렌즈</text>
+          <rect x="40" y="94" width="140" height="12" class="fp-sensor"/><text class="t-mono" x="110" y="120" text-anchor="middle">CMOS 이미지 센서</text>
+          <path d="M70 62 L60 44 M110 62 L100 44 M150 62 L140 44" stroke="var(--warn)" stroke-width="1.5" fill="none"/>
+          <path d="M60 44 L72 94 M100 44 L106 94 M140 44 L146 94" stroke="var(--warn)" stroke-width="1" stroke-dasharray="3 2" fill="none"/>
+          <text class="t-dim" x="0" y="150">화면 빛이 융선/골에서 다르게</text>
+          <text class="t-dim" x="0" y="168">반사(전반사 깨짐)되는 것을 찍는다.</text>
+          <text class="t-dim" x="0" y="194">+ 저렴, 화면 아래 배치</text>
+          <text class="t-dim" x="0" y="212">− 2D 영상이라 위조 대응 필요,</text>
+          <text class="t-dim" x="0" y="230">   젖은/건조한 손가락에 약함, 모듈 두께</text>
+        </g>
+        <!-- ultrasonic -->
+        <g transform="translate(530,20)">
+          <text class="t" x="115" y="0" text-anchor="middle">③ 초음파식(화면 아래)</text>
+          <path class="fp-ridge" d="M10 40 q20 -26 40 0 q20 -26 40 0 q20 -26 40 0 q20 -26 40 0 q20 -26 40 0 V20 H10z"/>
+          <rect x="10" y="44" width="200" height="16" class="fp-glass"/>
+          <rect x="10" y="62" width="200" height="14" class="fp-layer"/><text class="t-mono" x="115" y="73" text-anchor="middle">OLED</text>
+          <rect x="10" y="80" width="200" height="14" class="fp-sensor"/><text class="t-mono" x="115" y="91" text-anchor="middle">압전 박막 + TFT 수신 배열</text>
+          <path d="M50 78 q5 -8 10 0 t10 0 t10 0 M130 78 q5 -8 10 0 t10 0 t10 0" stroke="var(--accent)" stroke-width="1.5" fill="none"/>
+          <text class="t-dim" x="0" y="130">초음파 펄스가 융선(피부 접촉)에서는</text>
+          <text class="t-dim" x="0" y="148">흡수되고 골(공기)에서는 강하게</text>
+          <text class="t-dim" x="0" y="166">반사된다(음향 임피던스 차).</text>
+          <text class="t-dim" x="0" y="194">+ 젖은 손가락·오염에 강함, 깊이 정보</text>
+          <text class="t-dim" x="0" y="212">− 비쌈, 일부 보호 필름과 궁합 문제</text>
+        </g>
+      </svg>
+      <figcaption><b>그림 9-1.</b> 세 지문 센서의 단면(개략). 정전용량식은 전극과 피부 사이 거리, 광학식은 빛의 반사 차이, 초음파식은 음향 임피던스 차이로 융선과 골을 구분한다.</figcaption>
+    </figure>
+    <div class="table-wrap"><table>
+      <thead><tr><th>방식</th><th>위치</th><th>감지 면적</th><th>장점</th><th>약점</th></tr></thead>
+      <tbody>
+        <tr><td>정전용량</td><td>전원 키·홈 버튼·후면</td><td>~4×10 mm (측면) ~ 8×8 mm</td><td>빠름, 저전력, 저렴</td><td>보호층 두께 한계(수백 µm), 디자인 제약</td></tr>
+        <tr><td>광학</td><td>OLED 아래</td><td>~6×6~9 mm</td><td>화면 일체, 원가</td><td>2D 영상, 강한 햇빛·건조 손가락, 위조 대응</td></tr>
+        <tr><td>초음파</td><td>OLED 아래</td><td>~8×8 ~ 20×30 mm(대면적)</td><td>오염·물기에 강함, 표면 아래 정보</td><td>원가, 필름 궁합, 공정</td></tr>
+      </tbody>
+    </table></div>
+    <p>센서는 지문 '사진'을 저장하지 않는다. 융선이 끊기거나 갈라지는 <span class="term">특징점</span><span class="en">(minutiae)</span>의 위치·방향이나 신경망 특징 벡터를 <b>템플릿</b>으로 만들어, AP의 보안 영역(TEE)이나 별도 보안 칩에 암호화해 둔다. 앱은 '일치/불일치' 결과만 받는다.</p>
+  </section>
+
+  <!-- =============================================================== 9 -->
+  <section id="face">
+    <h2>얼굴 인식: 구조광과 ToF로 깊이를 잰다</h2>
+    <p>평범한 전면 카메라 사진만으로 하는 얼굴 인식은 사진·화면으로 속이기 쉽다. 그래서 보안 등급 얼굴 인식은 <b>3D 깊이</b>를 잰다. 대표적 방법이 두 가지다.</p>
+    <ul>
+      <li><b>구조광</b><span class="en">(structured light)</span>: 940 nm VCSEL 배열과 회절 광학 소자(DOE)로 얼굴에 수만 개의 점 무늬를 뿌리고, 옆에 떨어져 있는 IR 카메라로 찍는다. 점이 놓인 깊이에 따라 카메라에서 보이는 위치가 옆으로 밀린다(시차). 삼각측량으로 깊이를 계산한다.</li>
+      <li><b>ToF</b><span class="en">(Time-of-Flight)</span>: 변조된 IR 빛을 쏘고 돌아온 빛의 위상 지연(간접 ToF)이나 도착 시간(직접 ToF, SPAD)으로 거리를 잰다.</li>
+    </ul>
+    <div class="formula">$$Z = \frac{f\,B}{d},\qquad \delta Z \approx \frac{Z^2}{f\,B}\,\delta d\qquad\Big|\qquad Z_{\text{ToF}} = \frac{c\,\Delta\varphi}{4\pi f_m},\quad Z_{\text{max}} = \frac{c}{2 f_m}$$
+      <div class="where">\(f\): 카메라 초점거리(픽셀 단위), \(B\): 프로젝터–카메라 간격(기선, 폰에서는 1~2 cm 수준), \(d\): 시차(픽셀). 구조광의 깊이 오차는 거리의 <b>제곱</b>으로 커지므로 팔 길이(25~50 cm)에서 가장 잘 동작한다. ToF의 \(f_m\)은 변조 주파수(수십~수백 MHz), \(Z_{\max}\)는 위상이 한 바퀴 돌기 전 최대 거리.</div>
+    </div>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 230" role="img" aria-label="화면 상단의 얼굴 인식 모듈 배치">
+        <rect x="20" y="30" width="720" height="120" rx="40" class="f-surface" stroke="var(--border)" stroke-width="2"/>
+        <rect x="220" y="50" width="320" height="56" rx="28" fill="var(--text)" opacity=".85"/>
+        <g font-size="12">
+          <circle cx="262" cy="78" r="13" fill="var(--accent-2)"/><text class="t-mono" x="262" y="130" text-anchor="middle">도트 프로젝터</text>
+          <circle cx="318" cy="78" r="9" fill="var(--warn)"/><text class="t-mono" x="318" y="166" text-anchor="middle">플러드 조명</text>
+          <circle cx="380" cy="78" r="12" fill="var(--blue)"/><text class="t-mono" x="380" y="130" text-anchor="middle">전면 카메라</text>
+          <circle cx="440" cy="78" r="7" fill="var(--ok)"/><text class="t-mono" x="440" y="166" text-anchor="middle">근접·조도</text>
+          <circle cx="498" cy="78" r="13" fill="var(--accent)"/><text class="t-mono" x="498" y="130" text-anchor="middle">IR 카메라</text>
+        </g>
+        <line x1="262" y1="190" x2="498" y2="190" class="s-line"/><line x1="262" y1="182" x2="262" y2="198" class="s-line"/><line x1="498" y1="182" x2="498" y2="198" class="s-line"/>
+        <text class="t-acc" x="380" y="214" text-anchor="middle">기선 B (프로젝터–IR 카메라, 수 cm 이하)</text>
+        <text class="t-dim" x="40" y="182">화면 상단 아일랜드(개략)</text>
+      </svg>
+      <figcaption><b>그림 9-3.</b> 구조광 얼굴 인식 모듈의 전형적 배치(개략, 순서는 제품마다 다르다). 프로젝터와 IR 카메라 사이 거리(기선)가 길수록 깊이 정밀도가 오르지만, 그만큼 화면을 가리는 영역이 커진다. 플러드 조명은 어두운 곳에서 IR 얼굴 영상을 얻기 위한 균일 조명이다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-tri">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>구조광 삼각측량 vs ToF</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-tri"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>얼굴까지 거리 Z <output id="tr-z-out"></output></span><input type="range" id="tr-z" min="15" max="100" value="35"></label>
+          <label class="ctrl"><span>기선 B <output id="tr-b-out"></output></span><input type="range" id="tr-b" min="5" max="40" step="0.5" value="15"></label>
+          <label class="ctrl"><span>시차 측정 오차 δd <output id="tr-e-out"></output></span><input type="range" id="tr-e" min="0.05" max="1" step="0.05" value="0.2"></label>
+          <label class="ctrl"><span>ToF 위상 오차 <output id="tr-p-out"></output></span><input type="range" id="tr-p" min="0.1" max="3" step="0.1" value="1"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">시차 d</span><span class="v" id="tr-d">—</span></div>
+        <div class="stat"><span class="k">구조광 깊이 오차</span><span class="v" id="tr-ez">—</span></div>
+        <div class="stat"><span class="k">ToF(100 MHz) 깊이 오차</span><span class="v" id="tr-et">—</span></div>
+      </div>
+      <div class="sim-note">위: 위에서 본 기하. 프로젝터의 한 점(주황 광선)이 얼굴에 맞고, 기선 B만큼 떨어진 IR 카메라에서는 각도가 달라 보인다. 아래: 거리에 따른 깊이 오차(구조광은 Z²에 비례, 간접 ToF는 거리와 거의 무관하고 대신 신호 세기에 좌우). IR 카메라 초점거리 ≈ 600 픽셀 가정.</div>
+    </div>
+    <div class="callout"><strong>보안은 깊이만으로 끝나지 않는다</strong><p>3D 마스크 같은 정교한 위조를 막기 위해 IR 영상의 피부 반사 특성, 눈을 뜨고 화면을 보는지(주의 인식), 미세한 움직임 등 <b>생체 활성(liveness) 판별</b>을 함께 쓴다. 깊이 계산과 대조는 보안 영역에서 처리되고, 얼굴 템플릿은 기기 밖으로 나가지 않는 것이 원칙이다. 구조광 모듈(도트 프로젝터 + 플러드 조명 + IR 카메라)은 화면 상단 노치·아일랜드 공간을 차지하므로 화면 비율과 직접 충돌한다.</p></div>
+  </section>
+
+  <!-- =============================================================== 10 -->
+  <section id="far">
+    <h2>생체 인증의 성능: FAR, FRR, ROC</h2>
+    <p>생체 인증은 '같다/다르다'를 확률로 판단한다. 본인이 시도했을 때(genuine)와 타인이 시도했을 때(impostor)의 <b>유사도 점수 분포</b>가 겹치는 곳이 있고, 문턱을 어디에 두느냐에 따라 두 종류의 오류가 시소를 탄다.</p>
+    <ul>
+      <li><b>FAR</b><span class="en">(False Accept Rate)</span>: 타인을 본인으로 받아들이는 비율 — 보안 지표.</li>
+      <li><b>FRR</b><span class="en">(False Reject Rate)</span>: 본인을 거부하는 비율 — 편의 지표.</li>
+    </ul>
+    <p>제조사가 공개한 대표 수치로 보면 지문은 FAR 1/50,000, 3D 얼굴은 1/1,000,000 수준이다. 안드로이드는 결제 등에 쓸 수 있는 가장 강한 등급(Class 3)에 FAR 1/50,000 이하와 함께 위조 공격 수락률(SAR, <span class="en">Spoof Accept Rate</span>) 기준을 요구한다. FAR 1/50,000을 통계적으로 입증하려면 수십만 번의 타인 대조 시험이 필요하다.</p>
+    <div class="sim" id="sim-far">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>문턱 → FAR/FRR → ROC</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-far"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>판정 문턱 <output id="fa-t-out"></output></span><input type="range" id="fa-t" min="0" max="10" step="0.01" value="4.1"></label>
+          <label class="ctrl"><span>분리도 d′ (센서·알고리즘 품질) <output id="fa-d-out"></output></span><input type="range" id="fa-d" min="1" max="8" step="0.1" value="6"></label>
+          <label class="ctrl"><span>본인 점수 흩어짐(젖은 손 등) <output id="fa-s-out"></output></span><input type="range" id="fa-s" min="0.6" max="2" step="0.05" value="1"></label>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">FAR</span><span class="v" id="fa-far">—</span></div>
+        <div class="stat"><span class="k">FRR</span><span class="v" id="fa-frr">—</span></div>
+        <div class="stat"><span class="k">EER(같아지는 점)</span><span class="v" id="fa-eer">—</span></div>
+      </div>
+      <div class="sim-note">왼쪽: 점수 분포(회색 = 타인, 색 = 본인)와 문턱. 오른쪽: 문턱을 훑으며 그린 DET/ROC 곡선(로그 축)과 현재 점. 해볼 것: FAR을 1/50,000(2×10⁻⁵) 아래로 맞춘 뒤 '본인 점수 흩어짐'을 키워 보자. 보안을 유지하려면 FRR이 커져 '잘 안 열리는' 폰이 된다. 그래서 시도 횟수 제한(5회 실패 시 PIN 요구)과 템플릿 갱신을 함께 쓴다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 11 -->
+  <section id="hub">
+    <h2>센서 허브와 저전력 상시 감지</h2>
+    <p>만보기, 들어 올리면 화면 켜기, 활동 인식(걷기·차량), '헤이 ○○' 같은 음성 호출은 하루 종일 돌아야 한다. 이를 위해 AP를 깨우면 수백 mW가 들지만, 작은 마이크로컨트롤러 코어인 <span class="term">센서 허브</span><span class="en">(sensor hub, always-on processor)</span>가 대신하면 수 mW 이하로 된다. 더 나아가 IMU 칩 자체에 걸음 수 세기·제스처 인식·작은 결정 트리/신경망을 넣어 µA 단위로 처리하기도 한다. 센서는 FIFO에 데이터를 모아 두었다가 묶어서(batching) 넘겨 깨우는 횟수를 줄인다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 760 210" role="img" aria-label="센서 허브 구조">
+        <defs><marker id="se-ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--text-dim)"/></marker></defs>
+        <rect x="20" y="20" width="160" height="170" rx="10" class="f-elev" stroke="var(--border)"/>
+        <text class="t" x="100" y="44" text-anchor="middle">센서들</text>
+        <text class="t-dim" x="100" y="72" text-anchor="middle">IMU (+ FIFO, 내장 인식)</text>
+        <text class="t-dim" x="100" y="96" text-anchor="middle">지자기 · 기압</text>
+        <text class="t-dim" x="100" y="120" text-anchor="middle">근접 · 조도</text>
+        <text class="t-dim" x="100" y="144" text-anchor="middle">마이크(호출어)</text>
+        <text class="t-mono" x="100" y="172" text-anchor="middle">µW ~ 수백 µW</text>
+        <rect x="290" y="50" width="180" height="110" rx="10" class="f-acc-soft" stroke="var(--accent)"/>
+        <text class="t-acc" x="380" y="84" text-anchor="middle">센서 허브</text>
+        <text class="t-dim" x="380" y="108" text-anchor="middle">저전력 MCU/DSP 코어</text>
+        <text class="t-dim" x="380" y="128" text-anchor="middle">걸음·활동·제스처·융합</text>
+        <text class="t-mono" x="380" y="150" text-anchor="middle">~1 mW</text>
+        <rect x="580" y="50" width="160" height="110" rx="10" class="f-elev" stroke="var(--border)"/>
+        <text class="t" x="660" y="88" text-anchor="middle">AP (잠듦)</text>
+        <text class="t-dim" x="660" y="112" text-anchor="middle">필요할 때만 깨움</text>
+        <text class="t-mono" x="660" y="138" text-anchor="middle">깨어나면 ~100 mW+</text>
+        <path d="M182 105 H288" class="s-line" marker-end="url(#se-ar3)"/><text class="t-mono" x="235" y="96" text-anchor="middle">I²C / I3C / SPI</text>
+        <path d="M472 105 H578" class="s-line" marker-end="url(#se-ar3)"/><text class="t-mono" x="525" y="96" text-anchor="middle">인터럽트·배치</text>
+      </svg>
+      <figcaption><b>그림 9-4.</b> 상시 감지 구조. 센서가 FIFO에 데이터를 모으고, 센서 허브가 이를 처리하다가 의미 있는 사건(화면을 볼 것 같음, 호출어, 걸음 수 갱신 주기)이 생길 때만 AP를 깨운다.</figcaption>
+    </figure>
+    <div class="sim" id="sim-step">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>만보기: 걸음 검출과 전력</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-step"></canvas></div>
+        <div class="sim-controls">
+          <label class="ctrl"><span>보행 속도(걸음/분) <output id="st-c-out"></output></span><input type="range" id="st-c" min="0" max="180" value="110"></label>
+          <label class="ctrl"><span>검출 문턱 <output id="st-t-out"></output></span><input type="range" id="st-t" min="0.5" max="4" step="0.05" value="1.5"></label>
+          <label class="ctrl"><span>잡음(주머니 속 흔들림) <output id="st-n-out"></output></span><input type="range" id="st-n" min="0" max="2" step="0.05" value="0.4"></label>
+          <div class="ctrl"><span>처리 위치</span><div class="seg" id="st-w"><button data-value="ap">AP</button><button data-value="hub">센서 허브</button><button data-value="imu" class="on">IMU 내장</button></div></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">실제 걸음</span><span class="v" id="st-true">—</span></div>
+        <div class="stat"><span class="k">검출 걸음</span><span class="v" id="st-det">—</span></div>
+        <div class="stat"><span class="k">상시 감지 평균 전력</span><span class="v" id="st-p">—</span></div>
+        <div class="stat"><span class="k">하루(24 h) 배터리 소모</span><span class="v" id="st-b">—</span></div>
+      </div>
+      <div class="sim-note">가속도 크기 |a| − 1 g를 저역 통과한 신호에서, 문턱을 넘는 봉우리를 최소 간격 0.25초 조건으로 센다. 전력은 AP 상시 깨움 ~150 mW, 센서 허브 ~1.5 mW, IMU 내장 ~0.03 mW(가속도계 포함)로 가정, 배터리 18 Wh. 해볼 것: 걷지 않을 때(0 걸음/분) 잡음을 키우면 가짜 걸음이 생긴다. 문턱과 '연속 걸음 수 확인'이 이를 막는다.</div>
+    </div>
+  </section>
+
+  <!-- =============================================================== 12 -->
+  <section id="design">
+    <h2>설계 시 무엇이 중요한가</h2>
+    <p>센서 자체는 수백 원~수천 원짜리 작은 칩이지만, 폰 안의 어디에 어떻게 두느냐가 성능을 좌우한다. 가장 대표적인 예가 지자기 센서의 배치다. 자기장은 거리의 세제곱으로 약해지므로(쌍극자 \(B \propto m/r^3\)), 자석에서 수 mm만 떨어져도 영향이 크게 달라진다.</p>
+    <div class="sim" id="sim-place">
+      <div class="sim-head"><span class="sim-tag">SIMULATOR</span><h3>지자기 센서 배치: 자석에서 얼마나 떨어져야 하나</h3></div>
+      <div class="sim-body side">
+        <div class="sim-view"><canvas id="cv-place"></canvas></div>
+        <div class="sim-controls">
+          <label class="check"><input type="checkbox" id="pl-spk" checked> 스피커 재생 중(코일 전류)</label>
+          <label class="check"><input type="checkbox" id="pl-chg"> 무선 충전 중(코일 전류)</label>
+          <label class="check"><input type="checkbox" id="pl-case"> 자석 케이스·거치대 부착</label>
+          <div class="ctrl"><span>도움말</span><span style="font-size:13px">캔버스 위 초록 칩(M)을 끌어 옮겨 보자.</span></div>
+        </div>
+      </div>
+      <div class="sim-readout">
+        <div class="stat"><span class="k">고정 자석 오프셋(보정 가능)</span><span class="v" id="pl-st">—</span></div>
+        <div class="stat"><span class="k">변하는 간섭(보정 어려움)</span><span class="v" id="pl-dy">—</span></div>
+        <div class="stat"><span class="k">방위 오차(최악)</span><span class="v" id="pl-err">—</span></div>
+      </div>
+      <div class="sim-note">자석은 쌍극자로 근사한 교육용 모델이다. 고정 자석은 하드아이언 보정으로 지울 수 있지만, 그 크기가 센서 측정 범위(±1,000~5,000 µT 수준)에 가까워지면 포화된다. 코일 전류처럼 시간에 따라 변하는 성분은 보정할 수 없어, 수평 지자기(약 30 µT) 대비 비율이 그대로 방위 오차가 된다. 소프트웨어는 스피커·충전 상태를 알고 보정값을 바꾸기도 한다.</div>
+    </div>
+    <h3>배치 원칙</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>센서</th><th>어디에</th><th>피해야 할 것</th></tr></thead>
+      <tbody>
+        <tr><td>지자기</td><td>보드 위쪽 모서리 등 자석에서 먼 곳</td><td>스피커·수화부 자석, OIS 자석, 무선 충전 링 자석·코일, 큰 전류가 흐르는 전원선(PMIC·배터리 커넥터)</td></tr>
+        <tr><td>IMU(가속도·자이로)</td><td>보드 강성이 높은 곳, 가능하면 무게중심 근처</td><td>진동 모터(LRA)·스피커 진동, 보드 휨(나사 근처 응력), 큰 온도 변화(AP 바로 옆) — 바이어스 온도 드리프트</td></tr>
+        <tr><td>기압</td><td>외기와 통하는 작은 구멍·통로 근처</td><td>밀폐 공간(방수 실링 안쪽 응답 지연), 손가락이 막는 위치, 발열원</td></tr>
+        <tr><td>근접·조도</td><td>화면 상단(귀가 오는 곳)</td><td>화면 발광(화면 아래 배치 시), 유리 속 빛 누설(크로스토크) — 차광 잉크·격벽 필요</td></tr>
+        <tr><td>지문</td><td>엄지가 자연스럽게 닿는 화면 하단 1/3 또는 측면 키</td><td>화면 아래 배치 시 디스플레이 적층 두께, 보호 필름</td></tr>
+        <tr><td>얼굴(구조광)</td><td>화면 상단 중앙</td><td>화면 면적과의 충돌, 커버 유리의 IR 투과율·코팅</td></tr>
+      </tbody>
+    </table></div>
+    <h3>캘리브레이션, 전력, 보안</h3>
+    <ul>
+      <li><b>캘리브레이션</b>: IMU는 공장에서 오프셋·감도·축 정렬(직교 오차)을 온도별로 보정하고, 사용 중에는 정지 상태를 감지할 때마다 자이로 바이어스를 다시 잡는다. 보드에 납땜하면서 생기는 기계적 응력이 오프셋을 바꾸므로 '조립 후' 보정이 중요하다. 지자기는 사용 중 8자 보정과 자동 백그라운드 보정을 한다.</li>
+      <li><b>전력</b>: 상시 센서는 µA 단위 예산 안에서 돌아야 한다. 출력 데이터율(ODR), FIFO 배칭, 칩 내장 인식 기능으로 AP를 깨우는 횟수를 줄인다. 얼굴 인식의 IR 프로젝터는 순간 전류가 크므로 펄스 구동한다.</li>
+      <li><b>보안</b>: 생체 템플릿은 보안 영역에서만 처리하고, 센서–보안 영역 사이 통신은 암호화·인증한다(센서 바꿔치기 공격 방지). 모션 센서도 개인정보다. 가속도·자이로 신호로 타건이나 스피커 소리를 일부 추정하는 부채널 공격 연구가 있어, OS는 백그라운드 앱의 샘플링 속도를 제한한다.</li>
+      <li><b>상호작용</b>: 카메라의 OIS·EIS는 같은 자이로를 쓰거나 전용 자이로를 둔다(<a href="camera.html">8장</a>). 근접 센서는 SAR 백오프 판단에도 쓰인다(<a href="rf.html">7장</a>). 센서 자체에 대한 깊은 이야기는 자매편 <a href="https://sensorbook.euiyun.com/chapters/photodiode.html">SensorBook의 포토다이오드 장</a>을 참고하자.</li>
+    </ul>
+    <h3>흔한 실패 사례</h3>
+    <ul>
+      <li>자력계 바로 옆으로 충전 전류 배선이 지나가 충전 중 나침반이 돌아가는 문제.</li>
+      <li>보드 나사 체결 응력으로 가속도 오프셋이 변해 수평계가 1~2° 틀어지는 문제.</li>
+      <li>근접 센서 위 차광이 부족해 통화 중 화면이 꺼졌다 켜졌다 하거나, 귀에 대도 꺼지지 않아 볼로 터치되는 문제.</li>
+      <li>방수 실링으로 기압 센서 응답이 느려지거나, 물이 들어간 뒤 기압값이 틀어지는 문제.</li>
+    </ul>
+  </section>
+
+  <section class="keypoints" id="summary">
+    <h2>핵심 정리</h2>
+    <ol>
+      <li>MEMS 가속도계는 질량–스프링계의 변위(nm)를 차동 빗살 정전용량(fF~aF)으로 읽는다. 감도 ∝ 1/ω₀², 감쇠는 압착막 공기가 정한다.</li>
+      <li>MEMS 자이로는 구동 진동 중의 코리올리 힘(2Ω×v)을 감지하며, 동기 복조로 신호를 꺼낸다. 적분하면 바이어스 때문에 각도가 드리프트한다.</li>
+      <li>상보 필터는 자이로(단기)와 가속도(장기)를 시정수 τ = αΔt/(1−α)로 섞는다.</li>
+      <li>지자기 측정은 하드아이언(오프셋)과 소프트아이언(타원 찌그러짐)으로 왜곡되며, 여러 방향 샘플의 타원 맞춤으로 보정한다. 변하는 간섭은 보정이 어렵다.</li>
+      <li>기압은 1 m에 약 0.12 hPa 변해 층 구분이 가능하지만, 날씨로 인한 기압 변화 때문에 상대 고도에 강하다.</li>
+      <li>근접 센서는 IR 반사광과 크로스토크 보정·히스테리시스로, 자동 밝기는 조도의 로그에 대한 곡선으로 동작한다.</li>
+      <li>지문은 정전용량·광학·초음파, 얼굴은 구조광(Z = fB/d, 오차 ∝ Z²)과 ToF로 깊이를 잰다.</li>
+      <li>FAR과 FRR은 문턱에 대한 시소다. 센서 허브는 상시 감지를 µW~mW로, 배치는 자석·진동·열·빛 누설을 피하는 것이 핵심이다.</li>
+    </ol>
+  </section>
+
+  <section class="quiz-sec" id="quiz">
+    <h2>확인 퀴즈</h2>
+    <div class="quiz">
+      <div class="quiz-q"><p>1. MEMS 가속도계의 공진 주파수를 3 kHz에서 1.5 kHz로 낮추면 1 g에서의 질량 변위는?</p><div class="opts">
+        <button class="opt">절반이 된다</button><button class="opt">변하지 않는다</button><button class="opt">2배가 된다</button><button class="opt" data-correct>4배가 된다</button>
+      </div><div class="quiz-exp">x = a/ω₀². ω₀가 절반이면 변위는 4배. 대신 대역폭과 충격 내성이 줄어든다.</div></div>
+
+      <div class="quiz-q"><p>2. MEMS 자이로가 회전을 감지하는 물리 현상은?</p><div class="opts">
+        <button class="opt">회전하는 팽이의 세차 운동</button><button class="opt" data-correct>진동하는 질량에 작용하는 코리올리 힘</button><button class="opt">원심력에 의한 질량의 바깥쪽 이동</button><button class="opt">지구 자기장의 회전</button>
+      </div><div class="quiz-exp">구동 방향으로 진동하는 질량이 회전하면 F = −2mΩ×v의 힘으로 수직 방향으로 흔들린다.</div></div>
+
+      <div class="quiz-q"><p>3. 상보 필터에서 α를 1에 아주 가깝게(예: 0.9999) 두면 생기는 문제는?</p><div class="opts">
+        <button class="opt">가속도계 노이즈가 출력에 그대로 나온다</button><button class="opt" data-correct>자이로 바이어스가 거의 보정되지 않아 각도가 천천히 드리프트한다</button><button class="opt">응답이 느려져 빠른 회전을 놓친다</button><button class="opt">출력이 항상 0이 된다</button>
+      </div><div class="quiz-exp">τ가 매우 길어져 가속도계가 드리프트를 잡아 주는 힘이 약해진다.</div></div>
+
+      <div class="quiz-q"><p>4. 폰을 여러 방향으로 돌리며 모은 지자기 측정값이 원점에서 벗어난 '중심이 이동한 원'을 그린다. 원인은?</p><div class="opts">
+        <button class="opt" data-correct>폰에 고정된 자석에 의한 하드아이언 오프셋</button><button class="opt">지구 자기장 세기의 지역 차이</button><button class="opt">소프트아이언에 의한 축 찌그러짐</button><button class="opt">센서 백색 잡음</button>
+      </div><div class="quiz-exp">폰과 함께 도는 자석은 모든 방향에서 같은 벡터를 더하므로 중심을 옮긴다. 찌그러짐(타원)은 소프트아이언이다.</div></div>
+
+      <div class="quiz-q"><p>5. 기압계로 3층 차이(약 9 m)를 볼 때 기압 변화는 대략?</p><div class="opts">
+        <button class="opt">0.01 hPa</button><button class="opt" data-correct>1.1 hPa</button><button class="opt">11 hPa</button><button class="opt">110 hPa</button>
+      </div><div class="quiz-exp">해수면 근처에서 약 0.12 hPa/m × 9 m ≈ 1.1 hPa.</div></div>
+
+      <div class="quiz-q"><p>6. 구조광 얼굴 인식에서 거리가 2배가 되면 깊이 오차는(시차 오차 일정)?</p><div class="opts">
+        <button class="opt">변하지 않는다</button><button class="opt">2배</button><button class="opt" data-correct>4배</button><button class="opt">절반</button>
+      </div><div class="quiz-exp">δZ ≈ Z²/(fB)·δd. 기선이 짧은 폰에서는 팔 길이 거리에서만 정밀하다.</div></div>
+
+      <div class="quiz-q"><p>7. 생체 인증 문턱을 높여(더 엄격하게) FAR을 낮추면 일반적으로?</p><div class="opts">
+        <button class="opt">FRR도 함께 낮아진다</button><button class="opt" data-correct>FRR이 높아진다(본인이 더 자주 거부된다)</button><button class="opt">FRR은 변하지 않는다</button><button class="opt">EER이 낮아진다</button>
+      </div><div class="quiz-exp">두 분포가 겹치는 한 FAR과 FRR은 시소 관계다. EER은 문턱이 아니라 센서·알고리즘의 분리도로 정해진다.</div></div>
+
+      <div class="quiz-q"><p>8. 지자기 센서 배치에서 가장 피해야 할 위치는?</p><div class="opts">
+        <button class="opt">보드 위쪽 모서리</button><button class="opt">근접 센서 근처</button><button class="opt" data-correct>스피커 자석과 무선 충전 코일 바로 옆</button><button class="opt">기압 센서 옆</button>
+      </div><div class="quiz-exp">고정 자석은 큰 오프셋(포화 위험), 코일 전류는 보정할 수 없는 변동 간섭을 만든다.</div></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const TAU = Math.PI * 2, D2R = Math.PI / 180;
+  const log10 = Math.log10;
+  function rgbOf(c) {
+    c = (c || "").trim();
+    if (c[0] === "#") { if (c.length === 4) c = "#" + c[1] + c[1] + c[2] + c[2] + c[3] + c[3]; return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]; }
+    const m = c.match(/[\d.]+/g); return m ? m.slice(0, 3).map(Number) : [128, 128, 128];
+  }
+  const rgba = (c, a) => { const [r, g, b] = rgbOf(c); return `rgba(${r},${g},${b},${a})`; };
+  const FONT = () => getComputedStyle(document.body).getPropertyValue("--font");
+  const MONO = () => getComputedStyle(document.body).getPropertyValue("--mono");
+
+  /* 실제 기기 기울기(DeviceOrientation) 공용 */
+  const DEV = { beta: null, gamma: null, on: false };
+  function enableDevice(cb) {
+    const start = () => { if (DEV.on) { cb && cb(true); return; } DEV.on = true; window.addEventListener("deviceorientation", (e) => { if (e.beta != null) { DEV.beta = e.beta; DEV.gamma = e.gamma; } }); cb && cb(true); };
+    try {
+      if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") {
+        DeviceOrientationEvent.requestPermission().then((r) => (r === "granted" ? start() : cb && cb(false))).catch(() => cb && cb(false));
+      } else if (window.DeviceOrientationEvent) start();
+      else cb && cb(false);
+    } catch (e) { cb && cb(false); }
+  }
+
+  /* ================================================================ 1. 3D */
+  (function () {
+    const el = $("v3d-where");
+    if (!el || !window.THREE || !PB.phone3d) return;
+    const T = PB.three(el, { camera: [130, 150, 150], target: [0, 0, -15], fov: 35, minDistance: 70, maxDistance: 480 });
+    if (!T) return;
+    const THREE = T.THREE;
+    const P = PB.phone3d(T);
+    const card = $("where-card");
+    const ex = PB.range("where-ex", (v) => Math.round(v * 100) + "%", (v) => P.setExplode(v));
+    const part = PB.seg("where-part", (v) => { P.highlight(v); PB.stat("where-sel", P.byId[v].name); });
+    P.setExplode(ex()); P.highlight(part()); P.setXray(true);
+    PB.stat("where-sel", P.byId[part()].name);
+    $("where-xray").addEventListener("change", (e) => P.setXray(e.target.checked));
+    // 기기 좌표축 (x 오른쪽 = +x, y 위쪽 = −z, z 화면 밖 = +y)
+    const axes = new THREE.Group();
+    const o = new THREE.Vector3(0, 14, 0);
+    [[new THREE.Vector3(1, 0, 0), 0xe0443e, "x"], [new THREE.Vector3(0, 0, -1), 0x2da44e, "y"], [new THREE.Vector3(0, 1, 0), 0x2f6fe0, "z"]].forEach(([d, c, n]) => {
+      const a = new THREE.ArrowHelper(d, o, 42, c, 8, 5);
+      a.traverse((m) => { if (m.material) { m.material.depthTest = false; m.renderOrder = 20; } m.userData.noPick = true; });
+      axes.add(a);
+      const L = T.label(n, o.clone().add(d.clone().multiplyScalar(48)));
+      L.el.style.color = "#" + c.toString(16).padStart(6, "0");
+      axes.userData[n] = L;
+    });
+    T.scene.add(axes);
+    $("where-imu").addEventListener("change", (e) => { axes.visible = e.target.checked; ["x", "y", "z"].forEach((n) => axes.userData[n].setVisible(e.target.checked)); });
+    T.pick([P.group], (hit) => {
+      const pt = hit && P.partAt(hit.object);
+      if (!pt) { card.hidden = true; return; }
+      card.innerHTML = PB.partCardHTML(pt, ""); card.hidden = false;
+      card.querySelector(".x").addEventListener("click", () => (card.hidden = true));
+      if (pt.id === "frontcam" || pt.id === "boardBottom") part.set(pt.id); else { P.highlight(pt.id); PB.stat("where-sel", pt.name); }
+    });
+  })();
+
+  /* ================================================================ 2. 센서 지도 */
+  (function () {
+    const info = {
+      prox: ["근접 센서", "940 nm IR 펄스를 쏘고 반사광을 재 귀·얼굴이 가까운지 판단한다. 통화 중 화면·터치를 끄고, SAR 백오프 판단에도 쓰인다. 화면 위 베젤 또는 OLED 아래에 숨긴다.", "감지 거리 ~3~5 cm · 전류(평균) 수십 µA"],
+      als: ["조도·색온도 센서 (ALS)", "시감 필터를 단 포토다이오드와 RGB·Clear·IR 채널로 주변 밝기(lux)와 색온도(K)를 잰다. 자동 밝기와 화면 화이트 밸런스(트루 톤류)에 쓴다.", "범위 ~0.01~100,000+ lux · 화면 아래 배치 시 화면 빛 보정 필요"],
+      face: ["얼굴 인식 모듈", "도트 프로젝터(VCSEL + DOE), 플러드 조명, IR 카메라로 얼굴의 3D 깊이 지도를 얻는다. 또는 ToF 센서를 쓴다. 보급형은 전면 RGB 카메라 2D 인식(보안 등급 낮음)을 쓴다.", "940 nm · 수만 개 점 · 작동 거리 ~25~50 cm"],
+      fp: ["지문 센서", "화면 아래 광학식·초음파식, 또는 측면 전원 키 정전용량식. 템플릿은 보안 영역에 암호화 저장된다.", "해상도 ~500 dpi · 인식 시간 수백 ms"],
+      imu: ["6축 IMU (가속도 + 자이로)", "한 패키지에 3축 가속도계와 3축 자이로. 화면 회전, 걸음 수, 게임, 카메라 손떨림 보정(EIS/OIS), 낙하 감지, 차량 충돌 감지까지 쓴다.", "가속도 ±2~16 g · 자이로 ±125~2000 °/s · 수백 µA~1 mA"],
+      mag: ["지자기 센서 (자력계)", "3축 자기장을 재 나침반 방위를 구한다. 홀, AMR, TMR 소자 등이 쓰인다. 폰 속 자석에서 멀리 둬야 한다.", "범위 ±~1,000~5,000 µT · 분해능 ~0.1 µT"],
+      baro: ["기압 센서", "밀봉 공동 위 실리콘 박막의 휨을 피에조 저항으로 잰다. 고도·층 판단, GNSS 고도 보조, 날씨 추세에 쓴다.", "상대 정확도 ~±0.06 hPa(±0.5 m) · 수 µA"],
+      hall: ["홀 센서", "자기 커버(플립 케이스)의 닫힘, 폴더블 폰의 접힘 각도, 카메라 OIS·AF 렌즈 위치 검출에 쓴다. 자석의 자기장을 전압으로 바꾼다.", "디지털 스위치형 ~수 µA · 리니어형(위치 측정)"],
+      uwb: ["UWB (초광대역)", "6.5/8 GHz 대역에서 약 500 MHz 폭의 매우 짧은 펄스로 거리(비행 시간)와 방향(안테나 간 위상차, 도래각)을 잰다. 물건 찾기, 디지털 차 키, 기기 간 방향 공유에 쓴다.", "거리 정확도 ~10 cm · 안테나 2~3개(도래각)"],
+      hub: ["센서 허브 (상시 동작 프로세서)", "AP가 잠든 동안 센서를 읽어 걸음 수, 활동 인식, 들어 올림 감지, 음성 호출어 감지를 처리하는 저전력 코어. AP 안의 별도 저전력 섬이나 별도 MCU로 구현한다.", "상시 전력 ~1 mW 수준 · FIFO 배칭"],
+    };
+    const box = $("map-info");
+    const dots = [...document.querySelectorAll(".smap .dot")];
+    function sel(k) { dots.forEach((d) => d.classList.toggle("on", d.dataset.k === k)); const d = info[k]; box.innerHTML = `<b class="t">${d[0]}</b>${d[1]}<div class="kv">${d[2]}</div>`; }
+    dots.forEach((d) => { d.setAttribute("tabindex", "0"); d.addEventListener("click", () => sel(d.dataset.k)); d.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); sel(d.dataset.k); } }); });
+    sel("imu");
+  })();
+
+  /* ================================================================ 3. 가속도계 */
+  (function () {
+    const tilt = PB.range("acc-tilt", (v) => v + "°", () => {});
+    const zeta = PB.range("acc-z", (v) => v.toFixed(2), () => {});
+    const f0 = PB.range("acc-f", (v) => (v / 1000).toFixed(1) + " kHz", () => {});
+    let y = 0, vy = 0;
+    $("acc-tap").addEventListener("click", () => { vy += 9; });
+    $("acc-dev").addEventListener("change", (e) => { if (e.target.checked) enableDevice((ok) => { if (!ok) { e.target.checked = false; alert("이 기기·브라우저에서는 동작 센서를 쓸 수 없습니다."); } }); });
+    const EPS0A = 3.54e-19, G0 = 1.5e-6; // ε0·A (A ≈ 4e-8 m²), 간극
+    function aNow() {
+      let t = tilt();
+      if ($("acc-dev").checked && DEV.gamma != null) { t = PB.clamp(Math.round(DEV.gamma), -90, 90); if (t !== tilt()) tilt.set(t); }
+      return 9.81 * Math.sin(t * D2R);
+    }
+    const cv = PB.canvas($("cv-acc"), (ctx, w, h) => {
+      const P = PB.palette();
+      const cx = w / 2, cy = h / 2 - 6;
+      const mw = Math.min(170, w * 0.36), mh = 92;
+      const sc = Math.min(30, w * 0.06);
+      const dx = PB.clamp(y, -1.6, 1.6) * sc;
+      // 앵커·프레임
+      ctx.strokeStyle = P.border; ctx.lineWidth = 2; ctx.strokeRect(cx - mw / 2 - 90, cy - mh / 2 - 46, mw + 180, mh + 92); ctx.lineWidth = 1;
+      ctx.fillStyle = P.dim; ctx.font = "11px " + MONO(); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("고정 프레임(기판에 고정)", cx - mw / 2 - 90, cy - mh / 2 - 62);
+      // 스프링(좌우 앵커로)
+      const spring = (x0, x1, yy) => { ctx.beginPath(); ctx.moveTo(x0, yy); const n = 10; for (let i = 1; i < n; i++) ctx.lineTo(x0 + ((x1 - x0) * i) / n, yy + (i % 2 ? -7 : 7)); ctx.lineTo(x1, yy); ctx.stroke(); };
+      ctx.strokeStyle = P.text; ctx.lineWidth = 1.5;
+      const L = cx - mw / 2 - 90, R = cx + mw / 2 + 90;
+      spring(L, cx - mw / 2 + dx, cy - mh / 2 + 10); spring(cx + mw / 2 + dx, R, cy - mh / 2 + 10);
+      spring(L, cx - mw / 2 + dx, cy + mh / 2 - 10); spring(cx + mw / 2 + dx, R, cy + mh / 2 - 10);
+      ctx.lineWidth = 1;
+      // 질량 + 빗살
+      ctx.fillStyle = rgba(P.accent, 0.3); ctx.strokeStyle = P.accent; ctx.lineWidth = 2;
+      ctx.fillRect(cx - mw / 2 + dx, cy - mh / 2 + 22, mw, mh - 44); ctx.strokeRect(cx - mw / 2 + dx, cy - mh / 2 + 22, mw, mh - 44); ctx.lineWidth = 1;
+      ctx.fillStyle = P.text; ctx.font = "12px " + FONT(); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("검증 질량 m", cx + dx, cy);
+      const nF = 5, fx = (i) => cx - mw / 2 + 14 + (i * (mw - 28)) / (nF - 1);
+      for (let i = 0; i < nF; i++) {
+        // 질량 빗살(위/아래로)
+        ctx.fillStyle = P.accent;
+        ctx.fillRect(fx(i) + dx - 2, cy - mh / 2 - 26, 4, 48); ctx.fillRect(fx(i) + dx - 2, cy + mh / 2 - 22, 4, 48);
+        // 고정 전극 (왼쪽 = C1 주황, 오른쪽 = C2 파랑)
+        ctx.fillStyle = P.accent2; ctx.fillRect(fx(i) - 11, cy - mh / 2 - 44, 4, 46);
+        ctx.fillStyle = P.blue; ctx.fillRect(fx(i) + 7, cy - mh / 2 - 44, 4, 46);
+        ctx.fillStyle = P.accent2; ctx.fillRect(fx(i) - 11, cy + mh / 2 - 2, 4, 46);
+        ctx.fillStyle = P.blue; ctx.fillRect(fx(i) + 7, cy + mh / 2 - 2, 4, 46);
+      }
+      // 중력 화살표
+      const a = aNow();
+      ctx.strokeStyle = P.warn; ctx.fillStyle = P.warn; ctx.lineWidth = 2.5;
+      const ax = (a / 9.81) * 70;
+      if (Math.abs(ax) > 2) { ctx.beginPath(); ctx.moveTo(cx, h - 22); ctx.lineTo(cx + ax, h - 22); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx + ax, h - 22); ctx.lineTo(cx + ax - Math.sign(ax) * 8, h - 28); ctx.lineTo(cx + ax - Math.sign(ax) * 8, h - 16); ctx.fill(); }
+      ctx.lineWidth = 1; ctx.font = "12px " + FONT(); ctx.textAlign = "left";
+      ctx.fillText("g·sinθ", cx + Math.max(ax, 0) + 8, h - 22);
+      ctx.fillStyle = P.accent2; ctx.textAlign = "left"; ctx.fillText("C₁ 전극", 8, 16);
+      ctx.fillStyle = P.blue; ctx.fillText("C₂ 전극", 8, 32);
+    }, { aspect: 0.62, minHeight: 280, maxHeight: 360 });
+    PB.loop($("cv-acc"), (dt) => {
+      const ws = TAU * 1.3 * Math.sqrt(3000 / f0()); // 슬로 모션 공진
+      const target = (aNow() / 9.81) * Math.pow(3000 / f0(), 2);
+      const steps = 8, h = dt / steps;
+      for (let i = 0; i < steps; i++) { const acc = -2 * zeta() * ws * vy - ws * ws * (y - target); vy += acc * h; y += vy * h; }
+      const a = aNow();
+      const xs = a / Math.pow(TAU * f0(), 2); // 정적 변위(m)
+      const dC = (2 * EPS0A / (G0 * G0)) * xs;
+      PB.stat("acc-a", (a / 9.81).toFixed(3) + " g");
+      PB.stat("acc-x", (xs * 1e9).toFixed(1) + " nm");
+      PB.stat("acc-c", (dC * 1e15).toFixed(2) + " fF <small>(C₀ ≈ " + ((EPS0A / G0) * 1e15).toFixed(0) + " fF)</small>");
+      cv.redraw();
+    });
+  })();
+
+  /* ================================================================ 4. 자이로 */
+  (function () {
+    const W = PB.range("gy-w", (v) => v + " °/s", () => {});
+    const X = PB.range("gy-x", (v) => v.toFixed(1) + " µm", () => {});
+    let t = 0;
+    const trail = [];
+    const cv = PB.canvas($("cv-gyro"), (ctx, w, h) => {
+      const P = PB.palette();
+      const split = w > 520 ? w * 0.55 : w;
+      const cx = split / 2, cy = (w > 520 ? h : h * 0.62) / 2;
+      const sx = Math.min(split * 0.28, 120), sy = Math.min(cy * 0.6, 70);
+      const ph = t * TAU * 0.8;
+      const xd = (X() / 10) * Math.sin(ph);
+      const ys = (W() / 500) * (X() / 10) * Math.cos(ph) * 2 + ($("gy-q").checked ? 0.35 * Math.sin(ph) : 0);
+      trail.push([xd, ys]); if (trail.length > 90) trail.shift();
+      // 축
+      ctx.strokeStyle = P.grid; ctx.beginPath(); ctx.moveTo(cx - sx - 40, cy); ctx.lineTo(cx + sx + 40, cy); ctx.moveTo(cx, cy - sy - 40); ctx.lineTo(cx, cy + sy + 40); ctx.stroke();
+      ctx.fillStyle = P.dim; ctx.font = "12px " + FONT(); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("구동(drive) →", cx + sx + 4, cy + 6);
+      ctx.save(); ctx.translate(cx + 6, cy - sy - 34); ctx.fillText("감지(sense) ↑", 0, 0); ctx.restore();
+      // 궤적
+      ctx.strokeStyle = rgba(P.accent2, 0.6); ctx.lineWidth = 1.5; ctx.beginPath();
+      trail.forEach(([a, b], i) => { const px = cx + a * sx, py = cy - b * sy; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke(); ctx.lineWidth = 1;
+      // 질량
+      const mx = cx + xd * sx, my = cy - ys * sy;
+      ctx.fillStyle = rgba(P.accent, 0.35); ctx.strokeStyle = P.accent; ctx.lineWidth = 2;
+      ctx.fillRect(mx - 28, my - 20, 56, 40); ctx.strokeRect(mx - 28, my - 20, 56, 40); ctx.lineWidth = 1;
+      ctx.fillStyle = P.text; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("m", mx, my);
+      // 회전 표시
+      ctx.strokeStyle = P.warn; ctx.lineWidth = 2; const r = 18, ox = 30, oy = 30;
+      ctx.beginPath(); ctx.arc(ox, oy, r, 0.3, TAU - 0.6, W() < 0); ctx.stroke(); ctx.lineWidth = 1;
+      ctx.fillStyle = P.warn; ctx.textAlign = "left"; ctx.fillText("Ω " + W() + " °/s", ox + r + 8, oy);
+      // 오른쪽(또는 아래): 신호
+      const box = w > 520 ? { x: split + 40, y: 20, w: w - split - 58, h: h - 70 } : { x: 48, y: h * 0.62 + 8, w: w - 64, h: h * 0.38 - 44 };
+      const N = 160, sense = [], drive = [];
+      for (let i = 0; i < N; i++) { const p = ph - (N - i) * 0.06; sense.push([i, (W() / 500) * (X() / 10) * Math.cos(p) * 2 + ($("gy-q").checked ? 0.35 * Math.sin(p) : 0)]); drive.push([i, (X() / 10) * Math.sin(p)]); }
+      PB.chart(ctx, box, { x: [0, N - 1], y: [-2.2, 2.2], xFmt: () => "", yFmt: () => "", series: [{ data: drive, color: P.faint, width: 1.2 }, { data: sense, color: P.accent2, width: 2 }] });
+      ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.font = "11px " + FONT();
+      ctx.fillText("회색: 구동 변위 · 주황: 감지 변위", box.x, box.y + box.h + 6);
+    }, { aspect: 0.55, minHeight: 300, maxHeight: 360 });
+    PB.loop($("cv-gyro"), (dt) => {
+      t += dt;
+      const fd = 25e3, ac = 2 * Math.abs(W() * D2R) * TAU * fd * X() * 1e-6;
+      PB.stat("gy-ac", ac.toFixed(2) + " m/s² <small>(" + (ac / 9.81).toFixed(2) + " g)</small>");
+      PB.stat("gy-out", W() + " °/s" + ($("gy-q").checked ? " <small>(직교 성분은 복조로 제거)</small>" : ""));
+      cv.redraw();
+    });
+  })();
+
+  /* ================================================================ 5. 센서 퓨전 */
+  (function () {
+    const al = PB.range("fu-a", (v) => v.toFixed(3), () => tauStat());
+    const bi = PB.range("fu-b", (v) => v.toFixed(1) + " °/s", () => {});
+    const no = PB.range("fu-n", (v) => "±" + v.toFixed(1) + "°", () => {});
+    const DT = 0.01, WIN = 20 / DT;
+    let tt = 0, prev = 0, thG = 0, thF = 0, init = false;
+    const S = { tr: [], gy: [], ac: [], fu: [] };
+    function tauStat() { const a = al(); PB.stat("fu-tau", ((a * DT) / (1 - a)).toFixed(2) + " s"); }
+    tauStat();
+    function reset() { thG = thF = prev = truth(tt); S.tr = []; S.gy = []; S.ac = []; S.fu = []; }
+    $("fu-reset").addEventListener("click", reset);
+    $("fu-dev").addEventListener("change", (e) => { if (e.target.checked) enableDevice((ok) => { if (!ok) { e.target.checked = false; alert("이 기기·브라우저에서는 동작 센서를 쓸 수 없습니다."); } else reset(); }); });
+    function truth(t) {
+      if ($("fu-dev").checked && DEV.beta != null) return PB.clamp(DEV.beta, -90, 90);
+      return 30 * Math.sin(t * 0.45) + 12 * Math.sin(t * 1.7 + 1) + (Math.sin(t * 0.13) > 0.6 ? 15 : 0);
+    }
+    function step() {
+      tt += DT;
+      const th = truth(tt);
+      const rate = (th - prev) / DT; prev = th;
+      const gyro = rate + bi() + 0.5 * PB.randn();
+      const acc = th + no() * PB.randn() + (Math.random() < 0.01 ? (Math.random() - 0.5) * 6 * no() : 0);
+      thG += gyro * DT;
+      const a = al();
+      thF = a * (thF + gyro * DT) + (1 - a) * acc;
+      S.tr.push(th); S.gy.push(thG); S.ac.push(acc); S.fu.push(thF);
+      if (S.tr.length > WIN) { S.tr.shift(); S.gy.shift(); S.ac.shift(); S.fu.shift(); }
+    }
+    reset();
+    for (let i = 0; i < 1500; i++) step();
+    const cv = PB.canvas($("cv-fuse"), (ctx, w) => {
+      const P = PB.palette();
+      const n = S.tr.length, st = Math.max(1, Math.floor(n / Math.max(300, w)));
+      const pick = (arr) => { const o = []; for (let i = 0; i < n; i += st) o.push([(i - n) * DT, arr[i]]); return o; };
+      PB.chart(ctx, null, {
+        x: [-20, 0], y: [-90, 90], xLabel: "시간 (초, 0 = 지금)", yLabel: "기울기 (°)",
+        series: [{ data: pick(S.ac), color: rgba(P.faint, 0.7), width: 1 }, { data: pick(S.gy), color: P.warn, width: 1.8 }, { data: pick(S.tr), color: P.text, width: 1.6, dash: [5, 4] }, { data: pick(S.fu), color: P.accent, width: 2.4 }],
+      });
+      if (n) {
+        let e2 = 0; for (let i = 0; i < n; i++) e2 += (S.fu[i] - S.tr[i]) ** 2;
+        PB.stat("fu-eg", (S.gy[n - 1] - S.tr[n - 1]).toFixed(1) + "°");
+        PB.stat("fu-ef", Math.sqrt(e2 / n).toFixed(2) + "°");
+      }
+    }, { aspect: 0.55, minHeight: 260, maxHeight: 340 });
+    let acc = 0;
+    PB.loop($("cv-fuse"), (dt) => { acc += dt; let k = 0; while (acc >= DT && k < 20) { step(); acc -= DT; k++; } cv.redraw(); });
+  })();
+
+  /* ================================================================ 6. 지자기 보정 */
+  (function () {
+    const hR = PB.range("mg-h", (v) => v + " µT", () => draw());
+    const sR = PB.range("mg-s", (v) => v.toFixed(2), () => draw());
+    const aR = PB.range("mg-a", (v) => v + "°", () => draw());
+    const B0 = 30;
+    let pts = [], cal = null, collecting = false, sweep = 0;
+    function model(hd) {
+      const s = sR(), th = 30 * D2R, c = Math.cos(th), sn = Math.sin(th);
+      // S = R(th) diag(1+s, 1-s) R(-th)
+      const a = (1 + s) * c * c + (1 - s) * sn * sn, b = ((1 + s) - (1 - s)) * c * sn, d = (1 + s) * sn * sn + (1 - s) * c * c;
+      const bx = B0 * Math.cos(-hd * D2R), by = B0 * Math.sin(-hd * D2R);
+      const h = hR();
+      return [a * bx + b * by + h * Math.cos(40 * D2R), b * bx + d * by + h * Math.sin(40 * D2R)];
+    }
+    const head = (v) => ((-Math.atan2(v[1], v[0]) / D2R) % 360 + 360) % 360;
+    function applyCal(v) { if (!cal) return v; const u = [v[0] - cal.c[0], v[1] - cal.c[1]]; return [cal.W[0] * u[0] + cal.W[1] * u[1], cal.W[2] * u[0] + cal.W[3] * u[1]]; }
+    function fit() {
+      // Ax²+Bxy+Cy²+Dx+Ey = 1 최소제곱
+      const M = [...Array(5)].map(() => Array(6).fill(0));
+      pts.forEach(([x, y]) => { const r = [x * x, x * y, y * y, x, y]; for (let i = 0; i < 5; i++) { for (let j = 0; j < 5; j++) M[i][j] += r[i] * r[j]; M[i][5] += r[i]; } });
+      for (let i = 0; i < 5; i++) { let p = i; for (let k = i + 1; k < 5; k++) if (Math.abs(M[k][i]) > Math.abs(M[p][i])) p = k; [M[i], M[p]] = [M[p], M[i]]; for (let k = 0; k < 5; k++) if (k !== i) { const f = M[k][i] / M[i][i]; for (let j = i; j < 6; j++) M[k][j] -= f * M[i][j]; } }
+      const [A, Bq, C, D, E] = M.map((r, i) => r[5] / r[i]);
+      const det = 4 * A * C - Bq * Bq;
+      const cx = (Bq * E - 2 * C * D) / det, cy = (Bq * D - 2 * A * E) / det;
+      const k = 1 + (A * cx * cx + Bq * cx * cy + C * cy * cy);
+      const q11 = A / k, q12 = Bq / 2 / k, q22 = C / k;
+      // sqrtm (대칭 2×2)
+      const tr = q11 + q22, dt = q11 * q22 - q12 * q12, s = Math.sqrt(dt), t = Math.sqrt(tr + 2 * s);
+      const W = [(q11 + s) / t * B0, q12 / t * B0, q12 / t * B0, (q22 + s) / t * B0];
+      cal = { c: [cx, cy], W };
+    }
+    $("mg-cal").addEventListener("click", () => { pts = []; cal = null; collecting = true; sweep = 0; loop.start(); });
+    $("mg-clr").addEventListener("click", () => { cal = null; pts = []; draw(); });
+    const cv = PB.canvas($("cv-mag"), (ctx, w, h) => {
+      const P = PB.palette();
+      const cx = w / 2, cy = h / 2, sc = Math.min(w, h) / 2 / 110;
+      const X = (v) => cx + v * sc, Y = (v) => cy - v * sc;
+      ctx.strokeStyle = P.grid;
+      for (let g = -100; g <= 100; g += 20) { ctx.beginPath(); ctx.moveTo(X(g), Y(-105)); ctx.lineTo(X(g), Y(105)); ctx.moveTo(X(-105), Y(g)); ctx.lineTo(X(105), Y(g)); ctx.stroke(); }
+      ctx.strokeStyle = P.axis; ctx.beginPath(); ctx.moveTo(X(-105), cy); ctx.lineTo(X(105), cy); ctx.moveTo(cx, Y(-105)); ctx.lineTo(cx, Y(105)); ctx.stroke();
+      ctx.fillStyle = P.dim; ctx.font = "11px " + MONO(); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("Bx (µT)", X(70), cy + 4); ctx.fillText("By", cx + 4, Y(104));
+      // 참 원
+      ctx.strokeStyle = P.ok; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, B0 * sc, 0, TAU); ctx.stroke(); ctx.lineWidth = 1;
+      // 원시 궤적(모델 타원)
+      ctx.strokeStyle = rgba(P.dim, 0.6); ctx.setLineDash([4, 3]); ctx.beginPath();
+      for (let a = 0; a <= 360; a += 4) { const v = model(a); a ? ctx.lineTo(X(v[0]), Y(v[1])) : ctx.moveTo(X(v[0]), Y(v[1])); } ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = rgba(P.dim, 0.75); pts.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(X(x), Y(y), 2.2, 0, TAU); ctx.fill(); });
+      if (cal) { ctx.fillStyle = rgba(P.accent, 0.8); pts.forEach((p) => { const v = applyCal(p); ctx.beginPath(); ctx.arc(X(v[0]), Y(v[1]), 2, 0, TAU); ctx.fill(); }); ctx.strokeStyle = P.accent2; ctx.beginPath(); ctx.moveTo(X(cal.c[0]) - 6, Y(cal.c[1])); ctx.lineTo(X(cal.c[0]) + 6, Y(cal.c[1])); ctx.moveTo(X(cal.c[0]), Y(cal.c[1]) - 6); ctx.lineTo(X(cal.c[0]), Y(cal.c[1]) + 6); ctx.stroke(); }
+      // 현재 측정 벡터
+      const raw = model(aR()), cv2 = applyCal(raw);
+      ctx.strokeStyle = P.text; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(X(raw[0]), Y(raw[1])); ctx.stroke();
+      if (cal) { ctx.strokeStyle = P.accent; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(X(cv2[0]), Y(cv2[1])); ctx.stroke(); }
+      ctx.lineWidth = 1;
+      if (collecting) { ctx.fillStyle = P.accent2; ctx.font = "13px " + FONT(); ctx.textAlign = "left"; ctx.fillText("8자 보정 중… 샘플 " + pts.length, 10, 10); }
+      const err = (a, b) => { let d = ((a - b) % 360 + 540) % 360 - 180; return d; };
+      const hr = head(raw), hc = head(cv2);
+      PB.stat("mg-raw", hr.toFixed(0) + "° <small>(오차 " + err(hr, aR()).toFixed(0) + "°)</small>");
+      PB.stat("mg-cal-v", cal ? hc.toFixed(0) + "° <small>(오차 " + err(hc, aR()).toFixed(1) + "°)</small>" : "보정 전");
+      PB.stat("mg-off", cal ? "(" + cal.c[0].toFixed(1) + ", " + cal.c[1].toFixed(1) + ") µT" : "—");
+    }, { aspect: 0.75, minHeight: 300, maxHeight: 420 });
+    function draw() { if (!collecting) cv.redraw(); }
+    const loop = PB.loop($("cv-mag"), (dt) => {
+      if (!collecting) { loop.stop(); return; }
+      for (let i = 0; i < 2; i++) {
+        sweep += 7 + Math.random() * 6;
+        const v = model(sweep + 20 * Math.sin(sweep * 0.05));
+        pts.push([v[0] + PB.randn() * 0.8, v[1] + PB.randn() * 0.8]);
+      }
+      if (pts.length >= 120) { collecting = false; fit(); }
+      cv.redraw();
+    });
+    loop.stop();
+  })();
+
+  /* ================================================================ 7. 기압계 */
+  (function () {
+    const fl = PB.range("ba-f", (v) => v + "층", () => {});
+    const nz = PB.range("ba-n", (v) => v.toFixed(3) + " hPa", () => {});
+    const wx = PB.range("ba-w", (v) => (v > 0 ? "+" : "") + v.toFixed(1) + " hPa/h", () => {});
+    const P0 = 1013.25, DT = 0.25, WIN = 180 / DT;
+    const pOf = (h) => P0 * Math.pow(1 - h / 44330, 5.255);
+    const hOf = (p) => 44330 * (1 - Math.pow(p / P0, 1 / 5.255));
+    let h = 30, drift = 0, ema = null;
+    const S = { h: [], est: [], p: [] };
+    function step() {
+      const tgt = 30 + 3 * (fl() - 1);
+      const v = PB.clamp(tgt - h, -2.5 * DT, 2.5 * DT); h += v;
+      drift += (wx() / 3600) * DT * 20; // 20배 빨리 감기
+      const p = pOf(h) + drift + nz() * PB.randn();
+      ema = ema == null ? p : $("ba-avg").checked ? ema + (p - ema) * (DT / 1) : p;
+      S.h.push(h); S.est.push(hOf(ema)); S.p.push(p);
+      if (S.h.length > WIN) { S.h.shift(); S.est.shift(); S.p.shift(); }
+    }
+    for (let i = 0; i < 500; i++) step();
+    const cv = PB.canvas($("cv-baro"), (ctx, w, hh) => {
+      const P = PB.palette();
+      const n = S.h.length;
+      const pick = (arr) => arr.map((v, i) => [(i - n) * DT, v]);
+      const ymax = 30 + 3 * 20;
+      const c = PB.chart(ctx, { x: 58, y: 14, w: w - 76 - 46, h: hh - 60 }, {
+        x: [-180, 0], y: [20, ymax + 4], xLabel: "시간 (초, 빨리 감기)", yLabel: "고도 (m)",
+        hlines: [{ y: 30 + 3 * (fl() - 1), color: P.dim }],
+        series: [{ data: pick(S.est), color: P.accent, width: 1.6 }, { data: pick(S.h), color: P.text, width: 1.8, dash: [5, 4] }],
+      });
+      // 오른쪽 축: 기압
+      ctx.fillStyle = P.dim; ctx.font = "10px " + MONO(); ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      [30, 45, 60, 75, 90].forEach((hm) => ctx.fillText(pOf(hm).toFixed(1), c.box.x + c.box.w + 4, c.Y(hm)));
+      ctx.textBaseline = "top"; ctx.fillText("hPa", c.box.x + c.box.w + 4, 2);
+      const e = S.est[n - 1];
+      PB.stat("ba-p", S.p[n - 1].toFixed(2) + " hPa");
+      PB.stat("ba-h", e.toFixed(1) + " m <small>(실제 " + S.h[n - 1].toFixed(1) + ")</small>");
+      const f = Math.round((e - 30) / 3) + 1, ft = Math.round((S.h[n - 1] - 30) / 3) + 1;
+      PB.stat("ba-fl", (f === ft ? "" : '<span style="color:var(--bad)">') + f + "층" + (f === ft ? "" : "</span>"));
+    }, { aspect: 0.55, minHeight: 260, maxHeight: 340 });
+    let acc = 0;
+    PB.loop($("cv-baro"), (dt) => { acc += dt * 4; let k = 0; while (acc >= DT && k < 50) { step(); acc -= DT; k++; } cv.redraw(); });
+  })();
+
+  /* ================================================================ 8. 근접 */
+  (function () {
+    const d = PB.range("px-d", (v) => v + " mm", () => cv.redraw());
+    const r = PB.range("px-r", (v) => Math.round(v * 100) + "%", () => cv.redraw());
+    const x = PB.range("px-x", (v) => Math.round(v * 100) + "%", () => cv.redraw());
+    $("px-cal").addEventListener("change", () => cv.redraw());
+    const K = 2.04e6, X0 = 600, NEAR = 400, FAR = 250, FS = 1023;
+    let near = false;
+    const cv = PB.canvas($("cv-prox"), (ctx, w, h) => {
+      const P = PB.palette();
+      const sig = r() * K / Math.pow(d() + 5, 2), xt = x() * X0;
+      const raw = Math.min(FS, sig + xt + 8);
+      const val = Math.max(0, $("px-cal").checked ? raw - Math.min(x(), 0.6) * X0 : raw);
+      if (!near && val > NEAR) near = true; else if (near && val < FAR) near = false;
+      // 왼쪽: 단면
+      const lw = w > 480 ? w * 0.58 : w, gy = h - 70;
+      ctx.fillStyle = rgba(P.accent, 0.15); ctx.fillRect(10, gy - 14, lw - 20, 14);
+      ctx.fillStyle = P.dim; ctx.font = "11px " + FONT(); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("커버 유리", 14, gy + 2);
+      const ledX = lw * 0.35, pdX = lw * 0.6;
+      ctx.fillStyle = P.bad; ctx.fillRect(ledX - 10, gy + 2, 20, 12); ctx.fillStyle = P.text; ctx.fillText("IR LED", ledX - 18, gy + 18);
+      ctx.fillStyle = P.blue; ctx.fillRect(pdX - 10, gy + 2, 20, 12); ctx.fillStyle = P.text; ctx.fillText("수광 PD", pdX - 20, gy + 18);
+      ctx.fillStyle = P.border; ctx.fillRect((ledX + pdX) / 2 - 2, gy, 4, 18);
+      // 물체
+      const maxD = 150, oy = gy - 14 - (d() / maxD) * (gy - 40);
+      ctx.fillStyle = rgba(P.warn, 0.25 + r() * 0.6); ctx.fillRect(lw * 0.15, oy - 12, lw * 0.7, 12);
+      ctx.fillStyle = P.text; ctx.fillText("물체(귀·얼굴) " + d() + " mm", lw * 0.15, oy - 28);
+      // 광선
+      ctx.strokeStyle = rgba(P.bad, 0.7); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ledX, gy); ctx.lineTo((ledX + pdX) / 2, oy); ctx.lineTo(pdX, gy); ctx.stroke();
+      if (x() > 0.02) { ctx.strokeStyle = rgba(P.warn, 0.4 + x() * 0.6); ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ledX, gy); ctx.lineTo((ledX + pdX) / 2, gy - 12); ctx.lineTo(pdX, gy); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = P.warn; ctx.fillText("크로스토크", (ledX + pdX) / 2 + 12, gy - 30); }
+      ctx.lineWidth = 1;
+      // 오른쪽: 막대
+      const bx = w > 480 ? lw + 30 : w - 70, bw = 34, by = 20, bh = h - 60;
+      ctx.strokeStyle = P.border; ctx.strokeRect(bx, by, bw, bh);
+      const Y = (v) => by + bh - (v / FS) * bh;
+      ctx.fillStyle = near ? P.accent2 : P.accent; ctx.fillRect(bx + 1, Y(val), bw - 2, by + bh - Y(val));
+      ctx.strokeStyle = P.bad; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(bx - 6, Y(NEAR)); ctx.lineTo(bx + bw + 6, Y(NEAR)); ctx.stroke();
+      ctx.strokeStyle = P.ok; ctx.beginPath(); ctx.moveTo(bx - 6, Y(FAR)); ctx.lineTo(bx + bw + 6, Y(FAR)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = "10px " + MONO(); ctx.textAlign = "left"; ctx.textBaseline = "middle";
+      if (w > 480) { ctx.fillStyle = P.bad; ctx.fillText("가까움 진입", bx + bw + 8, Y(NEAR)); ctx.fillStyle = P.ok; ctx.fillText("해제", bx + bw + 8, Y(FAR)); }
+      ctx.fillStyle = P.dim; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText("카운트", bx + bw / 2, by + bh + 6);
+      PB.stat("px-s", Math.round(val) + " <small>/ " + FS + (raw >= FS ? " 포화" : "") + "</small>");
+      PB.stat("px-st", near ? '<span style="color:var(--accent-2)">가까움 → 화면 끔</span>' : "멀리 → 화면 켬");
+    }, { aspect: 0.55, minHeight: 280, maxHeight: 340 });
+  })();
+
+  /* ================================================================ 9. 자동 밝기 */
+  (function () {
+    const e = PB.range("al-e", (v) => { const x = Math.pow(10, v); return (x < 10 ? x.toFixed(1) : PB.fmt(x, 3)) + " lux"; }, () => cv.redraw());
+    const g = PB.range("al-g", (v) => v.toFixed(2), () => cv.redraw());
+    const u = PB.range("al-u", (v) => (v > 0 ? "+" : "") + Math.round(v * 100) + "%", () => cv.redraw());
+    const m = PB.range("al-m", (v) => v + " nit", () => cv.redraw());
+    const Lmin = 2, Emin = -1, Emax = 5;
+    function L(le) {
+      const t = PB.clamp((le - Emin) / (Emax - Emin), 0, 1);
+      const base = Math.pow(t, g());
+      const k = PB.clamp(base * (1 + u() * (1 - base) * 1.6), 0, 1);
+      // 일반 최대 ~600 nit, 그 위는 고휘도 모드(조도 > 1만 lux)
+      const normMax = Math.min(600, m());
+      let v = Lmin + (normMax - Lmin) * k;
+      if (le > 4) v = Math.max(v, normMax + (m() - normMax) * PB.clamp((le - 4) / 1, 0, 1));
+      return v;
+    }
+    const scenes = [[-1, "달밤 야외"], [0.5, "어두운 침실"], [1.7, "거실 조명"], [2.6, "사무실"], [3.4, "흐린 날 야외"], [4.3, "맑은 날 그늘"], [4.8, "한낮 직사광선"]];
+    const cv = PB.canvas($("cv-als"), (ctx) => {
+      const P = PB.palette();
+      const data = []; for (let le = -1; le <= 5; le += 0.02) data.push([Math.pow(10, le), L(le)]);
+      const cur = e();
+      PB.chart(ctx, null, {
+        x: [0.1, 1e5], y: [0, 3000], logX: true, xLabel: "주변 조도 (lux, 로그)", yLabel: "화면 휘도 (nit)",
+        xFmt: (v) => (v >= 1000 ? v / 1000 + "k" : String(v)),
+        series: [{ data, color: P.accent, width: 2.5 }],
+        points: [{ x: Math.pow(10, cur), y: L(cur), color: P.accent2, r: 6 }],
+        vlines: [{ x: 1e4, color: P.faint, label: "고휘도 모드 구간" }],
+      });
+      let sc = scenes[0][1]; scenes.forEach(([v, n]) => { if (cur >= v - 0.4) sc = n; });
+      PB.stat("al-sc", sc);
+      PB.stat("al-l", L(cur).toFixed(0) + " nit");
+      PB.stat("al-p", Math.round((100 * L(cur)) / 3000) + "% <small>(3,000 nit 대비)</small>");
+    }, { aspect: 0.55, minHeight: 250, maxHeight: 330 });
+  })();
+
+  /* ================================================================ 10. 삼각측량 */
+  (function () {
+    const zR = PB.range("tr-z", (v) => v + " cm", () => cv.redraw());
+    const bR = PB.range("tr-b", (v) => v.toFixed(1) + " mm", () => cv.redraw());
+    const eR = PB.range("tr-e", (v) => v.toFixed(2) + " px", () => cv.redraw());
+    const pR = PB.range("tr-p", (v) => v.toFixed(1) + "°", () => cv.redraw());
+    const F = 600;
+    const errSL = (zmm) => (zmm * zmm * eR()) / (F * bR());
+    const errTOF = (zmm) => ((3e8 * (pR() * D2R)) / (4 * Math.PI * 100e6)) * 1000 * (zmm / 350);
+    const cv = PB.canvas($("cv-tri"), (ctx, w, h) => {
+      const P = PB.palette();
+      const Z = zR() * 10, B = bR();
+      // 위: 기하 (가로 = 깊이 방향을 세로로)
+      const th = h * 0.48, top = 10;
+      const sx = (w - 40) / 1050, oy = top + th - 16; // 1px = mm 축척 (세로)
+      const scZ = (th - 40) / 1000;
+      const px = w * 0.3, cxm = px + B * 3; // 기선은 3배 과장
+      ctx.fillStyle = P.surface; ctx.fillRect(px - 30, oy, cxm - px + 60, 10);
+      ctx.fillStyle = P.accent2; ctx.fillRect(px - 5, oy - 4, 10, 6);
+      ctx.fillStyle = P.blue; ctx.fillRect(cxm - 5, oy - 4, 10, 6);
+      ctx.font = "11px " + FONT(); ctx.textBaseline = "top"; ctx.textAlign = "center";
+      ctx.fillStyle = P.accent2; ctx.fillText("도트 프로젝터", px - 20, oy + 12);
+      ctx.fillStyle = P.blue; ctx.fillText("IR 카메라", cxm + 24, oy + 12);
+      const fyy = oy - Z * scZ;
+      ctx.strokeStyle = P.warn; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(px - 70, fyy); ctx.quadraticCurveTo(px + 20, fyy - 12, px + 110, fyy); ctx.stroke(); ctx.lineWidth = 1;
+      ctx.fillStyle = P.text; ctx.textAlign = "left"; ctx.fillText("얼굴 Z = " + zR() + " cm", px + 116, fyy - 6);
+      const hitX = px + 10;
+      ctx.strokeStyle = P.accent2; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(px, oy - 4); ctx.lineTo(hitX, fyy); ctx.stroke();
+      ctx.strokeStyle = P.blue; ctx.beginPath(); ctx.moveTo(hitX, fyy); ctx.lineTo(cxm, oy - 4); ctx.stroke(); ctx.lineWidth = 1;
+      ctx.fillStyle = P.dim; ctx.textAlign = "left"; ctx.fillText("기선 B (그림은 3배 과장)", cxm + 60, oy - 8);
+      // 아래: 오차 곡선
+      const box = { x: 58, y: th + 22, w: w - 76, h: h - th - 22 - 44 };
+      const sl = [], tf = [];
+      for (let z = 150; z <= 1000; z += 10) { sl.push([z / 10, errSL(z)]); tf.push([z / 10, errTOF(z)]); }
+      PB.chart(ctx, box, { x: [15, 100], y: [0.1, 100], logY: true, xLabel: "거리 (cm)", yLabel: "깊이 오차 (mm)", series: [{ data: sl, color: P.accent2, width: 2.2 }, { data: tf, color: P.blue, width: 2.2, dash: [6, 4] }], vlines: [{ x: zR(), color: P.dim }] });
+      ctx.font = "11px " + FONT(); ctx.textAlign = "right"; ctx.textBaseline = "top";
+      ctx.fillStyle = P.accent2; ctx.fillText("구조광 ∝ Z²", box.x + box.w - 6, box.y + 4);
+      ctx.fillStyle = P.blue; ctx.fillText("간접 ToF", box.x + box.w - 6, box.y + 20);
+      PB.stat("tr-d", ((F * B) / Z).toFixed(1) + " px");
+      PB.stat("tr-ez", errSL(Z).toFixed(2) + " mm");
+      PB.stat("tr-et", errTOF(Z).toFixed(2) + " mm");
+    }, { aspect: 0.75, minHeight: 380, maxHeight: 480 });
+  })();
+
+  /* ================================================================ 11. FAR/FRR */
+  (function () {
+    const tR = PB.range("fa-t", (v) => v.toFixed(2), () => cv.redraw());
+    const dR = PB.range("fa-d", (v) => v.toFixed(1), () => cv.redraw());
+    const sR = PB.range("fa-s", (v) => v.toFixed(2), () => cv.redraw());
+    function erfc(x) { const z = Math.abs(x), t = 1 / (1 + 0.5 * z); const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 + t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277))))))))); return x >= 0 ? r : 2 - r; }
+    const Q = (x) => 0.5 * erfc(x / Math.SQRT2);
+    const FAR = (t) => Q(t), FRR = (t) => 1 - Q((t - dR()) / sR());
+    const fmtR = (p) => (p < 1e-9 ? "< 1e-9" : p >= 0.01 ? (p * 100).toFixed(1) + "%" : "1/" + PB.fmt(1 / p, 3));
+    const cv = PB.canvas($("cv-far"), (ctx, w, h) => {
+      const P = PB.palette();
+      const side = w >= 520;
+      const b1 = side ? { x: 46, y: 14, w: w * 0.5 - 60, h: h - 60 } : { x: 46, y: 14, w: w - 64, h: h * 0.42 - 30 };
+      const b2 = side ? { x: w * 0.5 + 50, y: 14, w: w * 0.5 - 68, h: h - 60 } : { x: 58, y: h * 0.42 + 26, w: w - 76, h: h * 0.58 - 72 };
+      const g = (x, m, s) => Math.exp(-0.5 * ((x - m) / s) ** 2) / (s * Math.sqrt(TAU));
+      const imp = [], gen = [];
+      for (let x = -4; x <= 12; x += 0.05) { imp.push([x, g(x, 0, 1)]); gen.push([x, g(x, dR(), sR())]); }
+      const t = tR();
+      ctx.save(); ctx.fillStyle = P.dim; ctx.font = "12px " + FONT(); ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("FRR ↑", b2.x + 6, b2.y + b2.h - 18); ctx.restore();
+      PB.chart(ctx, b1, { x: [-4, 12], y: [0, 0.45], xLabel: "유사도 점수", yFmt: () => "", series: [{ data: imp, color: P.dim, width: 2, fill: rgba(P.dim, 0.15) }, { data: gen, color: P.accent, width: 2, fill: rgba(P.accent, 0.15) }], vlines: [{ x: t, color: P.accent2, label: "문턱", dash: [] }] });
+      const det = [];
+      for (let tt = -3; tt <= 13; tt += 0.02) { const a = FAR(tt), r = FRR(tt); if (a > 1e-8 && r > 1e-5) det.push([a, r]); }
+      const fa = FAR(t), fr = FRR(t);
+      PB.chart(ctx, b2, { x: [1e-8, 1], y: [1e-4, 1], logX: true, logY: true, xLabel: "FAR (로그)", xFmt: (v) => "1e" + Math.round(log10(v)), yFmt: (v) => (v >= 0.01 ? v * 100 + "%" : "1e" + Math.round(log10(v))), series: [{ data: det, color: P.accent, width: 2.4 }], vlines: [{ x: 2e-5, color: P.bad, label: "1/50,000" }], points: [{ x: PB.clamp(fa, 1.01e-8, 1), y: PB.clamp(fr, 1.01e-4, 1), color: P.accent2, r: 6 }] });
+      // EER
+      let lo = -3, hi = 13; for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; FAR(m) > FRR(m) ? (lo = m) : (hi = m); }
+      PB.stat("fa-far", fmtR(fa));
+      PB.stat("fa-frr", fmtR(fr));
+      PB.stat("fa-eer", fmtR(FAR(lo)));
+    }, { aspect: 0.5, minHeight: 300, maxHeight: 360 });
+    // 좁은 화면에서는 세로로 쌓기 위해 높이를 키운다
+    const fix = () => { const narrow = cv.canvas.parentElement.clientWidth < 520; const want = narrow ? 520 : null; if (want && cv.h !== want) { cv.canvas.style.height = want + "px"; const dpr = cv.dpr || 1; cv.canvas.height = Math.round(want * dpr); cv.h = want; cv.redraw(); } };
+    if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(fix)).observe(cv.canvas.parentElement);
+    fix();
+  })();
+
+  /* ================================================================ 12. 만보기 */
+  (function () {
+    const cad = PB.range("st-c", (v) => v + " 보/분", () => resetCount());
+    const th = PB.range("st-t", (v) => v.toFixed(2) + " m/s²", () => resetCount());
+    const nz = PB.range("st-n", (v) => v.toFixed(2) + " m/s²", () => resetCount());
+    const where = PB.seg("st-w", () => power());
+    const DT = 0.02, WIN = 8 / DT;
+    let t = 0, phase = 0, lp = 0, last = -1, prev = 0, rising = false, trueSteps = 0, det = 0, peaks = [];
+    const sig = [], filt = [];
+    function resetCount() { trueSteps = 0; det = 0; }
+    function power() {
+      const p = { ap: 150, hub: 1.5, imu: 0.03 }[where()];
+      PB.stat("st-p", p >= 1 ? p + " mW" : (p * 1000).toFixed(0) + " µW");
+      const pct = (p * 24) / 18000 * 100;
+      PB.stat("st-b", (pct >= 1 ? pct.toFixed(0) : pct.toFixed(3)) + "%");
+    }
+    power();
+    function step() {
+      t += DT;
+      const f = cad() / 60;
+      const ph0 = phase; phase += f * DT;
+      if (Math.floor(phase) > Math.floor(ph0) && f > 0) trueSteps++;
+      const walk = f > 0 ? 3.2 * Math.sin(TAU * phase) + 1.0 * Math.sin(2 * TAU * phase + 0.6) : 0;
+      const a = walk + nz() * PB.randn() * 1.6;
+      lp += (a - lp) * 0.35;
+      if (lp > th() && lp < prev && rising && t - last > 0.25) { det++; last = t; peaks.push(t); }
+      rising = lp > prev; prev = lp;
+      sig.push(a); filt.push(lp);
+      if (sig.length > WIN) { sig.shift(); filt.shift(); }
+      while (peaks.length && peaks[0] < t - 8) peaks.shift();
+    }
+    for (let i = 0; i < 420; i++) step();
+    resetCount();
+    const cv = PB.canvas($("cv-step"), (ctx, w) => {
+      const P = PB.palette();
+      const n = sig.length;
+      const pick = (arr) => arr.map((v, i) => [(i - n) * DT, v]);
+      PB.chart(ctx, null, {
+        x: [-8, 0], y: [-6, 6], xLabel: "시간 (초)", yLabel: "|a| − 1 g (m/s²)",
+        hlines: [{ y: th(), color: P.accent2, label: "문턱" }],
+        series: [{ data: pick(sig), color: rgba(P.faint, 0.8), width: 1 }, { data: pick(filt), color: P.accent, width: 2.2 }],
+        points: peaks.map((pt) => ({ x: pt - t, y: th() + 0.6, color: P.accent2, r: 4 })),
+      });
+      PB.stat("st-true", trueSteps + " 보");
+      PB.stat("st-det", det + " 보" + (trueSteps ? " <small>(" + ((100 * det) / trueSteps).toFixed(0) + "%)</small>" : ""));
+    }, { aspect: 0.5, minHeight: 240, maxHeight: 320 });
+    let acc = 0;
+    PB.loop($("cv-step"), (dt) => { acc += dt; let k = 0; while (acc >= DT && k < 10) { step(); acc -= DT; k++; } cv.redraw(); });
+  })();
+
+  /* ================================================================ 13. 자력계 배치 */
+  (function () {
+    const PW = 71.5, PL = 147;
+    const ring = (cx, cy, r, n, m) => { const o = []; for (let i = 0; i < n; i++) o.push([cx + r * Math.cos((TAU * i) / n), cy + r * Math.sin((TAU * i) / n), m / n]); return o; };
+    const STATIC = [[0, 70, 3e5, "수화부"], [-18, -66, 1e6, "스피커"], [20, 56, 2e5, "OIS"]].map((a) => ({ x: a[0], y: a[1], m: a[2], name: a[3] }));
+    const RINGM = ring(0, -5, 23, 12, 1.5e6);
+    let mx = -26, my = 30, drag = false;
+    ["pl-spk", "pl-chg", "pl-case"].forEach((id) => $(id).addEventListener("change", () => cv.redraw()));
+    const Bm = (px, py, sx, sy, m) => { const r = Math.max(3, Math.hypot(px - sx, py - sy)); return m / (r * r * r); };
+    function fields(px, py) {
+      let st = 0; STATIC.forEach((s) => (st += Bm(px, py, s.x, s.y, s.m))); RINGM.forEach((s) => (st += Bm(px, py, s[0], s[1], s[2])));
+      let dy = 0;
+      if ($("pl-spk").checked) dy += Bm(px, py, -18, -66, 3e4);
+      if ($("pl-chg").checked) dy += Bm(px, py, 0, -5, 1.35e6);
+      if ($("pl-case").checked) ring(0, -5, 23, 12, 3e6).forEach((s) => (dy += Bm(px, py, s[0], s[1], s[2])));
+      return { st, dy };
+    }
+    let geo = null;
+    const off = document.createElement("canvas"), octx = off.getContext("2d");
+    const cv = PB.canvas($("cv-place"), (ctx, w, h) => {
+      const P = PB.palette();
+      const sc = Math.min((h - 30) / PL, (w - 40) / PW);
+      const ox = w / 2, oy = h / 2;
+      const X = (x) => ox + x * sc, Y = (y) => oy - y * sc;
+      geo = { X, Y, sc, ox, oy };
+      // 히트맵 (정적 + 동적)
+      const gw = 36, gh = 74; off.width = gw; off.height = gh;
+      const img = octx.createImageData(gw, gh), c1 = rgbOf(P.bg), c2 = rgbOf(P.bad);
+      for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
+        const x = -PW / 2 + ((i + 0.5) * PW) / gw, y = PL / 2 - ((j + 0.5) * PL) / gh;
+        const f = fields(x, y), b = f.st + f.dy;
+        const t = PB.clamp((log10(b + 1) - 1) / 2.6, 0, 1);
+        const o = (j * gw + i) * 4;
+        for (let k = 0; k < 3; k++) img.data[o + k] = c1[k] + (c2[k] - c1[k]) * t * 0.75;
+        img.data[o + 3] = 255;
+      }
+      octx.putImageData(img, 0, 0);
+      ctx.save(); ctx.beginPath(); ctx.roundRect ? ctx.roundRect(X(-PW / 2), Y(PL / 2), PW * sc, PL * sc, 10 * sc) : ctx.rect(X(-PW / 2), Y(PL / 2), PW * sc, PL * sc); ctx.clip();
+      ctx.imageSmoothingEnabled = true; ctx.drawImage(off, X(-PW / 2), Y(PL / 2), PW * sc, PL * sc); ctx.restore();
+      ctx.strokeStyle = P.axis; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(X(-PW / 2), Y(PL / 2), PW * sc, PL * sc, 10 * sc) : ctx.rect(X(-PW / 2), Y(PL / 2), PW * sc, PL * sc); ctx.stroke(); ctx.lineWidth = 1;
+      ctx.font = "11px " + FONT(); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      STATIC.forEach((s) => { ctx.fillStyle = P.text; ctx.beginPath(); ctx.arc(X(s.x), Y(s.y), 5, 0, TAU); ctx.fill(); ctx.fillText(s.name, X(s.x), Y(s.y) + (s.y > 0 ? 14 : -14)); });
+      ctx.strokeStyle = P.dim; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(X(0), Y(-5), 23 * sc, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = P.text; ctx.fillText("충전 정렬 자석", X(0), Y(-5));
+      // 센서 칩
+      ctx.fillStyle = P.ok; ctx.fillRect(X(mx) - 9, Y(my) - 9, 18, 18); ctx.fillStyle = "#fff"; ctx.font = "bold 11px " + FONT(); ctx.fillText("M", X(mx), Y(my) + 1);
+      ctx.fillStyle = P.dim; ctx.font = "11px " + FONT(); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.fillText("붉을수록 자기장이 세다(로그)", 6, 4);
+      const f = fields(mx, my);
+      const err = Math.atan(f.dy / 30) / D2R;
+      PB.stat("pl-st", f.st.toFixed(0) + " µT" + (f.st > 2000 ? ' <small style="color:var(--bad)">포화 위험</small>' : ""));
+      PB.stat("pl-dy", f.dy.toFixed(1) + " µT");
+      PB.stat("pl-err", (err > 10 ? '<span style="color:var(--bad)">' : "<span>") + "±" + err.toFixed(1) + "°</span>");
+    }, { aspect: 0.8, minHeight: 360, maxHeight: 460 });
+    const el = cv.canvas;
+    el.style.touchAction = "none"; el.style.cursor = "grab";
+    const toMM = (e) => { const r = el.getBoundingClientRect(); return [(e.clientX - r.left - geo.ox) / geo.sc, -(e.clientY - r.top - geo.oy) / geo.sc]; };
+    el.addEventListener("pointerdown", (e) => { const [x, y] = toMM(e); if (Math.hypot(x - mx, y - my) < 14 / geo.sc + 4) { drag = true; el.setPointerCapture(e.pointerId); } else { mx = PB.clamp(x, -PW / 2 + 4, PW / 2 - 4); my = PB.clamp(y, -PL / 2 + 4, PL / 2 - 4); cv.redraw(); } });
+    el.addEventListener("pointermove", (e) => { if (!drag) return; const [x, y] = toMM(e); mx = PB.clamp(x, -PW / 2 + 4, PW / 2 - 4); my = PB.clamp(y, -PL / 2 + 4, PL / 2 - 4); cv.redraw(); });
+    el.addEventListener("pointerup", () => (drag = false));
+  })();
+})();
+</script>
+</body>
+</html>
