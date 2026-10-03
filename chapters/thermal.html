@@ -90,10 +90,10 @@
       <svg viewBox="0 0 720 280" role="img" aria-label="폰 단면의 열 경로">
         <defs><marker id="th-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--bad)"/></marker></defs>
         <rect x="40" y="70" width="640" height="10" class="f-acc-soft"/><text x="690" y="66" class="t-mono" text-anchor="end">커버 글라스 + OLED (화면)</text>
-        <rect x="40" y="84" width="420" height="7" class="th-cu"/><text x="250" y="104" class="t-mono" text-anchor="middle" fill="var(--text)">베이퍼 챔버 (~0.4 mm)</text>
+        <rect x="40" y="84" width="420" height="7" class="th-cu"/><text x="250" y="104" class="t-mono" text-anchor="middle" style="fill:var(--text)">베이퍼 챔버 (~0.4 mm)</text>
         <rect x="40" y="110" width="640" height="10" class="f-surface"/><text x="600" y="132" class="t-mono">프레임 미드플레이트</text>
         <rect x="80" y="140" width="300" height="10" fill="var(--ok)" opacity=".55"/><text x="230" y="168" class="t-mono" text-anchor="middle">메인보드</text>
-        <rect x="190" y="124" width="60" height="16" class="th-hot"/><text x="220" y="136" class="t-mono" text-anchor="middle" fill="#fff">AP</text>
+        <rect x="190" y="124" width="60" height="16" class="th-hot"/><text x="220" y="136" class="t-mono" text-anchor="middle" style="fill:#fff">AP</text>
         <rect x="290" y="128" width="40" height="12" class="th-warm"/><text x="310" y="138" class="t-mono" text-anchor="middle">PA</text>
         <rect x="420" y="140" width="240" height="40" rx="4" class="f-elev"/><text x="540" y="165" class="t" text-anchor="middle">배터리</text>
         <rect x="40" y="196" width="640" height="5" fill="var(--text-faint)"/><text x="360" y="214" class="t-mono" text-anchor="middle">그래파이트 시트</text>
@@ -253,7 +253,7 @@
         <rect x="40" y="50" width="640" height="100" rx="10" class="th-cu"/>
         <rect x="52" y="62" width="616" height="76" rx="6" fill="var(--canvas-bg)"/>
         <rect x="52" y="62" width="616" height="12" class="th-wick"/><rect x="52" y="126" width="616" height="12" class="th-wick"/>
-        <rect x="300" y="152" width="120" height="22" class="th-hot"/><text x="360" y="168" class="t-mono" text-anchor="middle" fill="#fff">AP (열원)</text>
+        <rect x="300" y="152" width="120" height="22" class="th-hot"/><text x="360" y="168" class="t-mono" text-anchor="middle" style="fill:#fff">AP (열원)</text>
         <path d="M360 120 C 300 100, 200 100, 110 92" class="th-flow" marker-end="url(#th-ar)"/>
         <path d="M360 120 C 420 100, 520 100, 610 92" class="th-flow" marker-end="url(#th-ar)"/>
         <path d="M90 132 H330" stroke="var(--accent-2)" stroke-width="2.4" fill="none" marker-end="url(#th-ar2)"/>
@@ -434,6 +434,26 @@
     <h2>설계 시 무엇이 중요한가</h2>
     <h3>1. 열원을 흩어 놓고, 손에서 멀리</h3>
     <p>AP·PA·충전 IC가 한곳에 모이면 핫스팟이 겹친다. 2D 시뮬레이터에서 셋을 모았을 때를 떠올리자. 그래서 충전 IC는 하단 서브보드나 배터리 반대편에, PA는 안테나 근처의 다른 모서리에 둔다. AP는 대개 폰 위쪽 1/3, 카메라 근처에 놓인다. 세로로 쥘 때 손바닥은 아래쪽 절반을 감싸고, 가로로 게임할 때는 양 끝을 쥔다. AP가 위쪽 가운데에 있으면 어느 자세에서도 손가락이 가장 뜨거운 곳을 피한다. 반대로 위쪽에는 카메라가 있어서, 카메라 센서가 AP 열을 함께 받는다.</p>
+    <figure class="diagram">
+      <svg viewBox="0 0 720 230" role="img" aria-label="파지 자세와 AP 위치">
+        <rect x="40" y="40" width="80" height="164" rx="12" class="f-surface"/>
+        <rect x="58" y="62" width="44" height="34" rx="5" class="th-hot"/><text x="80" y="84" class="t-mono" text-anchor="middle" style="fill:#fff">AP</text>
+        <circle cx="56" cy="54" r="6" fill="var(--text-dim)" opacity=".6"/>
+        <path d="M30 130 Q20 190 60 214 L120 214 Q138 180 130 130" fill="var(--warn)" fill-opacity=".22" stroke="var(--warn)" stroke-dasharray="4 3"/>
+        <text x="80" y="226" class="t-mono" text-anchor="middle">세로: 손바닥이 아래 절반</text>
+        <rect x="240" y="78" width="200" height="98" rx="12" class="f-surface"/>
+        <rect x="262" y="104" width="40" height="46" rx="5" class="th-hot"/><text x="282" y="131" class="t-mono" text-anchor="middle" style="fill:#fff">AP</text>
+        <path d="M228 80 H276 V176 H228 Z" fill="var(--warn)" fill-opacity=".22" stroke="var(--warn)" stroke-dasharray="4 3"/>
+        <path d="M404 80 H452 V176 H404 Z" fill="var(--warn)" fill-opacity=".22" stroke="var(--warn)" stroke-dasharray="4 3"/>
+        <text x="340" y="206" class="t-mono" text-anchor="middle">가로 게임: 양 끝을 쥠 → AP가 손가락 아래로!</text>
+        <text x="500" y="70" class="t">AP 위치 선택의 딜레마</text>
+        <text x="500" y="98" class="t-dim">· 위쪽 가운데: 세로 파지에 유리</text>
+        <text x="500" y="122" class="t-dim">· 하지만 카메라 바로 옆 → 센서 가열</text>
+        <text x="500" y="146" class="t-dim">· 가로 파지 땐 왼손 쪽 끝에 가까움</text>
+        <text x="500" y="170" class="t-dim">· 해법: 넓은 VC로 손 쪽 온도 평준화</text>
+      </svg>
+      <figcaption><b>그림 11-4.</b> 손 파지 영역(주황 점선)과 AP 위치. 한 위치가 모든 자세에서 최선일 수는 없다. 2D 시뮬레이터의 '손 파지 영역'으로 직접 확인해 보자.</figcaption>
+    </figure>
     <h3>2. VC 면적과 두께: 공간과의 거래</h3>
     <p>VC 면적이 넓을수록 균일도 η가 올라가 지속 전력이 늘지만, 그만큼 무게와 원가가 늘고 배터리·카메라와 겹친다. 두께는 0.3~0.5 mm 남짓인데, 얇게 하면 증기 공간이 좁아져 유효 열전도도가 떨어진다. 화면 뒤에 VC를 붙이면 디스플레이에 열이 많이 가서 화면 쪽 표면이 먼저 한계에 닿는다. 프레임 재질도 중요하다. 티타늄 프레임은 열전도도(~7~20 W/m·K)가 알루미늄(~150~200)보다 훨씬 낮아, 같은 디자인이면 측면으로의 확산이 줄어든다(<a href="mechanical.html">12장</a>).</p>
     <h3>3. 카메라 센서는 열에 민감하다</h3>

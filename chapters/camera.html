@@ -496,7 +496,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
 /* ============================================================ 1. 폰 속 위치 */
 (function () {
   const el = document.getElementById("v-where");
-  const T = PB.three(el, { camera: [-120, -150, -170], target: [0, 0, -20], fov: 35, minDistance: 80, maxDistance: 480 });
+  const T = PB.three(el, { camera: [-140, -165, -205], target: [0, -5, -15], fov: 35, minDistance: 80, maxDistance: 480 });
   if (!T) return;
   const P = PB.phone3d(T);
   const card = document.getElementById("where-card");
@@ -517,12 +517,12 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
 /* ============================================================ 2. 모듈 3D */
 (function () {
   const el = document.getElementById("v-mod");
-  const T = PB.three(el, { camera: [42, 30, 58], target: [0, 12, 0], fov: 40, minDistance: 20, maxDistance: 200 });
+  const T = PB.three(el, { camera: [44, 20, 56], target: [0, 0, 0], fov: 40, minDistance: 20, maxDistance: 200 });
   if (!T) return;
   const THREE = T.THREE;
   const root = new THREE.Group(); T.scene.add(root);
   const PARTS = [];
-  const GAP = 3.4;
+  const GAP = 4.4;
   function part(name, th, desc, k, color) { const g = new THREE.Group(); g.userData.part = PARTS.length; root.add(g); const P = { name, th, desc, k, g, color, mats: [], baseY: 0, radial: 0 }; PARTS.push(P); return P; }
   function mesh(P, geo, mat, x, y, z) { const m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); P.g.add(m); if (P.mats.indexOf(mat) < 0) P.mats.push(mat); return m; }
   const box = new THREE.BoxGeometry(1, 1, 1);
@@ -597,7 +597,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
   mesh(spr, rg, T.material(0xd9b45a, { metalness: 0.8, roughness: 0.3, side: THREE.DoubleSide }), 0, 10.8, 0);
   // can
   const can = part("차폐 케이스", "외형 ~11–13 mm □", "얇은 비자성 금속 커버. 내부를 먼지와 전자기 잡음으로부터 보호하고 액추에이터 부품을 가둔다. 윗면 구멍이 렌즈 입사창이다.", 14, 0xc7ccd6);
-  const mCan = T.material(0xc7ccd6, { metalness: 0.85, roughness: 0.3, transparent: true, opacity: 1 });
+  const mCan = T.material(0xc7ccd6, { metalness: 0.85, roughness: 0.3, transparent: true, opacity: 0.4, depthWrite: false });
   const cs = new THREE.Shape(); cs.moveTo(-6.2, -6.2); cs.lineTo(6.2, -6.2); cs.lineTo(6.2, 6.2); cs.lineTo(-6.2, 6.2); cs.lineTo(-6.2, -6.2);
   const ch = new THREE.Path(); ch.absarc(0, 0, 2.2, 0, Math.PI * 2, true); cs.holes.push(ch);
   const cg = new THREE.ExtrudeGeometry(cs, { depth: 0.25, bevelEnabled: false, curveSegments: 32 }); cg.rotateX(-Math.PI / 2);
@@ -617,7 +617,7 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
   const rays = new THREE.LineSegments(rayGeo, new THREE.LineBasicMaterial({ color: 0xffb020 }));
   rays.visible = false; root.add(rays);
   // labels
-  const labels = PARTS.map((P, i) => { const ang = i * 0.9; const L = T.label(P.name, [Math.cos(ang) * 8, 0, Math.sin(ang) * 8]); L.obj = P.g; return L; });
+  const labels = PARTS.map((P, i) => { const L = T.label(P.name.replace("렌즈 L1", "렌즈 L1–L6"), i % 2 ? [8.5, 0, -6] : [-8.5, 0, 6]); L.obj = P.g; L.skip = /렌즈 L[2-6]/.test(P.name); return L; });
   const info = document.getElementById("md-info"), chips = document.getElementById("md-chips");
   chips.innerHTML = PARTS.map((P, i) => `<button data-i="${i}">${P.name}</button>`).join("");
   function select(i) {
@@ -636,12 +636,11 @@ const diagOf = (x) => (x === "ff" ? 43.27 : 16 / Number(x));
       P.g.position.set(moving ? ois[0] : 0, P.k * GAP * ex + (moving ? af : 0), moving ? ois[1] : 0);
       if (P.radial) P.g.scale.set(1 + ex * 0.5, 1, 1 + ex * 0.5);
     });
-    root.position.y = -(14 * GAP * ex) / 2 + 2;
-    labels.forEach((L) => L.setVisible(labCb.checked && ex > 0.3));
+    root.position.y = -(14 * GAP * ex) / 2 - 5;
+    labels.forEach((L) => L.setVisible(labCb.checked && ex > 0.3 && !L.skip));
     rays.visible = rayCb.checked;
     rays.position.y = 0;
-    mCan.opacity = rayCb.checked ? 0.18 : 1;
-    mCan.depthWrite = !rayCb.checked;
+    mCan.opacity = rayCb.checked ? 0.15 : 0.4;
   }
   PB.range("md-ex", (v) => Math.round(v * 100) + "%", (v) => { ex = v; layout(); });
   labCb.addEventListener("change", layout);
