@@ -1,0 +1,10 @@
+{
+  "id": "phonebook",
+  "title": "PhoneBook",
+  "description": "디스플레이, AP, 보드, 배터리, 안테나, 카메라, 센서, 열, 기구 설계까지. 스마트폰을 3D로 한 겹씩 분해하고 다시 조립하며, 좋은 폰 설계의 트레이드오프를 배웁니다.",
+  "url": "https://phonebook.euiyun.com/",
+  "repo": "https://github.com/geniuskey/phonebook",
+  "field": "electronics",
+  "status": "published",
+  "domain": "phonebook.euiyun.com"
+}
