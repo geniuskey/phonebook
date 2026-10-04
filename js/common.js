@@ -543,6 +543,10 @@
       코드 <a href="https://github.com/geniuskey/phonebook/blob/main/LICENSE-MIT">MIT</a> ·
       <a href="https://github.com/geniuskey/phonebook/blob/main/LICENSE.md">라이선스 안내</a> ·
       자매편 <a href="https://sensorbook.euiyun.com/">SensorBook</a>`;
+    const feedbackLink = document.createElement("a");
+    feedbackLink.href = "https://books.euiyun.com/feedback.html?book=phonebook&page=" + encodeURIComponent(location.href);
+    feedbackLink.textContent = "오류·질문·제안";
+    foot.append(" · ", feedbackLink);
     body.appendChild(foot);
 
     // quiz
