@@ -122,8 +122,8 @@
   <section id="accel">
     <h2>MEMS 가속도계: 실리콘 속 스프링 저울</h2>
     <p>가속도계의 원리는 놀랄 만큼 단순하다. 스프링에 매달린 질량(검증 질량, <span class="en">proof mass</span>)은 기기가 가속하면 관성 때문에 뒤처지고, 그 변위가 가속도에 비례한다. 스마트폰의 MEMS 가속도계는 이것을 실리콘을 깎아 만든다. 질량은 수 µg, 스프링은 폭 수 µm의 접힌 실리콘 빔, 변위 측정은 질량 옆에 빗(comb)처럼 맞물린 전극의 <b>정전용량 차이</b>로 한다.</p>
-    <div class="formula">$$m\ddot{x} + c\dot{x} + kx = -m a \;\Rightarrow\; x_{\text{static}} = \frac{m a}{k} = \frac{a}{\omega_0^2},\qquad \omega_0 = \sqrt{k/m}$$
-      <div class="where">공진 주파수 \(f_0\)가 2~5 kHz 수준이면, 1 g(9.81 m/s²)에서의 변위는 \(9.81/(2\pi\cdot 3000)^2 \approx 28\) nm에 불과하다. 감도(변위/가속도)는 \(1/\omega_0^2\)라서 공진을 낮추면 감도가 오르지만 대역폭과 충격 내성이 줄어든다.</div>
+    <div class="formula">$$m\ddot{x} + c\dot{x} + kx = -m a \;\Rightarrow\; x_{\text{static}} = -\frac{m a}{k} = -\frac{a}{\omega_0^2},\qquad \omega_0 = \sqrt{k/m}$$
+      <div class="where">위 식의 a는 기판의 가속도이고 질량의 상대 변위는 반대 부호다. 아래 기울기 시뮬레이터의 a는 질량에 작용하는 중력 성분 g·sinθ를 뜻하므로 x=a/ω₀²로 표시한다. 변위 크기의 감도는 어느 좌표 정의에서나 같다. 공진 주파수 \(f_0\)가 2~5 kHz 수준이면, 1 g(9.81 m/s²)에서의 변위는 \(9.81/(2\pi\cdot 3000)^2 \approx 28\) nm에 불과하다. 감도(변위/가속도)는 \(1/\omega_0^2\)라서 공진을 낮추면 감도가 오르지만 대역폭과 충격 내성이 줄어든다.</div>
     </div>
     <div class="formula">$$C_{1,2} = \frac{\varepsilon_0 A}{g_0 \mp x},\qquad \Delta C = C_1 - C_2 \approx \frac{2\varepsilon_0 A}{g_0^2}\,x$$
       <div class="where">차동 구조: 질량이 움직이면 한쪽 간극은 좁아지고 다른 쪽은 넓어진다. \(g_0\) ≈ 1~2 µm, 빗살 수백 쌍으로 기준 정전용량은 수백 fF, 1 g 변화는 수 fF 수준이고, ASIC는 aF(10⁻¹⁸ F) 단위 변화까지 읽는다.</div>
@@ -165,7 +165,7 @@
   <section id="gyro">
     <h2>자이로스코프: 코리올리 힘으로 회전을 잰다</h2>
     <p>MEMS 자이로에는 도는 팽이가 없다. 대신 질량을 한 방향으로 <b>계속 진동</b>시킨다(구동 모드, 수십 kHz). 이 상태에서 기기가 회전하면, 움직이는 질량에 진동 방향과 회전축 모두에 수직인 <span class="term">코리올리 힘</span>이 생겨 질량이 옆으로 흔들린다(감지 모드). 옆으로 흔들리는 진폭이 각속도에 비례한다.</p>
-    <div class="formula">$$\vec F_c = -2m\,\vec\Omega \times \vec v,\qquad |a_c| = 2\,\Omega\, v_{\text{drive}} = 2\,\Omega\,\omega_d X_d \cos\omega_d t$$
+    <div class="formula">$$\vec F_c = -2m\,\vec\Omega \times \vec v,\qquad |a_c(t)| = 2\,|\Omega\, v_{\text{drive}}(t)| = 2\,|\Omega\,\omega_d X_d \cos\omega_d t|$$
       <div class="where">\(\Omega\): 각속도, \(X_d\): 구동 진폭(수 µm), \(\omega_d\): 구동 각주파수. 예: \(X_d\) = 5 µm, \(f_d\) = 25 kHz, \(\Omega\) = 100 °/s(1.75 rad/s)이면 \(a_c\) 진폭 ≈ 2 × 1.75 × 0.79 m/s ≈ 2.7 m/s². 감지 변위는 pm~nm이고, 구동 주파수에서 진폭 변조되어 나오므로 동기 복조(lock-in)로 꺼낸다.</div>
     </div>
 

@@ -248,7 +248,7 @@
         <div class="stat"><span class="k">PFM 효율</span><span class="v" id="ef-pfm">—</span></div>
         <div class="stat"><span class="k">PFM 유효 주파수</span><span class="v" id="ef-fe">—</span></div>
       </div>
-      <div class="sim-note">V<sub>in</sub> = 3.85 V. 해볼 것: 커서를 1 mA(대기 중 AP 상시 동작 레일 수준)에 두고 PWM과 PFM을 비교하라. 정지 전류 I<sub>q</sub>를 200 µA로 올리면 PFM이어도 경부하 효율이 무너진다. 그래서 PMIC 데이터시트에서 수 µA의 I<sub>q</sub>가 핵심 사양이다. 주파수를 올리면 고부하는 큰 차이 없지만 PWM 경부하가 더 나빠진다.</div>
+      <div class="sim-note">V<sub>in</sub> = 3.85 V, L = 0.47 µH 고정. DCR 슬라이더는 저항만 바꾸므로 리플 전류는 그대로이고 도통 손실 I²R이 바뀐다. 해볼 것: 커서를 1 mA(대기 중 AP 상시 동작 레일 수준)에 두고 PWM과 PFM을 비교하라. 정지 전류 I<sub>q</sub>를 200 µA로 올리면 PFM이어도 경부하 효율이 무너진다. 그래서 PMIC 데이터시트에서 수 µA의 I<sub>q</sub>가 핵심 사양이다. 주파수를 올리면 고부하는 큰 차이 없지만 PWM 경부하가 더 나빠진다.</div>
     </div>
   </section>
 
@@ -598,11 +598,11 @@
   const alpha = (hex, a) => { if (!hex || hex[0] !== "#") return hex; const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 
   /* ---------- 공통: 벅 손실 모델 ---------- */
-  function buckLoss(vin, vo, I, f, L, mode, iq) {
+  function buckLoss(vin, vo, I, f, L, mode, iq, dcrOverride) {
     // f: Hz, L: H, mode: 'pwm' | 'auto'
     const D = Math.min(0.98, vo / vin);
     const dI = (vin - vo) * D / (L * f);
-    const Rhs = 0.04, Rls = 0.025, dcr = 0.03 * Math.sqrt(L / 0.47e-6) + 0.01;
+    const Rhs = 0.04, Rls = 0.025, dcr = dcrOverride == null ? 0.03 * Math.sqrt(L / 0.47e-6) + 0.01 : dcrOverride;
     const iq_ = (iq == null ? 25e-6 : iq);
     let cond, sw, fe = f;
     const Pgate = 1.2e-9 * 3.6 * f; // Qg*Vdrv*f (양 스위치 합)
@@ -846,8 +846,7 @@
     const gd = PB.range("ef-dcr", (v) => v + " mΩ", () => cv.redraw());
     const gx = PB.range("ef-x", (v) => fmtI(Math.pow(10, v)), () => cv.redraw());
     function model(I, mode) {
-      const L = 0.47e-6 * Math.pow(gd() / 40, 1);
-      return buckLoss(3.85, gvo(), I, gf() * 1e6, Math.max(0.1e-6, L), mode, giq() * 1e-6);
+      return buckLoss(3.85, gvo(), I, gf() * 1e6, 0.47e-6, mode, giq() * 1e-6, gd() * 1e-3);
     }
     const cv = PB.canvas($("cv-eff"), (ctx, w, h) => {
       const P = PB.palette();
