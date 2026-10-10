@@ -545,7 +545,7 @@
     <h2>설계 시 무엇이 중요한가</h2>
     <p>안테나는 폰 설계에서 가장 '늦게 이기고 일찍 지는' 분야라고 할 만하다. 화면은 커지고 베젤은 얇아지고, 배터리는 커지고, 카메라 범프는 자라고, 프레임은 더 단단한 금속을 원한다. 모든 것이 안테나 클리어런스를 갉아먹는다. 그런데 작은 안테나에는 물리적 한계가 있다.</p>
     <div class="formula">$$Q_{\min} = \frac{1}{(ka)^3} + \frac{1}{ka},\qquad \text{BW}_{\max} \approx \frac{s-1}{\sqrt{s}}\cdot\frac{1}{\eta\,Q_{\min}}$$
-      <div class="where">Chu 한계. \(a\): 안테나를 감싸는 가장 작은 구의 반지름, \(k = 2\pi/\lambda\), \(s\): 허용 VSWR, \(\eta\): 방사 효율. 안테나가 파장에 비해 작을수록(\(ka \ll 1\)) Q가 세제곱으로 커지고 대역폭이 급감한다. 대역폭을 효율로 '살' 수 있지만(손실을 넣으면 넓어진다) 그만큼 전력을 버린다.</div>
+      <div class="where">단일 기본 방사 모드의 Chu Q 하한과 단일 공진·좁은 대역의 대역폭 근사. 실제 형상은 이 하한보다 Q가 크므로 상한을 만족해도 설계 가능성이 보장되지는 않는다. ka ≥ 1이나 넓은 대역으로 외삽한 값은 실제 대역폭 판정에 쓰지 않는다. \(a\): 안테나를 감싸는 가장 작은 구의 반지름, \(k = 2\pi/\lambda\), \(s\): 허용 VSWR, \(\eta\): 방사 효율. 안테나가 파장에 비해 작을수록(\(ka \ll 1\)) Q가 세제곱으로 커지고 대역폭이 급감한다. 대역폭을 효율로 '살' 수 있지만(손실을 넣으면 넓어진다) 그만큼 전력을 버린다.</div>
     </div>
 
     <div class="sim" id="sim-chu">
@@ -562,10 +562,10 @@
       <div class="sim-readout">
         <div class="stat"><span class="k">ka</span><span class="v" id="chu-ka">—</span></div>
         <div class="stat"><span class="k">Q<sub>min</sub></span><span class="v" id="chu-q">—</span></div>
-        <div class="stat"><span class="k">최대 대역폭(VSWR 3)</span><span class="v" id="chu-bw">—</span></div>
-        <div class="stat"><span class="k">B28 상·하향(703~803 MHz) 커버</span><span class="v" id="chu-ok">—</span></div>
+        <div class="stat"><span class="k">대역폭 근사 상한(VSWR 3)</span><span class="v" id="chu-bw">—</span></div>
+        <div class="stat"><span class="k">B28 요구 대역폭과 하한 비교</span><span class="v" id="chu-ok">—</span></div>
       </div>
-      <div class="sim-note">곡선: 주파수에 따른 최대 순간 대역폭(%). 점선: 저대역 B28 전체(약 13%)에 필요한 비율. 해볼 것: 반지름 12 mm(프레임 토막 크기)에서는 700 MHz 대역폭이 1% 남짓이지만, 폰 전체(반대각선 약 80 mm)를 쓰는 섀시 모드에서는 100%를 넘을 만큼 열린다. 저대역이 섀시 모드와 튜너에 매달리는 이유다.</div>
+      <div class="sim-note">곡선: 단일 공진 근사의 대역폭 상한(%). 진한 선과 점은 ka &lt; 1 및 상한 &lt; 100%인 구간만 표시하며, 옅은 비교선에는 범위 밖 외삽이 포함된다. 점선: 저대역 B28 전체(약 13%)에 필요한 비율. 해볼 것: 반지름 12 mm(프레임 토막 크기)에서는 700 MHz 대역폭이 1% 남짓이지만, 폰 전체(반대각선 약 80 mm)를 쓰면 ka가 1 근처 이상이 되어 작은 안테나의 좁은 대역 근사를 벗어난다. 100%가 넘는 외삽값을 실제 대역폭이라고 읽으면 안 된다. 섀시 모드의 실제 대역은 형상·공진·튜너·정합을 별도로 계산해야 한다. 저대역이 섀시 모드와 튜너에 매달리는 이유다.</div>
     </div>
 
     <h3>핵심 지표와 트레이드오프</h3>
@@ -1355,20 +1355,20 @@
       const r = bw(fR(), aR(), eR());
       PB.stat("chu-ka", r.ka.toFixed(3));
       PB.stat("chu-q", PB.fmt(r.Q, 3));
-      PB.stat("chu-bw", r.bw >= 100 ? "≥ 100%" : r.bw.toFixed(r.bw < 10 ? 2 : 1) + "% <small>(" + ((r.bw / 100) * fR()).toFixed(0) + " MHz)</small>");
+      PB.stat("chu-bw", r.ka >= 1 || r.bw >= 100 ? "근사 범위 밖" : r.bw.toFixed(r.bw < 10 ? 2 : 1) + "% <small>(" + ((r.bw / 100) * fR()).toFixed(0) + " MHz)</small>");
       const r7 = bw(753, aR(), eR());
-      PB.stat("chu-ok", r7.bw >= need ? '<span style="color:var(--ok)">가능</span>' : '<span style="color:var(--bad)">불가</span> <small>' + r7.bw.toFixed(1) + "% &lt; " + need.toFixed(1) + "%</small>");
+      PB.stat("chu-ok", r7.ka >= 1 || r7.bw >= 100 ? '<span style="color:var(--warn)">이 근사로 판정 불가</span>' : r7.bw >= need ? '<span style="color:var(--ok)">하한에 저촉 없음</span><small>실제 설계의 대역 충족은 별도 확인</small>' : '<span style="color:var(--bad)">단일 모드 근사 상한 미달</span> <small>' + r7.bw.toFixed(1) + "% &lt; " + need.toFixed(1) + "%</small>");
       cv.redraw();
     }
     const cv = PB.canvas($("cv-chu"), (ctx) => {
       const P = PB.palette();
-      const mk = (a, eta) => { const o = []; for (let f = 600; f <= 3600; f += 20) o.push([f, Math.min(1000, bw(f, a, eta).bw)]); return o; };
+      const mk = (a, eta, inRange) => { const o = []; for (let f = 600; f <= 3600; f += 20) { const r = bw(f, a, eta); o.push([f, inRange && (r.ka >= 1 || r.bw >= 100) ? NaN : Math.min(1000, r.bw)]); } return o; };
       PB.chart(ctx, null, {
-        x: [600, 3600], y: [0.1, 300], logY: true, xLabel: "주파수 (MHz)", yLabel: "최대 대역폭 (%)",
+        x: [600, 3600], y: [0.1, 300], logY: true, xLabel: "주파수 (MHz)", yLabel: "좁은 대역 근사 상한 (%)",
         hlines: [{ y: need, color: P.accent2, label: "B28 필요 13.3%" }],
         vlines: [{ x: fR(), color: P.dim }],
-        series: [{ data: mk(12, eR()), color: P.faint, width: 1.4, dash: [5, 4] }, { data: mk(80, eR()), color: P.faint, width: 1.4, dash: [2, 3] }, { data: mk(aR(), eR()), color: P.accent, width: 2.6 }],
-        points: [{ x: fR(), y: Math.min(300, bw(fR(), aR(), eR()).bw), color: P.accent, r: 5 }],
+        series: [{ data: mk(12, eR()), color: P.faint, width: 1.4, dash: [5, 4] }, { data: mk(80, eR()), color: P.faint, width: 1.4, dash: [2, 3] }, { data: mk(aR(), eR(), true), color: P.accent, width: 2.6 }],
+        points: bw(fR(), aR(), eR()).ka >= 1 || bw(fR(), aR(), eR()).bw >= 100 ? [] : [{ x: fR(), y: bw(fR(), aR(), eR()).bw, color: P.accent, r: 5 }],
       });
     }, { aspect: 0.6, minHeight: 250, maxHeight: 340 });
     upd();
