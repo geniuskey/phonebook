@@ -35,5 +35,9 @@ KaTeX, three.js, 폰트는 CDN에서 불러오므로 인터넷 연결이 필요�
 3D 모델과 시뮬레이터의 수치는 전형적인 스마트폰을 단순화한 교육용 근사 모델이며, 특정 제품의 사양이 아닙니다.
 자매편: [SensorBook · 이미지 센서 교과서](https://sensorbook.euiyun.com/)
 
+## 용어집과 본문 뜻풀이
+
+용어 정의는 `js/glossary-data.js`의 `window.BOOK_GLOSSARY`에 저장합니다. 용어집과 본문 뜻풀이가 같은 데이터를 사용하며, 본문에서 용어에 마우스를 올리거나 키보드로 포커스하거나 모바일에서 탭하면 정의를 확인할 수 있습니다. 공통 동작과 스타일은 `js/glossary-tooltips.js`, `css/glossary-tooltips.css`입니다. 데이터 형식은 시리즈 공통 v1이며, 각 항목은 `ko`(이름), `en`(영문명), `abbr`(약어), `def`(정의), `chapters`(관련 장 목록)를 갖습니다. 이름이 반복되면 한 번만 표시하고, 묶음 항목은 가리킨 이름을 제목에 표시하며 구분에 필요한 비교 설명을 함께 제공합니다.
+
 ## 라이선스
 코드는 [MIT](LICENSE-MIT), 교재 콘텐츠는 [CC BY 4.0](LICENSE-CC-BY-4.0)으로 제공됩니다. 자세한 내용은 [라이선스 안내](LICENSE.md)를 참고하세요.
